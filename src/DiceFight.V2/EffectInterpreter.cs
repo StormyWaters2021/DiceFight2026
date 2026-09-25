@@ -882,7 +882,9 @@ public static class EffectInterpreter
         ctx.State.PendingChoice = new PendingChoice
         {
             ControllerId = answeredBy,
-            Description = $"Choose {(filter.Optional ? "up to " : "")}{maxCount} target(s).",
+            // Names the source so an on-board prompt reads "Honey Badger:
+            // choose 1 target." rather than a bare, sourceless instruction.
+            Description = $"{SourceName(ctx)}: choose {(filter.Optional ? "up to " : "")}{maxCount} {(maxCount == 1 ? "target" : "targets")}.",
             CandidateIds = candidates,
             MinCount = filter.Optional ? 0 : maxCount,
             MaxCount = maxCount,

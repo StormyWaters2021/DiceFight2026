@@ -2640,6 +2640,29 @@
   border-radius: 10px;
   transform: translateY(-3px);
 }
+/* Targeting a pending choice on the board (direct feedback 2026-09-25):
+   legal targets get a pulsing ring where they sit, everything else dims
+   so the choice reads at a glance. A picked target keeps .picked's
+   solid ring on top. */
+.dk-mobile.dkm-targeting .dkm-tile:not(.targetable),
+.dk-mobile.dkm-targeting .dkm-buy-tile {
+  opacity: 0.35;
+  pointer-events: none;
+}
+.dk-mobile .dkm-tile.targetable:not(.picked) {
+  border-radius: 10px;
+  animation: dkm-target-pulse 1.2s ease-in-out infinite;
+}
+@keyframes dkm-target-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px var(--text-h); }
+  50% { box-shadow: 0 0 0 3px var(--text-h), 0 0 10px 2px var(--text-h); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dk-mobile .dkm-tile.targetable:not(.picked) {
+    animation: none;
+    box-shadow: 0 0 0 2px var(--text-h);
+  }
+}
 .dk-mobile .dkm-facedown {
   display: flex;
   align-items: center;

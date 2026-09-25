@@ -2968,3 +2968,15 @@ Direct feedback from playing a vs-Computer match:
   no cancel (the ability has already triggered). Checked by fielding a
   Honey Badger through the UI: the sheet appeared, confirming dealt
   the damage, and play continued.
+- **Targets are picked on the board, not in a sheet** (same day, direct
+  feedback: "There will be times when placement is important, such as
+  when dice are attacking or blocking, so we'll want to be consistent").
+  While a pending choice is yours and every candidate is a Field or
+  Attack Zone die, the page goes into targeting mode (`.dkm-targeting`).
+  Legal targets pulse where they sit, in either field or in the lanes.
+  Everything else, including the Buy strip, dims and ignores taps, and
+  the bottom bar becomes "Confirm target" with the card's prompt. The
+  engine prompt now names its source ("Honey Badger: choose 1
+  target."). `ChoiceSheet` is kept only as the fallback for candidates
+  that aren't dice on the board (e.g. a player). Desktop still uses its
+  own `PendingChoiceChips` panel.

@@ -436,6 +436,15 @@ function PileStrip({
 // (tray after rolling, field, reserve creature faces, attack lanes) - a
 // thin wrapper around the repo's real DieCube (same 3D cube /game and
 // the desktop Dice Kingdom page use), not a re-implementation.
+// Picking targets for a pending choice right on the board (direct
+// feedback 2026-09-25: "There will be times when placement is important,
+// such as when dice are attacking or blocking" - so no separate sheet of
+// copies). Legal targets glow where they sit, everything else dims.
+interface Targeting {
+  candidates: Set<string>;
+  picked: Set<string>;
+}
+
 function DTile({
   die,
   cardsById,
@@ -447,6 +456,7 @@ function DTile({
   turnOffset,
   onClick,
   flyId = true,
+  targetable,
 }: {
   die: Die;
   cardsById: Map<string, CardDef>;
@@ -454,13 +464,15 @@ function DTile({
   mine: boolean;
   clickable?: boolean;
   picked?: boolean;
+  /** A legal target of the pending choice - see Targeting. */
+  targetable?: boolean;
   spin?: CubeSpin;
   turnOffset?: number;
   onClick?: () => void;
   /** Tag this tile as the die's on-screen home for flight animations (see dieFlights.ts). */
   flyId?: boolean;
 }) {
-  const cls = ["dkm-tile", clickable ? "clickable" : "", picked ? "picked" : ""].filter(Boolean).join(" ");
+  const cls = ["dkm-tile", clickable ? "clickable" : "", picked ? "picked" : "", targetable ? "targetable" : ""].filter(Boolean).join(" ");
   return (
     <button type="button" className={cls} onClick={clickable ? onClick : undefined} disabled={!clickable} data-fly-id={flyId ? `die:${die.id}` : undefined}>
       <DieCube
@@ -617,6 +629,7 @@ function MatCard({
   selectedId,
   fieldClickable,
   onTapDie,
+  targeting,
 }: {
   mine: boolean;
   player: PlayerState;
@@ -632,6 +645,7 @@ function MatCard({
   selectedId: string | null;
   fieldClickable: (d: Die) => boolean;
   onTapDie: (id: string) => void;
+  targeting?: Targeting | null;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [championOpen, setChampionOpen] = useState(false);
@@ -765,8 +779,9 @@ function MatCard({
             cardsById={cardsById}
             size={mine ? 50 : 48}
             mine={mine}
-            clickable={fieldClickable(d)}
-            picked={selectedId === d.id}
+            clickable={targeting ? targeting.candidates.has(d.id) : fieldClickable(d)}
+            picked={targeting ? targeting.picked.has(d.id) : selectedId === d.id}
+            targetable={targeting?.candidates.has(d.id)}
             spin={spins[d.id]}
             turnOffset={turnOffsets[d.id]}
             onClick={() => onTapDie(d.id)}
@@ -960,6 +975,7 @@ function LaneDie({
   picked,
   onTap,
   preview,
+  targeting,
 }: {
   die: Die;
   cardsById: Map<string, CardDef>;
@@ -968,6 +984,7 @@ function LaneDie({
   picked: boolean;
   onTap: () => void;
   preview?: DiePreview;
+  targeting?: Targeting | null;
 }) {
   return (
     <div
@@ -977,7 +994,15 @@ function LaneDie({
         onTap();
       }}
     >
-      <DTile die={die} cardsById={cardsById} size={size} mine={die.controllerId === you} clickable picked={picked} />
+      <DTile
+        die={die}
+        cardsById={cardsById}
+        size={size}
+        mine={die.controllerId === you}
+        clickable={targeting ? targeting.candidates.has(die.id) : true}
+        picked={targeting ? targeting.picked.has(die.id) : picked}
+        targetable={targeting?.candidates.has(die.id)}
+      />
       {preview && <DefenceMeter p={preview} width={size} />}
     </div>
   );
@@ -1023,6 +1048,7 @@ function AttackLanesCard({
   onTapBlocker,
   onTapChip,
   selectedId,
+  targeting,
 }: {
   isYourTurn: boolean;
   step: string;
@@ -1036,6 +1062,7 @@ function AttackLanesCard({
   onTapBlocker: (attackerId: string, blockerId: string) => void;
   onTapChip: (lane: number) => void;
   selectedId: string | null;
+  targeting?: Targeting | null;
 }) {
   const totalDeclared = attackersByLane.reduce((n, l) => n + l.length, 0);
   const preview = combatPreview(attackersByLane, blockersByAttacker);
@@ -1116,7 +1143,7 @@ function AttackLanesCard({
                         regardless of position/orientation or color vision. */}
                     {attackers.length > 0 && <span className="dkm-lane-role def">Blocking</span>}
                     {[...blockers].reverse().map((b) => (
-                      <LaneDie key={b.id} die={b} cardsById={cardsById} you={you} size={tileSize} picked={selectedId === b.id} onTap={() => onTapBlocker(attackers[0]?.id ?? "", b.id)} preview={preview.get(b.id)} />
+                      <LaneDie key={b.id} die={b} cardsById={cardsById} you={you} size={tileSize} picked={selectedId === b.id} onTap={() => onTapBlocker(attackers[0]?.id ?? "", b.id)} preview={preview.get(b.id)} targeting={targeting} />
                     ))}
                   </div>
                   {chipText && (
@@ -1133,7 +1160,7 @@ function AttackLanesCard({
                   <div className="dkm-lane-attackers">
                     {attackers.length > 0 && <span className="dkm-lane-role atk">Attacking</span>}
                     {attackers.map((a) => (
-                      <LaneDie key={a.id} die={a} cardsById={cardsById} you={you} size={tileSize} picked={selectedId === a.id} onTap={() => onTapAttacker(a.id)} preview={preview.get(a.id)} />
+                      <LaneDie key={a.id} die={a} cardsById={cardsById} you={you} size={tileSize} picked={selectedId === a.id} onTap={() => onTapAttacker(a.id)} preview={preview.get(a.id)} targeting={targeting} />
                     ))}
                     {attackers.length === 0 && <div className="dkm-lane-tile empty attacker-empty" />}
                   </div>
@@ -1143,7 +1170,7 @@ function AttackLanesCard({
                   <div className="dkm-lane-attackers">
                     {attackers.length > 0 && <span className="dkm-lane-role atk">Attacking</span>}
                     {[...attackers].reverse().map((a) => (
-                      <LaneDie key={a.id} die={a} cardsById={cardsById} you={you} size={tileSize} picked={selectedId === a.id} onTap={() => onTapAttacker(a.id)} preview={preview.get(a.id)} />
+                      <LaneDie key={a.id} die={a} cardsById={cardsById} you={you} size={tileSize} picked={selectedId === a.id} onTap={() => onTapAttacker(a.id)} preview={preview.get(a.id)} targeting={targeting} />
                     ))}
                     {attackers.length === 0 && <div className="dkm-lane-tile empty attacker-empty" />}
                   </div>
@@ -1161,7 +1188,7 @@ function AttackLanesCard({
                   <div className="dkm-lane-blockers">
                     {attackers.length > 0 && <span className="dkm-lane-role def">Blocking</span>}
                     {blockers.map((b) => (
-                      <LaneDie key={b.id} die={b} cardsById={cardsById} you={you} size={tileSize} picked={selectedId === b.id} onTap={() => onTapBlocker(attackers[0]?.id ?? "", b.id)} preview={preview.get(b.id)} />
+                      <LaneDie key={b.id} die={b} cardsById={cardsById} you={you} size={tileSize} picked={selectedId === b.id} onTap={() => onTapBlocker(attackers[0]?.id ?? "", b.id)} preview={preview.get(b.id)} targeting={targeting} />
                     ))}
                     {step === "assign-blockers" && !isYourTurn && attackers.length > 0 && blockers.length === 0 && (
                       <div className="dkm-lane-tile empty blocker-empty">no blocker</div>
@@ -1503,6 +1530,16 @@ export function DiceKingdomMobilePage() {
   const [cardsById, setCardsById] = useState<Map<string, CardDef>>(new Map());
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Targets picked so far for the pending choice - see Targeting.
+  const [choicePicked, setChoicePicked] = useState<string[]>([]);
+  const choiceKey = game?.pendingChoice
+    ? `${game.pendingChoice.controllerId}|${game.pendingChoice.description}|${game.pendingChoice.candidateIds.join(",")}`
+    : "";
+  useEffect(() => {
+    setChoicePicked([]);
+    // An open inspect sheet would sit on top of the board being targeted.
+    if (choiceKey) setSelectedId(null);
+  }, [choiceKey]);
   // Which lane's Attack Zone chip is showing its stat breakdown, or null -
   // direct feedback (2026-09-17): "click on the '1 v 3' and have it
   // explain where the numbers are coming from." Mutually exclusive with
@@ -2069,6 +2106,7 @@ export function DiceKingdomMobilePage() {
   }
 
   function toggleSelect(id: string) {
+    if (targeting) return; // the board is picking targets - see tapTarget
     setLaneBreakdown(null);
     setSelectedId((cur) => (cur === id ? null : id));
   }
@@ -2184,7 +2222,32 @@ export function DiceKingdomMobilePage() {
     }
   }
 
+  // A pending choice that's yours to answer and whose candidates are all
+  // dice on the board: pick them in place (see Targeting). Anything else
+  // (a player, say) still falls back to ChoiceSheet.
+  const myChoice = game.pendingChoice && game.pendingChoice.controllerId === you ? game.pendingChoice : null;
+  const choiceOnBoard =
+    !!myChoice &&
+    myChoice.candidateIds.length > 0 &&
+    myChoice.candidateIds.every((id) => game.dice.some((d) => d.id === id && (d.zone === "FieldZone" || d.zone === "AttackZone")));
+  const targeting: Targeting | null = choiceOnBoard
+    ? { candidates: new Set(myChoice!.candidateIds), picked: new Set(choicePicked) }
+    : null;
+  const choiceMax = myChoice ? Math.max(1, myChoice.maxCount) : 1;
+  // Returns true when the tap was consumed by targeting (legal or not -
+  // nothing else should happen to the board while a choice is open).
+  const tapTarget = (id: string): boolean => {
+    if (!targeting) return false;
+    if (targeting.candidates.has(id)) {
+      setChoicePicked((prev) =>
+        prev.includes(id) ? prev.filter((x) => x !== id) : choiceMax === 1 ? [id] : prev.length < choiceMax ? [...prev, id] : prev,
+      );
+    }
+    return true;
+  };
+
   const onTapMatDie = (id: string) => {
+    if (tapTarget(id)) return;
     if (step === "assign-blockers" && !isYourTurn) {
       const die = game.dice.find((d) => d.id === id);
       if (die && die.controllerId === you && die.zone === "FieldZone") {
@@ -2196,6 +2259,7 @@ export function DiceKingdomMobilePage() {
   };
 
   const onTapAttacker = (attackerId: string) => {
+    if (tapTarget(attackerId)) return;
     if (step === "assign-blockers" && !isYourTurn && selectedId) {
       const blockerDie = game.dice.find((d) => d.id === selectedId);
       if (blockerDie && blockerDie.controllerId === you && blockerDie.zone === "FieldZone") {
@@ -2233,6 +2297,7 @@ export function DiceKingdomMobilePage() {
   // attackers, now expressed per-blocker instead of clearing the whole
   // lane at once).
   const onTapBlocker = (attackerId: string, blockerId: string) => {
+    if (tapTarget(blockerId)) return;
     if (step === "assign-blockers" && !isYourTurn) {
       if (selectedId && selectedId !== blockerId) {
         const selected = game.dice.find((d) => d.id === selectedId);
@@ -2267,7 +2332,22 @@ export function DiceKingdomMobilePage() {
   let secondaryLabel: string | undefined;
   let secondaryRun: (() => void) | null = null;
 
-  if (!isYourTurn && step !== "assign-blockers") {
+  if (myChoice) {
+    const ready = choicePicked.length >= myChoice.minCount && choicePicked.length <= choiceMax;
+    primaryLabel =
+      choicePicked.length === 0 && myChoice.minCount === 0
+        ? "Skip"
+        : choiceMax > 1
+          ? `Confirm targets (${choicePicked.length}/${choiceMax})`
+          : "Confirm target";
+    primaryNote = choiceOnBoard ? `${myChoice.description} Tap a highlighted die.` : myChoice.description;
+    primaryDisabled = busy || !ready;
+    primaryRun = () => run(() => api.resolvePendingChoice(game.gameId, choicePicked));
+  } else if (game.pendingChoice) {
+    primaryLabel = "Waiting…";
+    primaryNote = `${oppPlayer.name} is choosing`;
+    primaryDisabled = true;
+  } else if (!isYourTurn && step !== "assign-blockers") {
     primaryLabel = "Waiting…";
     primaryNote = `${oppPlayer.name} is acting`;
     primaryDisabled = true;
@@ -2337,7 +2417,7 @@ export function DiceKingdomMobilePage() {
   const oppRosterCards = rosterRowsFor(oppUnpurchasedByCard);
 
   return (
-    <div ref={rootRef} className="dicekingdom dk-mobile dkm-root">
+    <div ref={rootRef} className={`dicekingdom dk-mobile dkm-root${targeting ? " dkm-targeting" : ""}`}>
       <EnergyBadgeOutlineDefs />
       <div className="dkm-header">
         <PhaseRail current={phase} onTap={() => {}} />
@@ -2363,6 +2443,7 @@ export function DiceKingdomMobilePage() {
           selectedId={selectedId}
           fieldClickable={() => false}
           onTapDie={onTapAttacker}
+          targeting={targeting}
         />
 
         <GlobalRail />
@@ -2434,6 +2515,7 @@ export function DiceKingdomMobilePage() {
               onTapBlocker={onTapBlocker}
               onTapChip={toggleLaneBreakdown}
               selectedId={selectedId}
+              targeting={targeting}
             />
           )}
           {phase === "cleanup" && <CleanUpCard reserve={yourReserve} cardsById={cardsById} you={you} />}
@@ -2458,6 +2540,7 @@ export function DiceKingdomMobilePage() {
             (!isYourTurn && step === "assign-blockers" && d.controllerId === you)
           }
           onTapDie={onTapMatDie}
+          targeting={targeting}
         />
 
         {/* Moved down from the top of the scroll region (direct feedback,
@@ -2627,10 +2710,10 @@ export function DiceKingdomMobilePage() {
           />
         );
       })()}
-      {game.pendingChoice && game.pendingChoice.controllerId === you && (
+      {myChoice && !choiceOnBoard && (
         <ChoiceSheet
           key={`${game.version}:${game.pendingChoice.description}`}
-          choice={game.pendingChoice}
+          choice={myChoice}
           dice={game.dice}
           players={[game.playerOne, game.playerTwo]}
           you={you}
