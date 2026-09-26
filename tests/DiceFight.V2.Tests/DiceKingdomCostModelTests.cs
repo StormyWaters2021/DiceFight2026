@@ -27,7 +27,8 @@ public class DiceKingdomCostModelTests
     [Fact]
     public void Every_Character_Sits_In_The_Sane_Homash_Band()
     {
-        foreach (var card in DiceKingdomConfig.Catalog.Values)
+        // Characters only - Basic Actions have no stats to measure.
+        foreach (var card in DiceKingdomConfig.Catalog.Values.Where(c => c.CardType == CardType.Character))
         {
             var h = Homash(card);
             Assert.True(h is >= 1.0 and <= 2.1, $"{card.Name} has Homash {h:0.00} (expected 1.0-2.1).");

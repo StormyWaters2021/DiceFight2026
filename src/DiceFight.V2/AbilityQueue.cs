@@ -11,7 +11,9 @@ namespace DiceFight.V2;
 // EventValue (Spike B) is the triggering event's own numeric payload,
 // carried alongside the subject die so an Amount can reference it after
 // the event object itself is gone.
-public sealed record QueuedAbility(string? SourceDieId, string ControllerId, TriggerKind Trigger, EffectNode Effect, int Sequence, string? EventSubjectDieId = null, int? EventValue = null);
+// SourceName: for a card-scoped ability with no source die (a Global), the
+// card's name, so prompts and log lines can still say whose it is.
+public sealed record QueuedAbility(string? SourceDieId, string ControllerId, TriggerKind Trigger, EffectNode Effect, int Sequence, string? EventSubjectDieId = null, int? EventValue = null, string? SourceName = null);
 
 // Rule 3.2 - Timing and Resolution. Ported from v1's AbilityQueue
 // (V2_PLAN.md Phase 4 task 2 - "this part of v1 is good"), same FIFO +
@@ -41,9 +43,9 @@ public sealed class AbilityQueue
     public bool IsEmpty => _queue.Count == 0;
     public IReadOnlyList<QueuedAbility> Pending => _queue.ToList();
 
-    public QueuedAbility Enqueue(string? sourceDieId, string controllerId, TriggerKind trigger, EffectNode effect, string? eventSubjectDieId = null, int? eventValue = null)
+    public QueuedAbility Enqueue(string? sourceDieId, string controllerId, TriggerKind trigger, EffectNode effect, string? eventSubjectDieId = null, int? eventValue = null, string? sourceName = null)
     {
-        var ability = new QueuedAbility(sourceDieId, controllerId, trigger, effect, _nextSequence++, eventSubjectDieId, eventValue);
+        var ability = new QueuedAbility(sourceDieId, controllerId, trigger, effect, _nextSequence++, eventSubjectDieId, eventValue, sourceName);
         _queue.Enqueue(ability);
         return ability;
     }

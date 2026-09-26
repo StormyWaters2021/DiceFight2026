@@ -33,6 +33,10 @@ public sealed class EffectContext
     // number and for directly-invoked effects.
     public int? EventValue { get; init; }
 
+    // QueuedAbility.SourceName - the card's name for an ability with no
+    // source die (a Global); SourceName falls back to it.
+    public string? SourceCardName { get; init; }
+
     // Rule 3.2.5's per-ability snapshot (see EffectInterpreter's class
     // remarks) - every die's zone/face as of the moment THIS ability's
     // resolution began. Set by EffectInterpreter.Execute, consulted by

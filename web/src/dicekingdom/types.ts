@@ -21,6 +21,21 @@ export interface CardDef {
   levels: CharacterFace[];
   rawText: string;
   keywords: string[];
+  /** A statless Basic Action card - one per Champion, shared by both players. */
+  isAction?: boolean;
+  /** The action's own text (rawText without its Global clause). */
+  actionText?: string | null;
+  global?: GlobalAbility | null;
+  /** The energy its die's energy faces show (a Basic Action's purchase has no type). */
+  dieEnergyType?: string | null;
+}
+
+export interface GlobalAbility {
+  abilityIndex: number;
+  text: string;
+  cost: number;
+  energyType: string | null;
+  oncePerTurn: boolean;
 }
 
 export interface Champion {
@@ -63,6 +78,8 @@ export interface Die {
   /** Declaration order among attackers - a lane stacks (and takes combat
    *  damage) in this order. Null outside the Attack Zone. */
   attackOrder?: number | null;
+  /** Showing an action face - a Basic Action die ready to use. */
+  isActionFace?: boolean;
 }
 
 export interface PlayerState {

@@ -2980,3 +2980,83 @@ Direct feedback from playing a vs-Computer match:
   target."). `ChoiceSheet` is kept only as the fallback for candidates
   that aren't dice on the board (e.g. a player). Desktop still uses its
   own `PendingChoiceChips` panel.
+
+## Basic Actions + Globals: one shared action per Champion (2026-09-26)
+
+User call: finish the prototype's base phase by exercising Globals and
+Basic Actions. Instead of each team drafting two Basic Actions, each
+**Champion brings one**. Both are community dice (either player can buy
+either set), and each doubles as that game's Global, usable by either
+player for **1 energy of its Champion's type**. Texts are the real Dice
+Masters cards the user named, trimmed to the closed vocabulary:
+
+| Champion | Action | Action die use | Global (1 energy) |
+|---|---|---|---|
+| Wolf (Claw) | Anger Issues | target creature +3A and Overcrush this turn | target creature +1A this turn |
+| Armadillo (Shell) | Distraction | opponent picks 2 of their creatures; they can't block this turn | move one attacker from the Attack Zone back to its field |
+| Golden Eagle (Wing) | Resurrection | choose a die in your Used Pile, roll it into Reserve | once per turn: draw a die from your bag into Prep |
+| Great Horned Owl (Eye) | Mutation | swap one of your fielded creatures with a non-Tardigrade creature from your Used Pile, at level 1 (no On Field) | spin one of your creatures down a level to spin another up one |
+
+Decisions made along the way (placeholders, easy to change):
+- **Die:** same layout as a Character die: 3 action faces plus energy faces
+  of the Champion's type (2, 2, 1). So buying the opponent's action die is
+  also a way to get their energy, which is what their Global costs.
+- **Purchase:** 3 energy of any type, 3 dice per card.
+- **Timing:** the active player can use action dice and Globals in Main or
+  the Attack Step's action window. The other player can use Globals only
+  in that window, paid from Reserve energy left over from their own
+  turn. Enforced in `V2GamesController`; the engine alone allowed any
+  Attack sub-step.
+- **Resurrection's Global** is once per turn per player. The real card's
+  "on your turn" part isn't modelled.
+- **No burst faces.**
+
+Engine/API changes:
+- `DiceKingdomConfig.ActionByChampion` adds each Champion's card to its
+  team.
+- `TurnEngine.UseAction` now requires an action face. It never checked
+  before, so a die that rolled energy could be "used".
+- Both `UseAction` and `UseGlobal` now log.
+- A Global's effects name their card in prompts ("Anger Issues: choose 1
+  target.") via `QueuedAbility.SourceName`, since a Global has no source
+  die.
+- New endpoints `use-action` and `use-global`. `use-global` rejects cards
+  not in this game, because `UseGlobal` accepts anything in the catalog.
+- The card DTO has `isAction`/`actionText`/`global`/`dieEnergyType`; the
+  die DTO has `isActionFace`.
+
+Mobile UI:
+- **Plant art:** thistle (Anger Issues), flower (Distraction), seedling
+  (Resurrection), mushroom (Mutation). On a die it's a larger, leaf-green
+  emblem with no stats.
+- **Global rail:** the old empty "Global" rail now lists this game's
+  Globals (name, cost badge, Use button with a reason when disabled; tap
+  the name for the text), plus "Your actions": your action dice showing an
+  action face, each with Use. It's always on screen, so it works in the
+  attack window too. Tapping an action die in Reserve also offers "Use".
+- **Buy:** the Buy strip and roster include the opponent's action dice.
+- **Attack window:** it no longer auto-resolves when nothing was blocked
+  if anyone could still act (an action die on the active side, or a
+  payable Global for either player).
+- **Targets:** they're picked on the board as before. Used Pile targets
+  (Resurrection, Mutation) use the fallback sheet.
+
+Checked in a headless browser (Wolf vs Owl):
+- The Anger Issues Global, paid with Claw, gave +1A to a creature picked
+  on the board.
+- A rolled Anger Issues action face appeared under "Your actions" and
+  gave +3A.
+- On two devices, the attack window waited for Resolve Damage, and the
+  defender's rail allowed Globals there.
+- API tests cover seeding, buying the opponent's action, action-face-only
+  use, Global cost/timing/this-game-only, and the defender's
+  window Global.
+
+Not done:
+- The computer opponent never uses actions or Globals. It can buy its own
+  action dice as a purchase, but it just spends their energy.
+- When the computer attacks, it resolves damage on its normal delay, so
+  the human defender's window is short.
+- Desktop has no Actions/Globals UI.
+- No "pass" button for the defender: the attacker ends the window with
+  Resolve Damage whenever they choose.

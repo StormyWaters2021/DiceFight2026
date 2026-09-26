@@ -146,7 +146,7 @@ export function DieCube(props: {
           return (
             <span
               key={i}
-              className={`die-cube-face${isFront ? " front" : " hidden"}`}
+              className={`die-cube-face${isFront ? " front" : " hidden"}${face.kind === "action" ? " action" : ""}`}
               style={{
                 transform: `${FACE_TRANSFORMS[i]} translateZ(${half}px)`,
                 borderRadius: Math.max(4, size * 0.15),
@@ -180,7 +180,7 @@ export function DieCube(props: {
                   the corner-positioned stats/energy-type icon sit on
                   top of it, never over it, so it never competes with
                   the numbers that actually have to be read precisely. */}
-              {face.avatar && <face.avatar size={Math.round(size * 0.48)} />}
+              {face.avatar && <face.avatar size={Math.round(size * (face.kind === "action" ? 0.66 : 0.48))} />}
               {face.kind === "character" && (
                 <>
                   {/* Always shown, including 0 - direct feedback

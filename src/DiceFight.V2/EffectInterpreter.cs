@@ -95,6 +95,7 @@ public static class EffectInterpreter
             Roller = roller,
             Random = random,
             EventValue = ability.EventValue,
+            SourceCardName = ability.SourceName,
         };
         // "self"/"event" are the two reserved binding names (V2_VOCABULARY.md
         // Part 1) - seeded here, before the tree runs, from the queue
@@ -219,7 +220,7 @@ public static class EffectInterpreter
     private static string SourceName(EffectContext ctx) =>
         ctx.Bindings.GetValueOrDefault("self") is { } id && ctx.State.Dice.FirstOrDefault(d => d.Id == id) is { } die
             ? DieName(ctx.State, die)
-            : "An ability";
+            : ctx.SourceCardName ?? "An ability";
 
     private static string TargetName(GameState state, string id) =>
         state.IsPlayerId(id) ? state.NameOf(id) : DieName(state, FindDie(state, id));

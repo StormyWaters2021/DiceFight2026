@@ -8,8 +8,8 @@ namespace DiceFight.V2.Data;
 // same "current game is just one config" proof DiceFightClassicConfig.cs
 // is, for a genuinely different game rather than a variant ruleset).
 //
-// Deliberately small and simple, matching the brief: no Basic Actions
-// (BasicActionSlots: 0), one Character ability apiece using the plainest
+// Deliberately small and simple, matching the brief: one Basic Action per
+// Champion (ActionByChampion, 2026-09-26), one Character ability apiece using the plainest
 // templates in the closed vocabulary, no win condition/deck-out wiring
 // yet (scoped out of this pass - see the mellow-sparking-comet plan).
 // Every number here is a first-pass placeholder for playtesting, not a
@@ -460,12 +460,129 @@ public static class DiceKingdomConfig
             new SpinToEnergy(new TargetFilter(Kind: TargetKind.CharacterDie, Ownership: TargetOwnership.Opposing, Stat: new StatThreshold(StatKind.Level, Min: 1, Max: 1))))],
         Continuous: []);
 
+    // --- Basic Actions: one per Champion (2026-09-26, user call). Rather
+    // than each team drafting two Basic Actions, each Champion brings
+    // one, and both are shared (community, rule 2.1.2) - either player
+    // may buy either Champion's action dice. Each doubles as that game's
+    // Globals (usable by either player), costing 1 energy of the type of
+    // the Champion it came with. Texts are the real Dice Masters cards
+    // the user named, trimmed to the closed vocabulary; plant/nature
+    // themed art (icons.tsx) marks them as statless actions. ---
+
+    // Same shape as a Character die - 3 action faces in place of the 3
+    // stat faces, plus energy faces of the Champion's own type (2, 2, 1)
+    // - so buying the OPPONENT'S action die is also a way to get their
+    // energy, which is what that Champion's Global costs.
+    private static DieDefinition ActionDie(string dieId, string energyType) => new(dieId,
+    [
+        new Face([], Kind: FaceKind.ActionFace),
+        new Face([], Kind: FaceKind.ActionFace),
+        new Face([], Kind: FaceKind.ActionFace),
+        new Face([new SymbolAmount(energyType, 2)], Kind: FaceKind.EnergyFace),
+        new Face([new SymbolAmount(energyType, 2)], Kind: FaceKind.EnergyFace),
+        new Face([new SymbolAmount(energyType, 1)], Kind: FaceKind.EnergyFace),
+    ]);
+
+    // Placeholder numbers, like everything else here: cost 3 of any energy
+    // (a Basic Action has no energy type of its own), 3 dice per card.
+    private const int ActionPurchaseCost = 3;
+    private const int ActionDieLimit = 3;
+
+    // Wolf (Claw).
+    public static readonly CardDef AngerIssues = new(
+        Id: "DK-ACT-01", Name: "Anger Issues", Subtitle: "Basic Action", Set: "Dice Kingdom", CardType: CardType.BasicAction,
+        PurchaseCost: ActionPurchaseCost, EnergySymbolIds: [],
+        Die: ActionDie("DK-ACT-01Die", "Claw"),
+        DieLimit: ActionDieLimit, Affiliations: [], Keywords: [],
+        RawText: "Target creature gets +3A and Overcrush this turn. Global: Pay 1 Claw. Target creature gets +1A this turn.",
+        Abilities: [
+            new TriggeredAbility(TriggerKind.DieUsed, new Sequence([
+                new ModifyStat(new TargetFilter(Kind: TargetKind.CharacterDie, BindAs: "angry"), AtkDelta: 3),
+                new GrantTag(new TargetFilter(Bound: "angry"), ["Overcrush"]),
+            ])),
+            new TriggeredAbility(TriggerKind.Global,
+                new ModifyStat(new TargetFilter(Kind: TargetKind.CharacterDie), AtkDelta: 1),
+                EnergyCost: new EnergyCost(1, "Claw")),
+        ],
+        Continuous: []);
+
+    // Armadillo (Shell).
+    public static readonly CardDef Distraction = new(
+        Id: "DK-ACT-02", Name: "Distraction", Subtitle: "Basic Action", Set: "Dice Kingdom", CardType: CardType.BasicAction,
+        PurchaseCost: ActionPurchaseCost, EnergySymbolIds: [],
+        Die: ActionDie("DK-ACT-02Die", "Shell"),
+        DieLimit: ActionDieLimit, Affiliations: [], Keywords: [],
+        RawText: "Your opponent chooses two of their creatures. Those creatures can't block this turn. Global: Pay 1 Shell. Move one attacker from the Attack Zone back to its Field Zone.",
+        Abilities: [
+            new TriggeredAbility(TriggerKind.DieUsed,
+                new CombatFlag(new TargetFilter(Kind: TargetKind.CharacterDie, Ownership: TargetOwnership.Opposing,
+                    Zones: [Zone.FieldZone], Count: 2, AnsweredBy: TargetOwnership.Opposing), CombatFlagKind.CantBlock)),
+            new TriggeredAbility(TriggerKind.Global,
+                new MoveDie(new TargetFilter(Kind: TargetKind.CharacterDie, Zones: [Zone.AttackZone]), Zone.FieldZone),
+                EnergyCost: new EnergyCost(1, "Shell")),
+        ],
+        Continuous: []);
+
+    // Golden Eagle (Wing). The real card's Global is "once during your
+    // turn"; only the once-per-turn half is modelled (a Global usable on
+    // the opponent's turn is still once per turn per player).
+    public static readonly CardDef Resurrection = new(
+        Id: "DK-ACT-03", Name: "Resurrection", Subtitle: "Basic Action", Set: "Dice Kingdom", CardType: CardType.BasicAction,
+        PurchaseCost: ActionPurchaseCost, EnergySymbolIds: [],
+        Die: ActionDie("DK-ACT-03Die", "Wing"),
+        DieLimit: ActionDieLimit, Affiliations: [], Keywords: [],
+        RawText: "Choose a die in your Used Pile. Roll it into your Reserve Pool. Global: Pay 1 Wing, once per turn. Draw a die from your bag into your Prep Area.",
+        Abilities: [
+            new TriggeredAbility(TriggerKind.DieUsed, new Sequence([
+                new MoveDie(new TargetFilter(Kind: TargetKind.AnyDie, Ownership: TargetOwnership.Own, Zones: [Zone.UsedPile], BindAs: "risen"), Zone.ReservePool),
+                new Reroll(new TargetFilter(Bound: "risen")),
+            ])),
+            new TriggeredAbility(TriggerKind.Global,
+                new DrawToZone(1, Zone.PrepArea),
+                EnergyCost: new EnergyCost(1, "Wing"), OncePerTurn: true),
+        ],
+        Continuous: []);
+
+    // Great Horned Owl (Eye). Same two-step swap as the DPS Mutation
+    // (DpsCards.cs): the Used Pile pick is snapshotted before the first
+    // move, so it can't pick the die it just swapped out. Tags carry the
+    // card's name, which is how Tardigrades and the four action cards are
+    // kept out of the Used Pile pick without a new TargetKind.
+    public static readonly CardDef Mutation = new(
+        Id: "DK-ACT-04", Name: "Mutation", Subtitle: "Basic Action", Set: "Dice Kingdom", CardType: CardType.BasicAction,
+        PurchaseCost: ActionPurchaseCost, EnergySymbolIds: [],
+        Die: ActionDie("DK-ACT-04Die", "Eye"),
+        DieLimit: ActionDieLimit, Affiliations: [], Keywords: [],
+        RawText: "Swap one of your fielded creatures with a non-Tardigrade creature die in your Used Pile. It comes in at level 1 (no On Field). Global: Pay 1 Eye. Spin one of your creatures down a level to spin another creature up a level.",
+        Abilities: [
+            new TriggeredAbility(TriggerKind.DieUsed, new Sequence([
+                new MoveDie(new TargetFilter(Kind: TargetKind.CharacterDie, Ownership: TargetOwnership.Own, Zones: [Zone.FieldZone]), Zone.UsedPile),
+                new MoveDie(new TargetFilter(Kind: TargetKind.AnyDie, Ownership: TargetOwnership.Own, Zones: [Zone.UsedPile],
+                    Tags: new TagQuery(NoneOf: ["sidekick", "Anger Issues", "Distraction", "Resurrection", "Mutation"]), BindAs: "mutant"), Zone.FieldZone),
+                new Spin(new TargetFilter(Bound: "mutant"), SetLevel: 1),
+            ])),
+            new TriggeredAbility(TriggerKind.Global, new Sequence([
+                new Spin(new TargetFilter(Kind: TargetKind.CharacterDie, Ownership: TargetOwnership.Own), LevelDelta: -1),
+                new Spin(new TargetFilter(Kind: TargetKind.CharacterDie), LevelDelta: 1),
+            ]), EnergyCost: new EnergyCost(1, "Eye")),
+        ],
+        Continuous: []);
+
+    public static readonly IReadOnlyDictionary<string, string> ActionByChampion = new Dictionary<string, string>
+    {
+        ["Wolf"] = AngerIssues.Id,
+        ["Armadillo"] = Distraction.Id,
+        ["GoldenEagle"] = Resurrection.Id,
+        ["GreatHornedOwl"] = Mutation.Id,
+    };
+
     public static readonly IReadOnlyDictionary<string, CardDef> Catalog = new List<CardDef>
     {
         HoneyBadger, Wolverine, GrizzlyBear, Orca, PeregrineFalcon, Tiger, Stoat, CapeBuffalo, Mongoose,
         Hippopotamus, MuskOx, Pangolin, HermitCrab, Opossum, QueenTermite, SnappingTurtle, BoxTurtle,
         Osprey, BarnSwallow, Hummingbird, MountainGoat, MonarchButterfly, HomingPigeon, Greyhound, Albatross, Swift,
         BarnOwl, Hyena, Anglerfish, Cowbird, Magpie, Raven, Elephant, Fox, Cuttlefish,
+        AngerIssues, Distraction, Resurrection, Mutation,
     }.ToDictionary(c => c.Id);
 
     // Which eight Characters a team gets when it picks a Champion. API
@@ -556,9 +673,9 @@ public static class DiceKingdomConfig
             DrawCount: 4,
             MaxTeamCards: 8, // all 8 Characters matching the chosen Champion's energy type
             MaxTeamDice: 32, // 8 Characters x DieLimit 4
-            BasicActionCount: 0),
+            BasicActionCount: 1), // the Champion's own (ActionByChampion)
         BasicDicePool: [], // every player has a ChampionId, so this is never actually read
-        BasicActionSlots: 0)
+        BasicActionSlots: 1)
     {
         Champions = Champions,
     };

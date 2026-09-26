@@ -149,6 +149,10 @@ public class CardCatalogTests
         Assert.Equal(bagCountBefore - 2, state.DiceIn("p1", Zone.Bag).Count());
     }
 
+    // UseAction only accepts a die showing an action face.
+    private static int ActionFace(Model.CardDef card) =>
+        card.Die.Faces.Select((f, i) => (f, i)).First(x => x.f.Kind == Model.FaceKind.ActionFace).i;
+
     [Fact]
     public void ShockingGrasp_KOs_A_1_Defense_Target_And_May_Prep_Itself()
     {
@@ -157,7 +161,7 @@ public class CardCatalogTests
         // A Sidekick (1D) dies to Shocking Grasp's 1 damage.
         var sidekick = new Model.DieInstance { Id = "sk", PoolDieId = DiceFightClassicConfig.SidekickDie.Id, OwnerId = "p2", ControllerId = "p2", Zone = Zone.FieldZone, CurrentFaceIndex = 0 };
         state.Dice.Add(sidekick);
-        var grasp = new Model.DieInstance { Id = "grasp-die", CardId = CardCatalog.ShockingGrasp.Id, OwnerId = "p1", ControllerId = "p1", Zone = Zone.ReservePool, CurrentFaceIndex = 0 };
+        var grasp = new Model.DieInstance { Id = "grasp-die", CardId = CardCatalog.ShockingGrasp.Id, OwnerId = "p1", ControllerId = "p1", Zone = Zone.ReservePool, CurrentFaceIndex = ActionFace(CardCatalog.ShockingGrasp) };
         state.Dice.Add(grasp);
         var queue = new AbilityQueue();
 
@@ -184,7 +188,7 @@ public class CardCatalogTests
         for (var i = 0; i < 3; i++) state.Dice.Add(new Model.DieInstance { Id = $"p2-reserve-{i}", PoolDieId = DiceFightClassicConfig.SidekickDie.Id, OwnerId = "p2", ControllerId = "p2", Zone = Zone.ReservePool, CurrentFaceIndex = LevelFace(1) });
         for (var i = 0; i < 3; i++) state.Dice.Add(new Model.DieInstance { Id = $"p2-prep-{i}", PoolDieId = DiceFightClassicConfig.SidekickDie.Id, OwnerId = "p2", ControllerId = "p2", Zone = Zone.PrepArea, CurrentFaceIndex = null });
 
-        var casket = new Model.DieInstance { Id = "casket-die", CardId = CardCatalog.CasketOfAncientWinters.Id, OwnerId = "p1", ControllerId = "p1", Zone = Zone.ReservePool, CurrentFaceIndex = 0 };
+        var casket = new Model.DieInstance { Id = "casket-die", CardId = CardCatalog.CasketOfAncientWinters.Id, OwnerId = "p1", ControllerId = "p1", Zone = Zone.ReservePool, CurrentFaceIndex = ActionFace(CardCatalog.CasketOfAncientWinters) };
         state.Dice.Add(casket);
         var queue = new AbilityQueue();
 

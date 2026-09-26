@@ -427,13 +427,14 @@ public static class TurnEngine
             playerId == state.ActivePlayerId ? Zone.OutOfPlay : Zone.UsedPile);
 
         if (ability.OncePerTurn) state.GlobalsUsedThisTurn.Add((playerId, cardId));
+        state.LogEvent(playerId, $"{state.NameOf(playerId)} uses {card.Name}'s Global.");
 
         // Rule 3.1.16 - Globals enqueue like any other triggered ability;
         // using one IS the trigger, so there's no event to fire. Source
         // die id is null: the ability belongs to the card, not to any
         // die, so there is no "self" to bind (see MayPay's own remarks on
         // its stand-in candidate for the card-scoped case).
-        queue.Enqueue(null, playerId, TriggerKind.Global, ability.Effect);
+        queue.Enqueue(null, playerId, TriggerKind.Global, ability.Effect, sourceName: card.Name);
     }
 
     // Rule 2.6.4.1 (Phase 8 - the first Basic Action cards migrated needed
@@ -462,7 +463,14 @@ public static class TurnEngine
         var card = state.CardCatalog[cardId];
         if (!card.CardType.IsActionDie())
             throw new InvalidOperationException($"Card '{cardId}' is not an Action card.");
+        // Only a die showing an action face can be used - one that rolled
+        // energy is just energy (the DPS migration never needed this check:
+        // nothing reached UseAction except through tests handing it the
+        // right face).
+        if (state.GetCurrentFace(die)?.Kind != FaceKind.ActionFace)
+            throw new InvalidOperationException($"'{card.Name}' rolled energy, not its action face - it can only be spent as energy.");
 
+        state.LogEvent(die.ControllerId, $"{state.NameOf(die.ControllerId)} uses {card.Name}.");
         die.Zone = Zone.OutOfPlay;
         EventBus.Fire(state, queue, new GameEvent(TriggerKind.DieUsed, die, die.ControllerId, state.CurrentStepId));
     }

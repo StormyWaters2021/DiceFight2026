@@ -44,6 +44,9 @@ public sealed class V2GamesController(V2GameStore store) : ControllerBase
             ?? throw new InvalidOperationException($"Unknown Champion id '{championId}'.");
         var player = new Player { Id = id, Name = champion.Name, ChampionId = champion.Id };
         player.TeamCardIds.AddRange(DiceKingdomConfig.CharactersByChampion[champion.Id]);
+        // The Champion's own Basic Action - community dice (either player
+        // may buy them), and its Global is usable by either player.
+        player.TeamCardIds.Add(DiceKingdomConfig.ActionByChampion[champion.Id]);
         return player;
     }
 
@@ -181,6 +184,50 @@ public sealed class V2GamesController(V2GameStore store) : ControllerBase
 
         var queue = new AbilityQueue();
         CombatEngine.AssignCombatDamage(state, queue, assignment, splits);
+        Drain(state, queue);
+        return Ok(Result(gameId, state));
+    }
+
+    // Action dice and Globals are usable during Main and during the
+    // Attack Step's Action/Global window - not mid-declaration. The
+    // active player can do both; the inactive player only uses Globals,
+    // and only in that window (their Reserve Pool energy stays put
+    // between turns, which is what pays for it).
+    private static bool InActionWindow(GameState state) =>
+        state.CurrentStep == TurnStep.Main && state.CurrentStepId != StepIds.MainEnd
+        || state.CurrentStepId == StepIds.ActionGlobalWindow;
+
+    [HttpPost("{gameId}/use-action")]
+    public ActionResult<V2GameStateDto> UseAction(string gameId, [FromBody] V2UseActionRequest request)
+    {
+        var state = RequireTurn(gameId, V2Actor.Active);
+        if (!InActionWindow(state))
+            throw new InvalidOperationException("Action dice can be used in the Main Step or the Attack Step's action window.");
+        var queue = new AbilityQueue();
+        TurnEngine.UseAction(state, queue, request.DieId);
+        Drain(state, queue);
+        return Ok(Result(gameId, state));
+    }
+
+    [HttpPost("{gameId}/use-global")]
+    public ActionResult<V2GameStateDto> UseGlobal(string gameId, [FromBody] V2UseGlobalRequest request)
+    {
+        var (session, playerId) = RequireSeat(gameId);
+        var state = session.State;
+        if (state.PendingChoice is not null)
+            throw new InvalidOperationException("Resolve the pending choice before taking another action.");
+        var isActive = playerId == state.ActivePlayerId;
+        if (isActive ? !InActionWindow(state) : state.CurrentStepId != StepIds.ActionGlobalWindow)
+            throw new InvalidOperationException(isActive
+                ? "Globals can be used in the Main Step or the Attack Step's action window."
+                : "On your opponent's turn, Globals can only be used in the Attack Step's action window.");
+        // Only this game's own Globals - TurnEngine.UseGlobal accepts any
+        // card in the catalog (see its own remarks on rosters).
+        if (!state.PlayerOne.TeamCardIds.Concat(state.PlayerTwo.TeamCardIds).Contains(request.CardId))
+            throw new InvalidOperationException("That card isn't in this game.");
+
+        var queue = new AbilityQueue();
+        TurnEngine.UseGlobal(state, queue, request.CardId, playerId, request.AbilityIndex, request.EnergyDieIds);
         Drain(state, queue);
         return Ok(Result(gameId, state));
     }

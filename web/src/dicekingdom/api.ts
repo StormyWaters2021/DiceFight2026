@@ -71,6 +71,14 @@ function makeClient(tokenOverride?: string | null) {
       request<GameState>(`/${id}/declare-blockers`, { method: "POST", body: JSON.stringify({ assignments }) }, tokenOverride),
     assignCombatDamage: (id: string, assignments: BlockAssignment[]) =>
       request<GameState>(`/${id}/assign-combat-damage`, { method: "POST", body: JSON.stringify({ assignments }) }, tokenOverride),
+    useAction: (id: string, dieId: string) =>
+      request<GameState>(`/${id}/use-action`, { method: "POST", body: JSON.stringify({ dieId }) }, tokenOverride),
+    useGlobal: (id: string, cardId: string, abilityIndex: number, energyDieIds: string[]) =>
+      request<GameState>(
+        `/${id}/use-global`,
+        { method: "POST", body: JSON.stringify({ cardId, abilityIndex, energyDieIds }) },
+        tokenOverride,
+      ),
     cleanUp: (id: string) => request<GameState>(`/${id}/clean-up`, { method: "POST" }, tokenOverride),
 
     resolvePendingChoice: (id: string, chosenDieIds: string[]) =>

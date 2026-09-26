@@ -1,5 +1,6 @@
 using DiceFight.V2;
 using DiceFight.V2.Model;
+using DiceFight.V2.Model.Effects;
 
 namespace DiceFight.Api;
 
@@ -21,15 +22,39 @@ public sealed record V2CharacterFaceDto(int FieldingCost, int Attack, int Defens
 public sealed record V2CardDefDto(
     string Id, string Name, string? Subtitle, int PurchaseCost,
     IReadOnlyList<string> EnergyTypes, int DieLimit,
-    IReadOnlyList<V2CharacterFaceDto> Levels, string RawText, IReadOnlyList<string> Keywords)
+    IReadOnlyList<V2CharacterFaceDto> Levels, string RawText, IReadOnlyList<string> Keywords,
+    // Basic Actions (2026-09-26): IsAction marks a statless action card;
+    // ActionText/Global split RawText at "Global:" for display; DieEnergyType
+    // is the energy its die's energy faces show (a Basic Action has no
+    // purchase type of its own, so EnergyTypes can't say).
+    bool IsAction = false, string? ActionText = null, V2GlobalDto? Global = null, string? DieEnergyType = null)
 {
-    public static V2CardDefDto From(CardDef card) => new(
-        card.Id, card.Name, card.Subtitle, card.PurchaseCost, card.EnergySymbolIds, card.DieLimit,
-        card.Die.Faces.Where(f => f.Character is not null)
-            .Select(f => new V2CharacterFaceDto(f.Character!.FieldingCost, f.Character.Attack, f.Character.Defense))
-            .ToList(),
-        card.RawText, card.Keywords);
+    public static V2CardDefDto From(CardDef card)
+    {
+        var globalIndex = card.Abilities.ToList().FindIndex(a => a.Trigger == TriggerKind.Global);
+        var split = card.RawText.IndexOf("Global:", StringComparison.Ordinal);
+        V2GlobalDto? global = null;
+        if (globalIndex >= 0)
+        {
+            var ability = card.Abilities[globalIndex];
+            global = new V2GlobalDto(globalIndex,
+                split >= 0 ? card.RawText[(split + "Global:".Length)..].Trim() : card.RawText,
+                ability.EnergyCost?.Amount ?? 0, ability.EnergyCost?.RequiredSymbolId, ability.OncePerTurn);
+        }
+        return new(
+            card.Id, card.Name, card.Subtitle, card.PurchaseCost, card.EnergySymbolIds, card.DieLimit,
+            card.Die.Faces.Where(f => f.Character is not null)
+                .Select(f => new V2CharacterFaceDto(f.Character!.FieldingCost, f.Character.Attack, f.Character.Defense))
+                .ToList(),
+            card.RawText, card.Keywords,
+            card.CardType.IsActionDie(),
+            split >= 0 ? card.RawText[..split].Trim() : card.RawText,
+            global,
+            card.Die.Faces.SelectMany(f => f.Symbols).Select(sym => sym.SymbolId).FirstOrDefault());
+    }
 }
+
+public sealed record V2GlobalDto(int AbilityIndex, string Text, int Cost, string? EnergyType, bool OncePerTurn);
 
 // EffectiveAttack/EffectiveDefense run through QueryEngine (Champion
 // passives and any other stat modifier included) only for a die actually
@@ -66,7 +91,9 @@ public sealed record V2DieDto(
     int Damage = 0,
     // Declaration order among attackers (DieInstance.AttackOrder) - the
     // client stacks a lane's attackers by it.
-    int? AttackOrder = null)
+    int? AttackOrder = null,
+    // Showing an action face (a Basic Action die that can be used).
+    bool IsActionFace = false)
 {
     private static readonly HashSet<DiceFight.V2.Model.Zone> InPlayZones =
         [DiceFight.V2.Model.Zone.FieldZone, DiceFight.V2.Model.Zone.AttackZone];
@@ -90,7 +117,8 @@ public sealed record V2DieDto(
             showBreakdown ? QueryEngine.GetAttackBreakdown(state, die).Select(V2StatModifierDto.From).ToList() : null,
             showBreakdown ? QueryEngine.GetDefenseBreakdown(state, die).Select(V2StatModifierDto.From).ToList() : null,
             die.Damage,
-            die.AttackOrder);
+            die.AttackOrder,
+            face?.Kind == FaceKind.ActionFace);
     }
 }
 
@@ -167,6 +195,8 @@ public sealed record V2RerollRequest(IReadOnlyList<string> DieIds);
 // declared into - mobile refresh (2026-09), see DieInstance.Lane's own
 // remarks. Several attackers may share a lane.
 public sealed record V2AttackerDeclaration(string DieId, int Lane);
+public sealed record V2UseActionRequest(string DieId);
+public sealed record V2UseGlobalRequest(string CardId, int AbilityIndex, IReadOnlyList<string> EnergyDieIds);
 public sealed record V2DeclareAttackersRequest(IReadOnlyList<V2AttackerDeclaration> Attackers);
 public sealed record V2BlockAssignment(string AttackerDieId, string BlockerDieId);
 public sealed record V2DeclareBlockersRequest(IReadOnlyList<V2BlockAssignment> Assignments);

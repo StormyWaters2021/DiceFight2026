@@ -17,7 +17,7 @@ import { facesFor } from "./dieFaces";
 import { useDieFlights, usePhaseHeight } from "./dieFlights";
 import { useDiceRoll, type RollTarget } from "./useDiceRoll";
 import { decideAttackers, decideBlockers, decideMainAction, decidePendingChoice, decisionOwner, pickEnergy } from "./bot";
-import type { CardDef, Die, GameState, PendingChoice, PlayerState, StatModifier } from "./types";
+import type { CardDef, Die, GameState, GlobalAbility, PendingChoice, PlayerState, StatModifier } from "./types";
 
 // Dice Kingdom - mobile refresh (2026-09). A GENUINELY SEPARATE front end
 // from ../DiceKingdomPage.tsx, not a responsive breakpoint of it - the
@@ -206,6 +206,26 @@ function blockAssignmentsToApi(assignments: Record<string, string[]>): { attacke
 function pickEnergyForCost(reserve: Die[], cost: number, matchType: string | null): string[] | null {
   // Shared with the bot - see bot.ts pickEnergy for how the leftover die is chosen.
   return pickEnergy(reserve, cost, matchType);
+}
+
+// Every Basic Action card in this game (one per Champion) - read off the
+// dice, since the state carries no roster list.
+function actionCardsInGame(game: GameState, cardsById: Map<string, CardDef>): CardDef[] {
+  const ids = new Set(game.dice.map((d) => d.cardId).filter((id): id is string => !!id && !!cardsById.get(id)?.isAction));
+  return [...ids].map((id) => cardsById.get(id)!).filter((c) => c.global);
+}
+
+// Could anyone still do something in the Attack Step's action window -
+// the active player use an action die, or either player afford a Global?
+// If so the window must wait for "Resolve Damage" instead of closing
+// itself (it used to auto-resolve whenever nothing was blocked).
+function someoneCouldAct(game: GameState, cardsById: Map<string, CardDef>): boolean {
+  const reserveOf = (pid: string) => game.dice.filter((d) => d.controllerId === pid && d.zone === "ReservePool");
+  if (reserveOf(game.activePlayerId).some((d) => d.isActionFace)) return true;
+  const players = [game.playerOne.id, game.playerTwo.id];
+  return actionCardsInGame(game, cardsById).some((c) =>
+    players.some((pid) => pickEnergyForCost(reserveOf(pid), c.global!.cost, c.global!.energyType) !== null),
+  );
 }
 
 interface ChainStep {
@@ -595,19 +615,98 @@ function StepPopout({
 
 // ---- Global ability rail (visual shell only - see file header) ----
 
-function GlobalRail() {
+// Basic Actions + Globals (2026-09-26). Each Champion brings one shared
+// Basic Action whose Global either player can use. This rail is where
+// both live, always on screen between the two mats: every Global in the
+// game (with its cost and a Use button), plus any of your action dice
+// showing an action face, ready to use - so they're reachable in the
+// Attack Step's action window too, when the Buy card's Reserve isn't
+// showing.
+interface RailGlobal {
+  card: CardDef;
+  global: GlobalAbility;
+  /** Why it can't be used right now, or null if it can. */
+  blocked: string | null;
+}
+
+function GlobalRail({
+  globals,
+  readyActions,
+  actionsBlocked,
+  cardsById,
+  onUseGlobal,
+  onUseAction,
+}: {
+  globals: RailGlobal[];
+  readyActions: Die[];
+  actionsBlocked: string | null;
+  cardsById: Map<string, CardDef>;
+  onUseGlobal: (g: RailGlobal) => void;
+  onUseAction: (die: Die) => void;
+}) {
+  const [openText, setOpenText] = useState<string | null>(null);
   return (
     <div className="dkm-global-rail">
       <div className="dkm-global-caption">
         <span className="dkm-global-title">Global</span>
         <span className="dkm-global-note">either player</span>
       </div>
-      {/* No card in the current roster grants a Global ability yet, so
-          there is nothing real to list here - kept as its own component
-          (not folded into the mats) so it can move or gain content later
-          without touching them, per the handoff's own "provisional"
-          callout on this rail's placement. */}
-      <div className="dkm-global-empty">No Global abilities available yet.</div>
+      {globals.length === 0 && <div className="dkm-global-empty">No Global abilities available yet.</div>}
+      <div className="dkm-global-list">
+        {globals.map((g) => {
+          const Icon = CHARACTER_ICONS[g.card.id];
+          const open = openText === g.card.id;
+          return (
+            <div key={g.card.id} className="dkm-global-item">
+              <button type="button" className="dkm-global-name" onClick={() => setOpenText(open ? null : g.card.id)}>
+                <span className="dkm-global-icon">{Icon && <Icon size={18} />}</span>
+                <span>{g.card.name}</span>
+                <span className="dkm-global-cost">
+                  {Array.from({ length: Math.max(1, g.global.cost) }, (_, i) =>
+                    g.global.energyType ? <EnergyBadge key={i} type={g.global.energyType} size={12} /> : null,
+                  )}
+                </span>
+              </button>
+              <button
+                type="button"
+                className="dkm-chip-btn dkm-global-use"
+                disabled={g.blocked !== null}
+                title={g.blocked ?? undefined}
+                onClick={() => onUseGlobal(g)}
+              >
+                Use
+              </button>
+              {open && <p className="dkm-global-text">{g.global.text}</p>}
+            </div>
+          );
+        })}
+      </div>
+      {readyActions.length > 0 && (
+        <div className="dkm-ready-actions">
+          <span className="dkm-field-label">Your actions</span>
+          {readyActions.map((d) => {
+            const card = d.cardId ? cardsById.get(d.cardId) : undefined;
+            return (
+              <div key={d.id} className="dkm-ready-action">
+                <DTile die={d} cardsById={cardsById} size={34} mine flyId={false} />
+                <div className="dkm-ready-action-body">
+                  <b>{card?.name}</b>
+                  <span>{card?.actionText}</span>
+                </div>
+                <button
+                  type="button"
+                  className="dkm-chip-btn dkm-global-use"
+                  disabled={actionsBlocked !== null}
+                  title={actionsBlocked ?? undefined}
+                  onClick={() => onUseAction(d)}
+                >
+                  Use
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -936,7 +1035,8 @@ function BuyCard({
       <div className="dkm-tile-row wrap">
         {rolledReserve.length === 0 && <span className="dkm-empty-hint">Nothing rolled yet.</span>}
         {rolledReserve.map((d) => {
-          const fieldable = d.effectiveAttack !== null;
+          // A creature face to field, or an action face to use.
+          const fieldable = d.effectiveAttack !== null || !!d.isActionFace;
           return (
             <DTile
               key={d.id}
@@ -1786,7 +1886,11 @@ export function DiceKingdomMobilePage() {
     const client = apiAs(gameId, owner);
     if (game.currentStepId === "assign-blockers" && assignBlockersAttackerCount === 0) {
       runQuiet(() => client.declareBlockers(gameId, []));
-    } else if (game.currentStepId === "action-global-window" && (game.blocks ?? []).length === 0) {
+    } else if (
+      game.currentStepId === "action-global-window" &&
+      (game.blocks ?? []).length === 0 &&
+      !someoneCouldAct(game, cardsById)
+    ) {
       // Unblocked damage used to land the instant blockers were set - pause
       // so the player can see the blocks (or lack of them) first.
       const t = window.setTimeout(() => runQuiet(() => client.assignCombatDamage(gameId, [])), BOT_MOVE_DELAY_MS);
@@ -2052,7 +2156,12 @@ export function DiceKingdomMobilePage() {
     }
     return map;
   }
-  const unpurchasedByCard = unpurchasedFor(yourDice);
+  // Basic Action dice are community property - the opponent's Champion's
+  // action is yours to buy too.
+  const unpurchasedByCard = unpurchasedFor([
+    ...yourDice,
+    ...oppDice.filter((d) => d.cardId && cardsById.get(d.cardId)?.isAction),
+  ]);
   const oppUnpurchasedByCard = unpurchasedFor(oppDice);
 
   // Attackers grouped by lane for the real (post-declare) steps; during
@@ -2176,6 +2285,37 @@ export function DiceKingdomMobilePage() {
 
   const selectedDie = selectedId ? game.dice.find((d) => d.id === selectedId) ?? null : null;
 
+  // Actions & Globals (see GlobalRail). The active player: Main or the
+  // Attack Step's action window; the other player: Globals only, and only
+  // in that window - the same rule V2GamesController enforces.
+  const inActionWindow = step === "main" || step === "action-global-window";
+  const actionsBlocked: string | null = game.pendingChoice
+    ? "Finish the current choice first"
+    : !isYourTurn || !inActionWindow
+      ? "Actions are used on your turn: Main Step or the attack window"
+      : null;
+  const globalsTiming: string | null = game.pendingChoice
+    ? "Finish the current choice first"
+    : isYourTurn
+      ? inActionWindow ? null : "Globals: Main Step or the attack window"
+      : step === "action-global-window" ? null : "On their turn, only in the attack window";
+  const railGlobals: RailGlobal[] = actionCardsInGame(game, cardsById).map((card) => {
+    const g = card.global!;
+    const affordable = pickEnergyForCost(yourReserve, g.cost, g.energyType) !== null;
+    return {
+      card,
+      global: g,
+      blocked: busy ? "…" : globalsTiming ?? (affordable ? null : `Needs ${g.cost} ${g.energyType ?? "energy"} in your Reserve`),
+    };
+  });
+  const readyActions = yourReserve.filter((d) => d.isActionFace);
+  function useGlobal(rg: RailGlobal) {
+    const ids = pickEnergyForCost(yourReserve, rg.global.cost, rg.global.energyType);
+    if (ids === null) return;
+    setSelectedId(null);
+    run(() => api.useGlobal(game!.gameId, rg.card.id, rg.global.abilityIndex, ids));
+  }
+
   // The inspect panel's action list - README's own table, mapped onto
   // the actions this page can actually take right now.
   type InspectAction = { label: string; run: () => void; primary?: boolean };
@@ -2204,6 +2344,15 @@ export function DiceKingdomMobilePage() {
           if (ids === null) return;
           if (amount === 0 || noChoice) run(() => api.field(game.gameId, selectedDie.id, amount === 0 ? [] : spendable.map((d) => d.id)));
           else setPayingFieldId(selectedDie.id);
+        },
+      });
+    }
+    if (selectedDie.zone === "ReservePool" && selectedDie.controllerId === you && selectedDie.isActionFace && actionsBlocked === null) {
+      inspectActions.push({
+        label: `Use ${nameOf(selectedDie, cardsById)}`,
+        run: () => {
+          setSelectedId(null);
+          run(() => api.useAction(game.gameId, selectedDie.id));
         },
       });
     }
@@ -2446,7 +2595,14 @@ export function DiceKingdomMobilePage() {
           targeting={targeting}
         />
 
-        <GlobalRail />
+        <GlobalRail
+          globals={railGlobals}
+          readyActions={readyActions}
+          actionsBlocked={busy ? "…" : actionsBlocked}
+          cardsById={cardsById}
+          onUseGlobal={useGlobal}
+          onUseAction={(d) => run(() => api.useAction(game.gameId, d.id))}
+        />
 
         {/* Keyed by phase so React remounts this on every phase change,
             replaying dkPhaseIn (dicekingdom.css) - a plain settle-in

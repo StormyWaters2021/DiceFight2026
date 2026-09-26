@@ -810,7 +810,80 @@ function CuttlefishIcon(props: IconProps) {
   );
 }
 
+// --- Basic Actions (2026-09-26): plants, not animals - "to differentiate
+// these as actions with no stats, let's give them a plant or nature
+// theme." Same flat 64x64 silhouette style as the creatures. ---
+
+// Anger Issues - a thistle: prickly, and it bites back.
+function ThistleIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <g fill="currentColor">
+        <rect x={30} y={34} width={4} height={24} rx={2} />
+        <path d="M32,50 C24,48 18,42 16,36 C23,38 28,42 32,46 Z" />
+        <path d="M32,44 C40,42 46,36 48,30 C41,32 36,36 32,40 Z" />
+        <ellipse cx={32} cy={30} rx={9} ry={7} />
+        <path d="M22,22 L27,26 L25,14 L30,24 L32,8 L34,24 L39,14 L37,26 L42,22 L38,28 L26,28 Z" />
+      </g>
+      <path d="M26,30 L38,30 M27,34 L37,34" stroke={CREAM} strokeWidth={1.6} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+// Distraction - a bright flower, the lure you can't look away from.
+function FlowerIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <g fill="currentColor">
+        <rect x={30} y={34} width={4} height={24} rx={2} />
+        <path d="M32,52 C26,50 22,46 21,41 C26,42 30,45 32,49 Z" />
+        {[0, 72, 144, 216, 288].map((deg) => (
+          <ellipse key={deg} cx={32} cy={13} rx={7} ry={10} transform={`rotate(${deg} 32 24)`} />
+        ))}
+      </g>
+      <circle cx={32} cy={24} r={6} fill={CREAM} />
+    </Svg>
+  );
+}
+
+// Resurrection - a seedling pushing back up out of the soil.
+function SeedlingIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <g fill="currentColor">
+        <path d="M10,54 C16,46 48,46 54,54 Z" />
+        <rect x={30} y={26} width={4} height={24} rx={2} />
+        <path d="M32,30 C30,20 22,14 10,16 C12,27 21,32 32,30 Z" />
+        <path d="M32,26 C34,15 43,9 55,11 C53,22 44,28 32,26 Z" />
+      </g>
+      <path d="M31,29 C25,25 19,21 14,19 M33,25 C40,20 46,15 51,13" stroke={CREAM} strokeWidth={1.4} fill="none" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+// Mutation - a mushroom: the strange thing that grows overnight.
+function MushroomIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <g fill="currentColor">
+        <path d="M8,34 C8,18 20,10 32,10 C44,10 56,18 56,34 Z" />
+        <path d="M25,34 L39,34 L41,54 C41,57 23,57 23,54 Z" />
+      </g>
+      <g fill={CREAM}>
+        <circle cx={22} cy={24} r={4} />
+        <circle cx={36} cy={18} r={3} />
+        <circle cx={44} cy={28} r={3.5} />
+        <circle cx={30} cy={29} r={2.2} />
+      </g>
+    </Svg>
+  );
+}
+
 export const CHARACTER_ICONS: Record<string, (p: IconProps) => ReactElement> = {
+  "DK-ACT-01": ThistleIcon,
+  "DK-ACT-02": FlowerIcon,
+  "DK-ACT-03": SeedlingIcon,
+  "DK-ACT-04": MushroomIcon,
   "DK-CLAW-01": HoneyBadgerIcon,
   "DK-CLAW-02": WolverineIcon,
   "DK-CLAW-03": GrizzlyBearIcon,

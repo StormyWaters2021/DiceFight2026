@@ -33,18 +33,18 @@ public class V2GamesControllerTests
         // Deck-building basics: every Character copy sits Unpurchased
         // until bought (v1's TeamSetup shape, unchanged for v3) - no free
         // starting copies, only the Tardigrades start in Bag.
-        Assert.Equal(32, state.DiceIn("teamA", DiceFight.V2.Model.Zone.Unpurchased).Count()); // 8 Characters x DieLimit 4
+        Assert.Equal(35, state.DiceIn("teamA", DiceFight.V2.Model.Zone.Unpurchased).Count()); // 8 Characters x DieLimit 4 + the Champion's 3 Basic Action dice
         Assert.Equal(8, state.DiceIn("teamA", DiceFight.V2.Model.Zone.Bag).Count()); // Claw Tardigrades - Wolf's own type, unaffected by the mixed-energy Character pack
         // Wolf's pack mixes energies (2026-09-12: 4 Claw/2 Wing/1 Shell/1
         // Eye, not a monochrome 8) - the real invariant now is "matches
         // CharactersByChampion exactly," not "every card is Claw."
         Assert.Equal(
-            DiceKingdomConfig.CharactersByChampion["Wolf"].ToHashSet(),
+            DiceKingdomConfig.CharactersByChampion["Wolf"].Append(DiceKingdomConfig.ActionByChampion["Wolf"]).ToHashSet(),
             state.DiceIn("teamA", DiceFight.V2.Model.Zone.Unpurchased).Select(d => d.CardId!).ToHashSet());
 
         Assert.Equal("GreatHornedOwl", state.PlayerTwo.ChampionId);
         Assert.Equal(
-            DiceKingdomConfig.CharactersByChampion["GreatHornedOwl"].ToHashSet(),
+            DiceKingdomConfig.CharactersByChampion["GreatHornedOwl"].Append(DiceKingdomConfig.ActionByChampion["GreatHornedOwl"]).ToHashSet(),
             state.DiceIn("teamB", DiceFight.V2.Model.Zone.Unpurchased).Select(d => d.CardId!).ToHashSet());
     }
 

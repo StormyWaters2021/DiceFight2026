@@ -62,7 +62,9 @@ type Avatar = (p: { size?: number }) => ReactElement;
 
 export type CubeFace =
   | { kind: "character"; level: number; fieldingCost: number; attack: number; defense: number; avatar?: Avatar }
-  | { kind: "energy"; icon: string; amount: number; avatar?: Avatar };
+  | { kind: "energy"; icon: string; amount: number; avatar?: Avatar }
+  // A Basic Action's action face - no stats, just its plant emblem.
+  | { kind: "action"; avatar?: Avatar };
 
 const FACE_COUNT = 6;
 
@@ -80,6 +82,20 @@ const TARDIGRADE_FACES: CubeFace[] = [
 
 function defaultFaces(die: Die, card: CardDef | undefined): CubeFace[] {
   if (die.isTardigrade || !die.cardId) return TARDIGRADE_FACES;
+  if (card?.isAction) {
+    // Mirrors DiceKingdomConfig.ActionDie: 3 action faces, then 2/2/1 of
+    // the Champion's energy.
+    const avatar = CHARACTER_ICONS[die.cardId];
+    const type = card.dieEnergyType ?? "Wild";
+    return [
+      { kind: "action", avatar },
+      { kind: "action", avatar },
+      { kind: "action", avatar },
+      { kind: "energy", icon: type, amount: 2, avatar },
+      { kind: "energy", icon: type, amount: 2, avatar },
+      { kind: "energy", icon: type, amount: 1, avatar },
+    ];
+  }
   const levels = card?.levels ?? [];
   if (levels.length === 0) return TARDIGRADE_FACES;
   const energyType = card?.energyTypes[0] ?? "Wild";
@@ -95,6 +111,7 @@ function defaultFaces(die: Die, card: CardDef | undefined): CubeFace[] {
 
 /** The face the server says this die is showing, or null if it shows none. */
 function currentFace(die: Die): CubeFace | null {
+  if (die.isActionFace) return { kind: "action" };
   if (die.level !== null && die.effectiveAttack !== null && die.effectiveDefense !== null) {
     return { kind: "character", level: die.level, fieldingCost: 0, attack: die.effectiveAttack, defense: die.effectiveDefense };
   }
