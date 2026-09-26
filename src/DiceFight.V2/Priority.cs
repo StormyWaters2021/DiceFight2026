@@ -42,6 +42,7 @@ public static class Priority
         state.PriorityWindowStepId = state.CurrentStepId;
         state.PriorityPlayerId = state.ActivePlayerId;
         state.SkipAttackWhenMainEnds = false;
+        state.InactiveActedThisWindow = false;
     }
 
     public static void RequireHolder(GameState state, string playerId)
@@ -68,6 +69,11 @@ public static class Priority
                 state.PriorityPlayerId = inactiveId;
                 return;
             }
+            // Their automatic pass. Logged once they've acted in this
+            // window (direct feedback 2026-09-26: silent, it read as if
+            // their Global had also been their pass).
+            if (state.InactiveActedThisWindow)
+                state.LogEvent(inactiveId, $"{state.NameOf(inactiveId)} passes (no energy left for a Global).");
             CloseWindow(state, queue);
             return;
         }
@@ -80,7 +86,11 @@ public static class Priority
     // goes back to the Active player.
     public static void AfterGlobal(GameState state, string playerId)
     {
-        if (IsWindow(state) && playerId != state.ActivePlayerId) state.PriorityPlayerId = state.ActivePlayerId;
+        if (IsWindow(state) && playerId != state.ActivePlayerId)
+        {
+            state.PriorityPlayerId = state.ActivePlayerId;
+            state.InactiveActedThisWindow = true;
+        }
     }
 
     // Whether this player could pay for any Global in the game right now -

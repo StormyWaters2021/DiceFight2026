@@ -3120,3 +3120,12 @@ including the one-thing limit and the auto-pass.
 
 (The Dice Masters comprehensive rules, as text, now live at
 `~/.devtools/poppler/dm-comprehensive-rules.txt`.)
+
+- **Follow-up (same day):** the user read the two-device run as "Owl's
+  Global counted as its pass". It didn't. Owl's second turn was an
+  automatic pass (its only energy went on Mutation), and automatic passes
+  weren't logged. Now logged ("Owl passes (no energy left for a
+  Global).") whenever the inactive player already acted in that window.
+  Not logged every turn, to keep the log readable. The rule itself
+  stands: the window ends only on two passes in a row with no action
+  between them. An API test replays the exact scenario.

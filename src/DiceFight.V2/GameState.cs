@@ -212,6 +212,10 @@ public sealed class GameState
     public string? PriorityPlayerId { get; set; }
     public string? PriorityWindowStepId { get; set; }
     public bool SkipAttackWhenMainEnds { get; set; }
+    // Whether the Inactive player has used a Global in this window - an
+    // automatic pass after that gets logged, so the log never reads as if
+    // their Global had counted as their pass.
+    public bool InactiveActedThisWindow { get; set; }
 
     public bool IsPlayerId(string id) => id == PlayerOne.Id || id == PlayerTwo.Id;
 

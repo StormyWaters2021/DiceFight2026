@@ -142,6 +142,32 @@ public class V2ActionsAndGlobalsTests
         Assert.Equal(2, state.Log.Count(l => l.Text == "Great Horned Owl passes."));
     }
 
+    // The reported scenario: Wolf passes, Owl uses Mutation with its only
+    // energy, Wolf passes again. Owl still gets its turn - it just can't
+    // pay for anything, so it passes automatically - and the log says so.
+    [Fact]
+    public void A_Global_Is_Never_A_Pass_And_The_Automatic_Pass_Is_Logged()
+    {
+        var (_, session, teamA, teamB) = StartInMain();
+        var state = session.State;
+        Tardigrade(state, "teamB", Zone.FieldZone, 2);
+        Tardigrade(state, "teamA", Zone.FieldZone, 2);
+        var wild = Tardigrade(state, "teamB", Zone.ReservePool, 5); // Surge: 1 Wild, their only energy
+        var mutation = DiceKingdomConfig.Mutation;
+        var globalIndex = mutation.Abilities.ToList().FindIndex(a => a.Trigger == TriggerKind.Global);
+
+        teamA.EnterAttackStep(session.Id);                      // Wolf passes
+        teamB.UseGlobal(session.Id, new V2UseGlobalRequest(mutation.Id, globalIndex, [wild.Id])); // Owl's one thing
+        if (state.PendingChoice is { } c) teamB.ResolvePendingChoice(session.Id, new V2ResolvePendingChoiceRequest([c.CandidateIds[0]]));
+        Assert.Equal(StepIds.Main, state.CurrentStepId);        // a Global never ends the window
+        var dto = V2SeatedController.Dto(teamA.EnterAttackStep(session.Id)); // Wolf passes again
+
+        Assert.Equal(StepIds.SelectAttackers, dto.CurrentStepId);
+        var tail = dto.Log.Select(l => l.Text).ToList();
+        Assert.Equal("Great Horned Owl passes (no energy left for a Global).",
+            tail.Last(t => t.StartsWith("Great Horned Owl")));
+    }
+
     [Fact]
     public void An_Opponent_Who_Cant_Pay_For_Any_Global_Passes_Automatically()
     {
