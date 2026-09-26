@@ -203,6 +203,16 @@ public sealed class GameState
     // trackers above, nothing needs to read this after the step ends.
     public HashSet<string> RerolledThisStep { get; } = [];
 
+    // Priority (rules 2.6.6 / 2.7.3.4) - see Priority.cs. Who may act in
+    // the current Main Step or Attack Step action window; null outside
+    // those two windows. PriorityWindowStepId is which window it was
+    // opened for, so re-entering a window step starts it fresh.
+    // SkipAttackWhenMainEnds carries the active player's attack/no-attack
+    // choice (rule 2.6.7.1(3)) from their pass to the moment Main ends.
+    public string? PriorityPlayerId { get; set; }
+    public string? PriorityWindowStepId { get; set; }
+    public bool SkipAttackWhenMainEnds { get; set; }
+
     public bool IsPlayerId(string id) => id == PlayerOne.Id || id == PlayerTwo.Id;
 
     public Player GetPlayer(string playerId) =>

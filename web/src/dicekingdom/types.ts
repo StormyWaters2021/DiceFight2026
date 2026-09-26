@@ -122,6 +122,8 @@ export interface GameState {
    *  the server's copy, so the attacker sees them too. Empty before
    *  blockers are declared. */
   blocks?: BlockAssignment[];
+  /** Who may act in Main / the attack window right now (priority); null elsewhere. */
+  priorityPlayerId?: string | null;
 }
 
 export interface Seat {

@@ -83,26 +83,71 @@ public class V2ActionsAndGlobalsTests
         Assert.Contains(dto.Log, l => l.Text.Contains("Anger Issues's Global"));
     }
 
+    // Priority (rules 2.6.6 / 2.7.3.4, Priority.cs): Active acts freely
+    // and passes; Inactive gets ONE thing or passes; Inactive passing
+    // right after Active ends the window.
     [Fact]
-    public void The_Opponent_Can_Use_A_Global_In_The_Attack_Window()
+    public void Priority_Walks_Main_And_The_Attack_Window_As_In_Dice_Masters()
     {
         var (_, session, teamA, teamB) = StartInMain();
         var state = session.State;
         var attacker = Tardigrade(state, "teamA", Zone.FieldZone, 2);
-        var eye = Tardigrade(state, "teamB", Zone.ReservePool, 0); // 2 Eye, left over from their turn
-        Tardigrade(state, "teamB", Zone.FieldZone, 2); // a creature for the spins to act on
+        Tardigrade(state, "teamB", Zone.FieldZone, 2); // a creature for Mutation's spins
+        var eye1 = Tardigrade(state, "teamB", Zone.ReservePool, 0); // 2 Eye, left over from their turn
+        var eye2 = Tardigrade(state, "teamB", Zone.ReservePool, 0); // 2 more
         var mutation = DiceKingdomConfig.Mutation;
         var globalIndex = mutation.Abilities.ToList().FindIndex(a => a.Trigger == TriggerKind.Global);
+        var useMutation = (string eyeId) => new V2UseGlobalRequest(mutation.Id, globalIndex, [eyeId]);
+        // Mutation's "spin another creature up" has two candidates - answer it.
+        void AnswerChoice()
+        {
+            if (state.PendingChoice is { } c) teamB.ResolvePendingChoice(session.Id, new V2ResolvePendingChoiceRequest([c.CandidateIds[0]]));
+        }
 
+        // Main: the Active player holds priority first; the Inactive can't act yet.
+        Assert.Equal("teamA", V2SeatedController.Dto(teamA.Get(session.Id)).PriorityPlayerId);
+        Assert.Throws<InvalidOperationException>(() => teamB.UseGlobal(session.Id, useMutation(eye1.Id)));
+
+        // Active passes ("Done buying") - Owl can pay for Mutation, so priority goes to them, still in Main.
+        var dto = V2SeatedController.Dto(teamA.EnterAttackStep(session.Id));
+        Assert.Equal(StepIds.Main, dto.CurrentStepId);
+        Assert.Equal("teamB", dto.PriorityPlayerId);
+        Assert.Throws<InvalidOperationException>(() => teamA.Purchase(session.Id, new V2PurchaseRequest("x", [])));
+
+        // Inactive does ONE thing - priority returns to the Active player.
+        dto = V2SeatedController.Dto(teamB.UseGlobal(session.Id, useMutation(eye1.Id)));
+        Assert.Equal("teamA", dto.PriorityPlayerId);
+        AnswerChoice();
+        Assert.Throws<InvalidOperationException>(() => teamB.UseGlobal(session.Id, useMutation(eye2.Id)));
+
+        // Active passes again; Inactive passes; Main ends and the attack begins.
         teamA.EnterAttackStep(session.Id);
+        dto = V2SeatedController.Dto(teamB.Pass(session.Id));
+        Assert.Equal(StepIds.SelectAttackers, dto.CurrentStepId);
+        Assert.Null(dto.PriorityPlayerId);
+
+        // The Attack Step's action window runs the same way.
         teamA.DeclareAttackers(session.Id, new V2DeclareAttackersRequest([new V2AttackerDeclaration(attacker.Id, 0)]));
-        teamB.DeclareBlockers(session.Id, new V2DeclareBlockersRequest([]));
-        Assert.Equal(StepIds.ActionGlobalWindow, state.CurrentStepId);
+        dto = V2SeatedController.Dto(teamB.DeclareBlockers(session.Id, new V2DeclareBlockersRequest([])));
+        Assert.Equal(StepIds.ActionGlobalWindow, dto.CurrentStepId);
+        Assert.Equal("teamA", dto.PriorityPlayerId);
+        dto = V2SeatedController.Dto(teamA.AssignCombatDamage(session.Id, new V2AssignCombatDamageRequest([])));
+        Assert.Equal("teamB", dto.PriorityPlayerId); // still has Eye energy
+        teamB.UseGlobal(session.Id, useMutation(eye2.Id));
+        AnswerChoice();
+        teamA.AssignCombatDamage(session.Id, new V2AssignCombatDamageRequest([]));
+        dto = V2SeatedController.Dto(teamB.Pass(session.Id));
+        Assert.NotEqual(StepIds.ActionGlobalWindow, dto.CurrentStepId); // damage resolved
+        Assert.Equal(2, state.Log.Count(l => l.Text == "Great Horned Owl uses Mutation's Global."));
+        Assert.Equal(2, state.Log.Count(l => l.Text == "Great Horned Owl passes."));
+    }
 
-        teamB.UseGlobal(session.Id, new V2UseGlobalRequest(mutation.Id, globalIndex, [eye.Id]));
-
-        Assert.Equal(1, state.GetCurrentFace(eye)!.Symbols.Sum(x => x.Count)); // paid 1 of its 2 Eye
-        Assert.Contains(state.Log, l => l.Text == "Great Horned Owl uses Mutation's Global.");
+    [Fact]
+    public void An_Opponent_Who_Cant_Pay_For_Any_Global_Passes_Automatically()
+    {
+        var (_, session, teamA, _) = StartInMain(); // teamB's Reserve Pool is empty
+        var dto = V2SeatedController.Dto(teamA.EnterAttackStep(session.Id));
+        Assert.Equal(StepIds.SelectAttackers, dto.CurrentStepId);
     }
 
     [Fact]

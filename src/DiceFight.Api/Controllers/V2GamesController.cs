@@ -109,6 +109,7 @@ public sealed class V2GamesController(V2GameStore store) : ControllerBase
     public ActionResult<V2GameStateDto> Purchase(string gameId, [FromBody] V2PurchaseRequest request)
     {
         var state = RequireTurn(gameId, V2Actor.Active);
+        Priority.RequireHolder(state, state.ActivePlayerId);
         var queue = new AbilityQueue();
         TurnEngine.Purchase(state, queue, request.DieId, request.EnergyDieIds);
         Drain(state, queue);
@@ -119,6 +120,7 @@ public sealed class V2GamesController(V2GameStore store) : ControllerBase
     public ActionResult<V2GameStateDto> Field(string gameId, [FromBody] V2FieldRequest request)
     {
         var state = RequireTurn(gameId, V2Actor.Active);
+        Priority.RequireHolder(state, state.ActivePlayerId);
         var queue = new AbilityQueue();
         TurnEngine.Field(state, queue, request.DieId, request.EnergyDieIds);
         Drain(state, queue);
@@ -128,9 +130,10 @@ public sealed class V2GamesController(V2GameStore store) : ControllerBase
     [HttpPost("{gameId}/enter-attack-step")]
     public ActionResult<V2GameStateDto> EnterAttackStep(string gameId)
     {
+        // "Done in Main, I'll attack" - the Active player's pass (Priority.cs).
         var state = RequireTurn(gameId, V2Actor.Active);
         var queue = new AbilityQueue();
-        TurnEngine.EnterAttackStep(state, queue);
+        Priority.Pass(state, queue, state.ActivePlayerId, skipAttack: false);
         Drain(state, queue);
         return Ok(Result(gameId, state));
     }
@@ -138,9 +141,10 @@ public sealed class V2GamesController(V2GameStore store) : ControllerBase
     [HttpPost("{gameId}/skip-attack-step")]
     public ActionResult<V2GameStateDto> SkipAttackStep(string gameId)
     {
+        // "Done in Main, no attack" - the Active player's pass (Priority.cs).
         var state = RequireTurn(gameId, V2Actor.Active);
         var queue = new AbilityQueue();
-        TurnEngine.SkipAttackStep(state, queue);
+        Priority.Pass(state, queue, state.ActivePlayerId, skipAttack: true);
         Drain(state, queue);
         return Ok(Result(gameId, state));
     }
@@ -172,37 +176,24 @@ public sealed class V2GamesController(V2GameStore store) : ControllerBase
     [HttpPost("{gameId}/assign-combat-damage")]
     public ActionResult<V2GameStateDto> AssignCombatDamage(string gameId, [FromBody] V2AssignCombatDamageRequest request)
     {
+        // The Active player's pass in the Action/Global window (Priority.cs).
+        // Damage resolves when the window closes, from the blocks the
+        // defender declared (GameState.DeclaredBlocks) - never from what
+        // the attacker's client sends, which in two-device play never had
+        // them. The engine splits each lane's damage itself.
+        _ = request;
         var state = RequireTurn(gameId, V2Actor.Active);
-        // The blocks the defender actually declared, not whatever the
-        // attacker's client sends - in two-device play the attacker's
-        // client never had them (see GameState.DeclaredBlocks).
-        var assignment = state.DeclaredBlocks ?? BuildAssignment(request.Assignments);
-
-        // The engine splits each lane's combined damage itself (lethal-first,
-        // remainder on the last target) - see CombatEngine.AssignCombatDamage.
-        var splits = new Dictionary<string, IReadOnlyDictionary<string, int>>();
-
         var queue = new AbilityQueue();
-        CombatEngine.AssignCombatDamage(state, queue, assignment, splits);
+        Priority.Pass(state, queue, state.ActivePlayerId);
         Drain(state, queue);
         return Ok(Result(gameId, state));
     }
-
-    // Action dice and Globals are usable during Main and during the
-    // Attack Step's Action/Global window - not mid-declaration. The
-    // active player can do both; the inactive player only uses Globals,
-    // and only in that window (their Reserve Pool energy stays put
-    // between turns, which is what pays for it).
-    private static bool InActionWindow(GameState state) =>
-        state.CurrentStep == TurnStep.Main && state.CurrentStepId != StepIds.MainEnd
-        || state.CurrentStepId == StepIds.ActionGlobalWindow;
 
     [HttpPost("{gameId}/use-action")]
     public ActionResult<V2GameStateDto> UseAction(string gameId, [FromBody] V2UseActionRequest request)
     {
         var state = RequireTurn(gameId, V2Actor.Active);
-        if (!InActionWindow(state))
-            throw new InvalidOperationException("Action dice can be used in the Main Step or the Attack Step's action window.");
+        Priority.RequireHolder(state, state.ActivePlayerId);
         var queue = new AbilityQueue();
         TurnEngine.UseAction(state, queue, request.DieId);
         Drain(state, queue);
@@ -216,11 +207,7 @@ public sealed class V2GamesController(V2GameStore store) : ControllerBase
         var state = session.State;
         if (state.PendingChoice is not null)
             throw new InvalidOperationException("Resolve the pending choice before taking another action.");
-        var isActive = playerId == state.ActivePlayerId;
-        if (isActive ? !InActionWindow(state) : state.CurrentStepId != StepIds.ActionGlobalWindow)
-            throw new InvalidOperationException(isActive
-                ? "Globals can be used in the Main Step or the Attack Step's action window."
-                : "On your opponent's turn, Globals can only be used in the Attack Step's action window.");
+        Priority.RequireHolder(state, playerId);
         // Only this game's own Globals - TurnEngine.UseGlobal accepts any
         // card in the catalog (see its own remarks on rosters).
         if (!state.PlayerOne.TeamCardIds.Concat(state.PlayerTwo.TeamCardIds).Contains(request.CardId))
@@ -228,6 +215,24 @@ public sealed class V2GamesController(V2GameStore store) : ControllerBase
 
         var queue = new AbilityQueue();
         TurnEngine.UseGlobal(state, queue, request.CardId, playerId, request.AbilityIndex, request.EnergyDieIds);
+        Drain(state, queue);
+        Priority.AfterGlobal(state, playerId);
+        return Ok(Result(gameId, state));
+    }
+
+    // Whoever holds priority passes it (Priority.cs). The Active player
+    // normally passes through enter-attack-step / skip-attack-step /
+    // assign-combat-damage, which say what should happen when Main or the
+    // action window ends; this is mostly the Inactive player's button.
+    [HttpPost("{gameId}/pass")]
+    public ActionResult<V2GameStateDto> Pass(string gameId)
+    {
+        var (session, playerId) = RequireSeat(gameId);
+        var state = session.State;
+        if (state.PendingChoice is not null)
+            throw new InvalidOperationException("Resolve the pending choice before taking another action.");
+        var queue = new AbilityQueue();
+        Priority.Pass(state, queue, playerId);
         Drain(state, queue);
         return Ok(Result(gameId, state));
     }
@@ -304,6 +309,7 @@ public sealed class V2GamesController(V2GameStore store) : ControllerBase
     {
         var session = store.GetSession(gameId);
         if (HttpMethods.IsPost(Request.Method)) session.MarkChanged();
+        Priority.Sync(state);
         return V2GameStateDto.From(gameId, state, _seatPlayerId, session.Version);
     }
 

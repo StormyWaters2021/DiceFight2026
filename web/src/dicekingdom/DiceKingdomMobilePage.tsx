@@ -215,17 +215,14 @@ function actionCardsInGame(game: GameState, cardsById: Map<string, CardDef>): Ca
   return [...ids].map((id) => cardsById.get(id)!).filter((c) => c.global);
 }
 
-// Could anyone still do something in the Attack Step's action window -
-// the active player use an action die, or either player afford a Global?
-// If so the window must wait for "Resolve Damage" instead of closing
-// itself (it used to auto-resolve whenever nothing was blocked).
-function someoneCouldAct(game: GameState, cardsById: Map<string, CardDef>): boolean {
-  const reserveOf = (pid: string) => game.dice.filter((d) => d.controllerId === pid && d.zone === "ReservePool");
-  if (reserveOf(game.activePlayerId).some((d) => d.isActionFace)) return true;
-  const players = [game.playerOne.id, game.playerTwo.id];
-  return actionCardsInGame(game, cardsById).some((c) =>
-    players.some((pid) => pickEnergyForCost(reserveOf(pid), c.global!.cost, c.global!.energyType) !== null),
-  );
+// Could the active player still do something in the action window - use
+// an action die or afford a Global? If not, their pass is automatic when
+// nothing was blocked (the server then auto-passes the other player too
+// if THEY can't do anything - Priority.cs).
+function activeCouldAct(game: GameState, cardsById: Map<string, CardDef>): boolean {
+  const reserve = game.dice.filter((d) => d.controllerId === game.activePlayerId && d.zone === "ReservePool");
+  if (reserve.some((d) => d.isActionFace)) return true;
+  return actionCardsInGame(game, cardsById).some((c) => pickEnergyForCost(reserve, c.global!.cost, c.global!.energyType) !== null);
 }
 
 interface ChainStep {
@@ -1888,8 +1885,9 @@ export function DiceKingdomMobilePage() {
       runQuiet(() => client.declareBlockers(gameId, []));
     } else if (
       game.currentStepId === "action-global-window" &&
+      game.priorityPlayerId === game.activePlayerId &&
       (game.blocks ?? []).length === 0 &&
-      !someoneCouldAct(game, cardsById)
+      !activeCouldAct(game, cardsById)
     ) {
       // Unblocked damage used to land the instant blockers were set - pause
       // so the player can see the blocks (or lack of them) first.
@@ -1938,6 +1936,12 @@ export function DiceKingdomMobilePage() {
 
     if (g.pendingChoice) {
       await runBot(() => botApi.resolvePendingChoice(gid, decidePendingChoice(g)));
+      return;
+    }
+    // Handed priority on the human's turn - the computer never uses
+    // Globals, so it passes.
+    if (g.priorityPlayerId === botId && g.activePlayerId !== botId) {
+      await runBot(() => botApi.pass(gid));
       return;
     }
     if (step === "start-of-turn") {
@@ -2285,20 +2289,27 @@ export function DiceKingdomMobilePage() {
 
   const selectedDie = selectedId ? game.dice.find((d) => d.id === selectedId) ?? null : null;
 
-  // Actions & Globals (see GlobalRail). The active player: Main or the
-  // Attack Step's action window; the other player: Globals only, and only
-  // in that window - the same rule V2GamesController enforces.
-  const inActionWindow = step === "main" || step === "action-global-window";
+  // Actions & Globals (see GlobalRail), gated by priority (Priority.cs,
+  // Dice Masters rules 2.6.6 / 2.7.3.4): in Main and the attack window,
+  // whoever holds priority may act - the active player freely, the other
+  // player once (then it's back to the active player).
+  const havePriority = game.priorityPlayerId === you;
   const actionsBlocked: string | null = game.pendingChoice
     ? "Finish the current choice first"
-    : !isYourTurn || !inActionWindow
-      ? "Actions are used on your turn: Main Step or the attack window"
-      : null;
+    : !isYourTurn
+      ? "Action dice are only used on your own turn"
+      : havePriority
+        ? null
+        : game.priorityPlayerId
+          ? "Your opponent has priority"
+          : "Main Step or the attack window only";
   const globalsTiming: string | null = game.pendingChoice
     ? "Finish the current choice first"
-    : isYourTurn
-      ? inActionWindow ? null : "Globals: Main Step or the attack window"
-      : step === "action-global-window" ? null : "On their turn, only in the attack window";
+    : havePriority
+      ? null
+      : game.priorityPlayerId
+        ? isYourTurn ? "Your opponent has priority" : "You'll get priority when they pass"
+        : "Main Step or the attack window only";
   const railGlobals: RailGlobal[] = actionCardsInGame(game, cardsById).map((card) => {
     const g = card.global!;
     const affordable = pickEnergyForCost(yourReserve, g.cost, g.energyType) !== null;
@@ -2495,6 +2506,15 @@ export function DiceKingdomMobilePage() {
   } else if (game.pendingChoice) {
     primaryLabel = "Waiting…";
     primaryNote = `${oppPlayer.name} is choosing`;
+    primaryDisabled = true;
+  } else if (havePriority && !isYourTurn) {
+    // They passed priority to you: one Global (from the rail), or pass.
+    primaryLabel = "Pass";
+    primaryNote = `${oppPlayer.name} passed - use one Global, or pass`;
+    primaryRun = () => run(() => api.pass(game.gameId));
+  } else if (isYourTurn && game.priorityPlayerId && !havePriority) {
+    primaryLabel = "Waiting…";
+    primaryNote = `${oppPlayer.name} may use a Global`;
     primaryDisabled = true;
   } else if (!isYourTurn && step !== "assign-blockers") {
     primaryLabel = "Waiting…";

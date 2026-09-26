@@ -521,8 +521,9 @@ public static class TurnEngine
         CombatEngine.AssignCombatDamage(state, queue, new CombatAssignment(), new Dictionary<string, IReadOnlyDictionary<string, int>>());
     }
 
-    // Reserve Pool dice (never spent) and Out of Play dice (spent energy)
-    // sweep to the Used Pile; Field/Attack Zone dice remain in play.
+    // Unused action-face dice and Out of Play dice (spent energy) sweep to
+    // the Used Pile; leftover energy stays in the Reserve Pool (rule
+    // 2.8.4); Field/Attack Zone dice remain in play.
     // AppliedModifiers expire per their Duration (Phase 3 - port of v1's
     // "AppliedModifiers cleared at Clean Up" fix, a real bug once when it
     // was missing). Then pass the turn and fire TurnStepEntered(ClearAndDraw)
@@ -551,6 +552,8 @@ public static class TurnEngine
         // active-player state would NOT be safe - that needs an explicit
         // drain point here, which is a Phase 9 API-shape decision.
         state.MoveToStep(StepIds.CleanUp);
+        state.PriorityPlayerId = null; // next turn's windows open fresh (Priority.Sync)
+        state.PriorityWindowStepId = null;
         EventBus.Fire(state, queue, new GameEvent(TriggerKind.TurnStepEntered, null, endingPlayerId, StepIds.CleanUp));
 
         // Keyword Deadly - a persistent ability, so it resolves here: every
@@ -574,8 +577,11 @@ public static class TurnEngine
         // 2.3.1), which is what funds the inactive player's Globals.
         foreach (var player in new[] { state.PlayerOne, state.PlayerTwo })
         {
+            // Rule 2.8.3 - only those on their ACTION face: an action die
+            // that rolled energy is just energy, and stays (2.8.4).
             var unusedActionDice = state.DiceIn(player.Id, Zone.ReservePool)
-                .Where(d => d.CardId is { } cardId && state.CardCatalog[cardId].CardType.IsActionDie());
+                .Where(d => d.CardId is { } cardId && state.CardCatalog[cardId].CardType.IsActionDie()
+                    && state.GetCurrentFace(d)?.Kind == FaceKind.ActionFace);
             foreach (var die in unusedActionDice.Concat(state.DiceIn(player.Id, Zone.OutOfPlay)).ToList())
             {
                 die.Zone = Zone.UsedPile;

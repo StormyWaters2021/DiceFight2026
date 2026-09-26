@@ -71,6 +71,8 @@ function makeClient(tokenOverride?: string | null) {
       request<GameState>(`/${id}/declare-blockers`, { method: "POST", body: JSON.stringify({ assignments }) }, tokenOverride),
     assignCombatDamage: (id: string, assignments: BlockAssignment[]) =>
       request<GameState>(`/${id}/assign-combat-damage`, { method: "POST", body: JSON.stringify({ assignments }) }, tokenOverride),
+    // Pass priority - the Inactive player's "no Global" (Priority.cs).
+    pass: (id: string) => request<GameState>(`/${id}/pass`, { method: "POST" }, tokenOverride),
     useAction: (id: string, dieId: string) =>
       request<GameState>(`/${id}/use-action`, { method: "POST", body: JSON.stringify({ dieId }) }, tokenOverride),
     useGlobal: (id: string, cardId: string, abilityIndex: number, energyDieIds: string[]) =>

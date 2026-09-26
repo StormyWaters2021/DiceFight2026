@@ -31,6 +31,8 @@ function ownedBy(game: GameState, playerId: string, zone?: string): Die[] {
 // one step the INACTIVE player answers rather than the active one.
 export function decisionOwner(game: GameState): string | null {
   if (game.pendingChoice) return game.pendingChoice.controllerId;
+  // Main / the action window: whoever holds priority (Priority.cs).
+  if (game.priorityPlayerId) return game.priorityPlayerId;
   if (game.currentStepId === "assign-blockers") {
     return game.activePlayerId === game.playerOne.id ? game.playerTwo.id : game.playerOne.id;
   }

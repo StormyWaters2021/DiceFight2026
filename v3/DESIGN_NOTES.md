@@ -3060,3 +3060,63 @@ Not done:
 - Desktop has no Actions/Globals UI.
 - No "pass" button for the defender: the attacker ends the window with
   Resolve Damage whenever they choose.
+
+## Priority, as in Dice Masters (2026-09-26)
+
+User call: use the real Dice Masters priority rules in Main and the Attack
+Step's Action/Global window. This replaces yesterday's looser rule ("the
+opponent may use Globals only in the attack window"). Rules 2.6.5.7, 2.6.6
+and 2.7.3.4 of the comprehensive rules; new `src/DiceFight.V2/Priority.cs`:
+
+- The **active player** holds priority first and may do as many things as
+  they like: buy, field, use action dice, use Globals. Then they pass.
+- The **inactive player** may then do ONE thing (use a Global), which
+  hands priority straight back to the active player. Or they pass.
+- The **inactive player passing right after the active player** ends the
+  window. Rule 2.6.6.6 gives the active player one more chance first, but
+  nothing has changed since they passed, so it's the same thing.
+  Ending Main goes to the attack step, or skips it if that's what the
+  active player chose when they passed. Ending the attack window resolves
+  damage from the declared blocks.
+- **Auto-pass:** an inactive player who can't pay for any Global passes
+  automatically, so nobody waits on a choice that doesn't exist.
+
+Implementation notes:
+- `GameState.PriorityPlayerId` is exposed as `priorityPlayerId`.
+- `Priority.Sync` opens a window with the active player holding priority,
+  and runs after every API action.
+- `enter-attack-step`, `skip-attack-step` and `assign-combat-damage` are
+  now the active player's pass, carrying what should happen when the
+  window ends. So the desktop page and the computer opponent needed no
+  flow changes. New `pass` endpoint.
+- Purchase, field, use-action and use-global all require holding
+  priority.
+
+Checked the rules while doing this: leftover energy DOES stay in your
+Reserve through the opponent's turn (rule 2.8.4, cleared at your own
+Clear and Draw, 2.3.1). That's what pays for the inactive player's
+Globals, and the engine already did it. A stale code comment said
+otherwise. One real gap fixed: Clean Up swept every action die out of the
+Reserve, but rule 2.8.3 only sweeps those on an action face. One that
+rolled energy is energy, and stays.
+
+UI:
+- **Mobile:** the player handed priority gets a "Pass" button ("Wolf
+  passed - use one Global, or pass") and a live Globals rail. The other
+  player sees "Waiting… Owl may use a Global".
+- **Desktop:** gets the Pass button and waiting note (no Globals UI
+  there).
+- **Computer opponent:** passes whenever it's handed priority, since it
+  never uses Globals.
+
+Checked on two browser devices, Wolf vs Owl with Owl holding Wild energy:
+1. Wolf pressed "Done buying" and Owl got priority.
+2. Owl used Mutation's Global, and priority returned to Wolf.
+3. Wolf passed again, Owl (out of energy) auto-passed, and the attack step
+   began.
+
+An API test walks the full sequence in Main and the attack window,
+including the one-thing limit and the auto-pass.
+
+(The Dice Masters comprehensive rules, as text, now live at
+`~/.devtools/poppler/dm-comprehensive-rules.txt`.)

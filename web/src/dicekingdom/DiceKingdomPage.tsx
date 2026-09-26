@@ -673,6 +673,7 @@ export function DiceKingdomPage() {
       runQuiet(() => client.declareBlockers(gameId, []));
     } else if (
       game.currentStepId === "action-global-window" &&
+      game.priorityPlayerId === game.activePlayerId &&
       (game.blocks ?? []).length === 0
     ) {
       runQuiet(() => client.assignCombatDamage(gameId, []));
@@ -849,6 +850,12 @@ export function DiceKingdomPage() {
 
     if (g.pendingChoice) {
       await runBot(() => botApi.resolvePendingChoice(gid, decidePendingChoice(g)));
+      return;
+    }
+    // Handed priority on the human's turn - the computer never uses
+    // Globals, so it passes.
+    if (g.priorityPlayerId === botId && g.activePlayerId !== botId) {
+      await runBot(() => botApi.pass(gid));
       return;
     }
     if (step === "start-of-turn") {
@@ -1619,6 +1626,14 @@ export function DiceKingdomPage() {
       </div>
     ) : game.pendingChoice ? (
       <span className="now-bar-note">{vsComputer ? "Computer is choosing…" : "Waiting on the other player's choice…"}</span>
+    ) : game.priorityPlayerId === you && !isYourTurn ? (
+      // Priority (Priority.cs): the opponent passed to you. This page has
+      // no Globals UI (mobile does), so passing back is the only move.
+      <button className="btn" disabled={busy} onClick={() => run(() => api.pass(game.gameId))}>
+        Pass
+      </button>
+    ) : game.priorityPlayerId && game.priorityPlayerId !== you && isYourTurn ? (
+      <span className="now-bar-note">{vsComputer ? "Computer is deciding…" : "Your opponent may use a Global…"}</span>
     ) : step === "assign-blockers" && !isYourTurn ? (
       <div className="panel">
         <p>
