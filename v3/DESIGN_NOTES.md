@@ -3129,3 +3129,16 @@ including the one-thing limit and the auto-pass.
   Not logged every turn, to keep the log readable. The rule itself
   stands: the window ends only on two passes in a row with no action
   between them. An API test replays the exact scenario.
+
+## Auto-pay keeps Wilds for last (2026-09-26)
+
+Direct feedback: with 3 Claw and 2 Wild in Reserve, auto-buying a 4-cost
+Wolverine spent BOTH Wilds, leaving nothing to pay for the opponent's
+Global. `pickEnergy` (bot.ts) scored options only on leftover pips and dice
+count, so "Claw 2 + Claw 1 + Wild" and "Claw 2 + Wild + Wild" tied and it
+took the first found. Now it spends the fewest Wild pips first, then goes
+by leftover and dice count. A Wild can pay for anything, so it's the
+last to go. The greedy fallback (15+ dice) does the same. This applies
+everywhere auto-pay is used: purchases, fielding, Globals, and the
+computer opponent. The manual payment sheet is unchanged. Checked the
+reported case plus three others against the real function.

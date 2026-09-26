@@ -64,14 +64,18 @@ function fieldingCost(die: Die, cardsById: Map<string, CardDef>): number {
 //   - Character double-energy -> a bare single-energy face, no stats: ok.
 //   - anything else -> the leftover pip is simply lost: worst.
 // So this tries every subset/last-die choice that exactly covers the cost
-// and keeps the one whose leftover is most useful (then fewest dice).
+// and keeps the one that spends the fewest Wild pips, then whose leftover
+// is most useful, then fewest dice. Wilds first (direct feedback
+// 2026-09-26): with 3 Claw and 2 Wild, buying a 4-cost Wolverine spent
+// BOTH Wilds, leaving none to pay for the opponent's Global - a Wild is
+// the one energy that can pay for anything, so it's the last to go.
 export function pickEnergy(pool: Die[], cost: number, matchType: string | null): string[] | null {
   if (cost <= 0) return [];
   const dice = pool.filter((d) => d.energyAmount > 0).sort((a, b) => a.energyAmount - b.energyAmount);
   const matches = (d: Die) => !matchType || d.energySymbolId === matchType || d.energySymbolId === "Wild";
   if (dice.length > 14) return pickEnergyGreedy(dice, cost, matchType);
 
-  let best: { ids: string[]; score: number; count: number } | null = null;
+  let best: { ids: string[]; wilds: number; score: number; count: number } | null = null;
   for (let mask = 1; mask < 1 << dice.length; mask++) {
     const members = dice.filter((_, i) => mask & (1 << i));
     const sum = members.reduce((n, d) => n + d.energyAmount, 0);
@@ -87,12 +91,24 @@ export function pickEnergy(pool: Die[], cost: number, matchType: string | null):
           : 0;
       }
       const count = members.length;
-      if (!best || score > best.score || (score === best.score && count < best.count)) {
-        best = { ids: [...members.filter((d) => d !== last), last].map((d) => d.id), score, count };
+      // Wild pips actually consumed - an overspent Wild's leftover stays.
+      const wilds =
+        members.filter((d) => d.energySymbolId === "Wild").reduce((n, d) => n + d.energyAmount, 0) -
+        (last.energySymbolId === "Wild" ? overspendOf(sum, cost) : 0);
+      const better =
+        !best ||
+        wilds < best.wilds ||
+        (wilds === best.wilds && (score > best.score || (score === best.score && count < best.count)));
+      if (better) {
+        best = { ids: [...members.filter((d) => d !== last), last].map((d) => d.id), wilds, score, count };
       }
     }
   }
   return best?.ids ?? null;
+}
+
+function overspendOf(sum: number, cost: number): number {
+  return Math.max(0, sum - cost);
 }
 
 function pickEnergyGreedy(dice: Die[], cost: number, matchType: string | null): string[] | null {
@@ -100,12 +116,15 @@ function pickEnergyGreedy(dice: Die[], cost: number, matchType: string | null): 
   const picked: string[] = [];
   let total = 0;
   if (matchType) {
-    const idx = rest.findIndex((d) => d.energySymbolId === matchType || d.energySymbolId === "Wild");
+    const exact = rest.findIndex((d) => d.energySymbolId === matchType);
+    const idx = exact !== -1 ? exact : rest.findIndex((d) => d.energySymbolId === "Wild");
     if (idx === -1) return null;
     picked.push(rest[idx].id);
     total += rest[idx].energyAmount;
     rest = rest.filter((_, i) => i !== idx);
   }
+  // Non-Wild dice first, so any Wild is spent last (see pickEnergy).
+  rest.sort((a, b) => Number(a.energySymbolId === "Wild") - Number(b.energySymbolId === "Wild"));
   for (const d of rest) {
     if (total >= cost) break;
     picked.push(d.id);
