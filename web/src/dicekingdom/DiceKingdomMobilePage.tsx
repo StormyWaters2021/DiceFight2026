@@ -2868,7 +2868,7 @@ export function DiceKingdomMobilePage() {
       })()}
       {myChoice && !choiceOnBoard && (
         <ChoiceSheet
-          key={`${game.version}:${game.pendingChoice.description}`}
+          key={`${game.version}:${myChoice.description}`}
           choice={myChoice}
           dice={game.dice}
           players={[game.playerOne, game.playerTwo]}
