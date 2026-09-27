@@ -321,6 +321,38 @@ public class V2ActionsAndGlobalsTests
         Assert.DoesNotContain(wall.Id, state.PendingChoice.CandidateIds);
     }
 
+    // Playtest feedback (2026-09-27): Mutation's Global's two picks looked
+    // identical. Each now says which it is, and offers only dice that can
+    // move that way.
+    [Fact]
+    public void Mutations_Global_Says_Which_Pick_Is_Which()
+    {
+        var (session, a, _) = StartInMainAs("GreatHornedOwl", "Wolf");
+        var state = session.State;
+        var low = Tardigrade(state, "teamA", Zone.FieldZone, 0);  // level 1 - can't go down
+        var mid1 = Tardigrade(state, "teamA", Zone.FieldZone, 2); // level 2
+        var mid2 = Tardigrade(state, "teamA", Zone.FieldZone, 3); // level 2
+        var top = Tardigrade(state, "teamB", Zone.FieldZone, 4);  // level 3 - can't go up
+        var eye = Tardigrade(state, "teamA", Zone.ReservePool, 0);
+        var index = DiceKingdomConfig.Mutation.Abilities.ToList().FindIndex(x => x.Trigger == TriggerKind.Global);
+
+        a.UseGlobal(session.Id, new V2UseGlobalRequest(DiceKingdomConfig.Mutation.Id, index, [eye.Id]));
+
+        var down = state.PendingChoice!;
+        Assert.Equal("Mutation: first, choose one of YOUR creatures to spin DOWN a level.", down.Description);
+        Assert.Equal([mid1.Id, mid2.Id], down.CandidateIds.Order().ToList());
+        a.ResolvePendingChoice(session.Id, new V2ResolvePendingChoiceRequest([mid1.Id]));
+
+        var up = state.PendingChoice!;
+        Assert.Equal("Mutation: now choose a creature to spin UP a level.", up.Description);
+        Assert.Contains(low.Id, up.CandidateIds);
+        Assert.DoesNotContain(top.Id, up.CandidateIds);
+        a.ResolvePendingChoice(session.Id, new V2ResolvePendingChoiceRequest([low.Id]));
+
+        Assert.Equal(1, state.GetCurrentFace(mid1)!.Character!.Level);
+        Assert.Equal(2, state.GetCurrentFace(low)!.Character!.Level);
+    }
+
     [Fact]
     public void Card_Dto_Describes_The_Action_And_Its_Global()
     {

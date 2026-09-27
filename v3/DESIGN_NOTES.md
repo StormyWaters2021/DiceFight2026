@@ -3001,7 +3001,8 @@ Decisions made along the way (placeholders, easy to change):
 - **Die:** same layout as a Character die: 3 action faces plus energy faces
   of the Champion's type (2, 2, 1). So buying the opponent's action die is
   also a way to get their energy, which is what their Global costs.
-- **Purchase:** 3 energy of any type, 3 dice per card.
+- **Purchase:** 3 energy of any type, 3 dice per card. (Changed
+  2026-09-27 to the real Dice Masters costs, 4/4/4/3; see below.)
 - **Timing:** the active player can use action dice and Globals in Main or
   the Attack Step's action window. The other player can use Globals only
   in that window, paid from Reserve energy left over from their own
@@ -3178,3 +3179,19 @@ reported case plus three others against the real function.
   the field. New `TargetFilter.AttackersOnly` (the active player's Attack
   Zone dice; documented in V2_VOCABULARY.md) restricts it to attackers,
   as the card says. Test: its choice now offers only the attackers.
+
+## Action costs and clearer picks (2026-09-27)
+
+- **Costs:** Basic Actions now cost what the real cards do: Anger Issues 4,
+  Distraction 4, Resurrection 4, Mutation 3. Any energy; Owl's discount
+  still applies. They were a flat placeholder 3.
+- **Prompts:** every pick an action makes now says what it's for, via the
+  new `TargetFilter.Prompt` (V2_VOCABULARY.md). The trigger was Mutation's
+  Global: "it wasn't clear which die I was supposed to be selecting
+  when".
+  - Mutation's Global now asks "first, choose one of YOUR creatures to spin
+    DOWN a level" (level 2+ only), then "now choose a creature to spin UP a
+    level" (level 1-2 only).
+  - The other actions and Globals got prompts too ("choose a creature to
+    get +3A and Overcrush this turn", "choose an attacker to send back to
+    its Field Zone", ...).

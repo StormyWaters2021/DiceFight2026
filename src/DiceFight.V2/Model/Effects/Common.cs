@@ -79,7 +79,12 @@ public sealed record TargetFilter(
     // this: "attacker" is Own or Opposing depending on whose turn it is.
     // First user: Distraction's Global (2026-09-27 playtest - it could
     // pull a BLOCKER back to the field, which saved it from a KO).
-    bool AttackersOnly = false)
+    bool AttackersOnly = false,
+    // What the player is choosing FOR, when this pick becomes a pending
+    // choice ("choose one of your creatures to spin DOWN a level"). Without
+    // it every pick reads "choose 1 target", so an ability with two picks
+    // gave no clue which was which (Mutation's Global, 2026-09-27).
+    string? Prompt = null)
 {
     // Rule 3.3.4/3.3.5 - only Field Zone (which includes Attack Zone) is
     // targetable by default.

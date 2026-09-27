@@ -483,25 +483,26 @@ public static class DiceKingdomConfig
         new Face([new SymbolAmount(energyType, 1)], Kind: FaceKind.EnergyFace),
     ]);
 
-    // Placeholder numbers, like everything else here: cost 3 of any energy
-    // (a Basic Action has no energy type of its own), 3 dice per card.
-    private const int ActionPurchaseCost = 3;
+    // Purchase costs are the real Dice Masters cards' (user call,
+    // 2026-09-27; they were a flat placeholder 3): 4/4/4/3, any energy (a
+    // Basic Action has no energy type of its own). 3 dice per card.
     private const int ActionDieLimit = 3;
 
     // Wolf (Claw).
     public static readonly CardDef AngerIssues = new(
         Id: "DK-ACT-01", Name: "Anger Issues", Subtitle: "Basic Action", Set: "Dice Kingdom", CardType: CardType.BasicAction,
-        PurchaseCost: ActionPurchaseCost, EnergySymbolIds: [],
+        PurchaseCost: 4, EnergySymbolIds: [],
         Die: ActionDie("DK-ACT-01Die", "Claw"),
         DieLimit: ActionDieLimit, Affiliations: [], Keywords: [],
         RawText: "Target creature gets +3A and Overcrush this turn. Global: Pay 1 Claw. Target creature gets +1A this turn.",
         Abilities: [
             new TriggeredAbility(TriggerKind.DieUsed, new Sequence([
-                new ModifyStat(new TargetFilter(Kind: TargetKind.CharacterDie, BindAs: "angry"), AtkDelta: 3),
+                new ModifyStat(new TargetFilter(Kind: TargetKind.CharacterDie, BindAs: "angry",
+                    Prompt: "choose a creature to get +3A and Overcrush this turn."), AtkDelta: 3),
                 new GrantTag(new TargetFilter(Bound: "angry"), ["Overcrush"]),
             ])),
             new TriggeredAbility(TriggerKind.Global,
-                new ModifyStat(new TargetFilter(Kind: TargetKind.CharacterDie), AtkDelta: 1),
+                new ModifyStat(new TargetFilter(Kind: TargetKind.CharacterDie, Prompt: "choose a creature to get +1A this turn."), AtkDelta: 1),
                 EnergyCost: new EnergyCost(1, "Claw")),
         ],
         Continuous: []);
@@ -509,16 +510,18 @@ public static class DiceKingdomConfig
     // Armadillo (Shell).
     public static readonly CardDef Distraction = new(
         Id: "DK-ACT-02", Name: "Distraction", Subtitle: "Basic Action", Set: "Dice Kingdom", CardType: CardType.BasicAction,
-        PurchaseCost: ActionPurchaseCost, EnergySymbolIds: [],
+        PurchaseCost: 4, EnergySymbolIds: [],
         Die: ActionDie("DK-ACT-02Die", "Shell"),
         DieLimit: ActionDieLimit, Affiliations: [], Keywords: [],
         RawText: "Your opponent chooses two of their creatures. Those creatures can't block this turn. Global: Pay 1 Shell. Move one attacker from the Attack Zone back to its Field Zone.",
         Abilities: [
             new TriggeredAbility(TriggerKind.DieUsed,
                 new CombatFlag(new TargetFilter(Kind: TargetKind.CharacterDie, Ownership: TargetOwnership.Opposing,
-                    Zones: [Zone.FieldZone], Count: 2, AnsweredBy: TargetOwnership.Opposing), CombatFlagKind.CantBlock)),
+                    Zones: [Zone.FieldZone], Count: 2, AnsweredBy: TargetOwnership.Opposing,
+                    Prompt: "choose two of your creatures. They can't block this turn."), CombatFlagKind.CantBlock)),
             new TriggeredAbility(TriggerKind.Global,
-                new MoveDie(new TargetFilter(Kind: TargetKind.CharacterDie, Zones: [Zone.AttackZone], AttackersOnly: true), Zone.FieldZone),
+                new MoveDie(new TargetFilter(Kind: TargetKind.CharacterDie, Zones: [Zone.AttackZone], AttackersOnly: true,
+                    Prompt: "choose an attacker to send back to its Field Zone."), Zone.FieldZone),
                 EnergyCost: new EnergyCost(1, "Shell")),
         ],
         Continuous: []);
@@ -528,13 +531,14 @@ public static class DiceKingdomConfig
     // the opponent's turn is still once per turn per player).
     public static readonly CardDef Resurrection = new(
         Id: "DK-ACT-03", Name: "Resurrection", Subtitle: "Basic Action", Set: "Dice Kingdom", CardType: CardType.BasicAction,
-        PurchaseCost: ActionPurchaseCost, EnergySymbolIds: [],
+        PurchaseCost: 4, EnergySymbolIds: [],
         Die: ActionDie("DK-ACT-03Die", "Wing"),
         DieLimit: ActionDieLimit, Affiliations: [], Keywords: [],
         RawText: "Choose a die in your Used Pile. Roll it into your Reserve Pool. Global: Pay 1 Wing, once per turn. Draw a die from your bag into your Prep Area.",
         Abilities: [
             new TriggeredAbility(TriggerKind.DieUsed, new Sequence([
-                new MoveDie(new TargetFilter(Kind: TargetKind.AnyDie, Ownership: TargetOwnership.Own, Zones: [Zone.UsedPile], BindAs: "risen"), Zone.ReservePool),
+                new MoveDie(new TargetFilter(Kind: TargetKind.AnyDie, Ownership: TargetOwnership.Own, Zones: [Zone.UsedPile], BindAs: "risen",
+                    Prompt: "choose a die in your Used Pile to roll into your Reserve Pool."), Zone.ReservePool),
                 new Reroll(new TargetFilter(Bound: "risen")),
             ])),
             new TriggeredAbility(TriggerKind.Global,
@@ -550,20 +554,30 @@ public static class DiceKingdomConfig
     // kept out of the Used Pile pick without a new TargetKind.
     public static readonly CardDef Mutation = new(
         Id: "DK-ACT-04", Name: "Mutation", Subtitle: "Basic Action", Set: "Dice Kingdom", CardType: CardType.BasicAction,
-        PurchaseCost: ActionPurchaseCost, EnergySymbolIds: [],
+        PurchaseCost: 3, EnergySymbolIds: [],
         Die: ActionDie("DK-ACT-04Die", "Eye"),
         DieLimit: ActionDieLimit, Affiliations: [], Keywords: [],
         RawText: "Swap one of your fielded creatures with a non-Tardigrade creature die in your Used Pile. It comes in at level 1 (no On Field). Global: Pay 1 Eye. Spin one of your creatures down a level to spin another creature up a level.",
         Abilities: [
             new TriggeredAbility(TriggerKind.DieUsed, new Sequence([
-                new MoveDie(new TargetFilter(Kind: TargetKind.CharacterDie, Ownership: TargetOwnership.Own, Zones: [Zone.FieldZone]), Zone.UsedPile),
+                new MoveDie(new TargetFilter(Kind: TargetKind.CharacterDie, Ownership: TargetOwnership.Own, Zones: [Zone.FieldZone],
+                    Prompt: "choose one of your creatures to swap OUT (it goes to your Used Pile)."), Zone.UsedPile),
                 new MoveDie(new TargetFilter(Kind: TargetKind.AnyDie, Ownership: TargetOwnership.Own, Zones: [Zone.UsedPile],
-                    Tags: new TagQuery(NoneOf: ["sidekick", "Anger Issues", "Distraction", "Resurrection", "Mutation"]), BindAs: "mutant"), Zone.FieldZone),
+                    Tags: new TagQuery(NoneOf: ["sidekick", "Anger Issues", "Distraction", "Resurrection", "Mutation"]), BindAs: "mutant",
+                    Prompt: "choose a creature from your Used Pile to swap IN at level 1."), Zone.FieldZone),
                 new Spin(new TargetFilter(Bound: "mutant"), SetLevel: 1),
             ])),
+            // Each pick says which it is (2026-09-27: "it wasn't clear which
+            // die I was supposed to be selecting when"), and only offers
+            // dice that can actually move that way - every Dice Kingdom
+            // die has exactly 3 levels.
             new TriggeredAbility(TriggerKind.Global, new Sequence([
-                new Spin(new TargetFilter(Kind: TargetKind.CharacterDie, Ownership: TargetOwnership.Own), LevelDelta: -1),
-                new Spin(new TargetFilter(Kind: TargetKind.CharacterDie), LevelDelta: 1),
+                new Spin(new TargetFilter(Kind: TargetKind.CharacterDie, Ownership: TargetOwnership.Own,
+                    Stat: new StatThreshold(StatKind.Level, Min: 2),
+                    Prompt: "first, choose one of YOUR creatures to spin DOWN a level."), LevelDelta: -1),
+                new Spin(new TargetFilter(Kind: TargetKind.CharacterDie,
+                    Stat: new StatThreshold(StatKind.Level, Max: 2),
+                    Prompt: "now choose a creature to spin UP a level."), LevelDelta: 1),
             ]), EnergyCost: new EnergyCost(1, "Eye")),
         ],
         Continuous: []);

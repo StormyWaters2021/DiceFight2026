@@ -121,8 +121,14 @@ that hands control back to the granter.
 
 ```
 Ownership  Zones  Kind  Count  Tags  Affiliations  Stat
-Optional  Self  BindAs  Bound  AnsweredBy  AttackersOnly
+Optional  Self  BindAs  Bound  AnsweredBy  AttackersOnly  Prompt
 ```
+
+`Prompt` is what the player is choosing for, shown when the pick becomes a
+pending choice ("first, choose one of YOUR creatures to spin DOWN a
+level"). Without it the text is a generic "choose N target(s)". Added
+2026-09-27 after Mutation's two identical-looking picks confused a
+playtester.
 
 `AttackersOnly` narrows to the Active player's dice in the Attack Zone —
 the attackers, not the blockers standing beside them. `Ownership` can't

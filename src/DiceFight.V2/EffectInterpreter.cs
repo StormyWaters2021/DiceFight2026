@@ -895,7 +895,9 @@ public static class EffectInterpreter
             ControllerId = answeredBy,
             // Names the source so an on-board prompt reads "Honey Badger:
             // choose 1 target." rather than a bare, sourceless instruction.
-            Description = $"{SourceName(ctx)}: choose {(filter.Optional ? "up to " : "")}{maxCount} {(maxCount == 1 ? "target" : "targets")}.",
+            Description = filter.Prompt is { } prompt
+                ? $"{SourceName(ctx)}: {prompt}"
+                : $"{SourceName(ctx)}: choose {(filter.Optional ? "up to " : "")}{maxCount} {(maxCount == 1 ? "target" : "targets")}.",
             CandidateIds = candidates,
             MinCount = filter.Optional ? 0 : maxCount,
             MaxCount = maxCount,
