@@ -950,6 +950,18 @@ function TrayCard({
   );
 }
 
+// A cost that a discount (a Champion passive) has changed shows the printed
+// number struck through beside the real one (direct feedback, 2026-09-27:
+// a discount that "was not visually clear").
+function CostNumber({ printed, actual }: { printed: number; actual: number }) {
+  if (actual === printed) return <>{actual}</>;
+  return (
+    <>
+      <s className="dkm-cost-printed">{printed}</s> {actual}
+    </>
+  );
+}
+
 function BuyCard({
   unpurchasedByCard,
   cardsById,
@@ -958,7 +970,9 @@ function BuyCard({
   selectedId,
   onSelect,
   onOpenRoster,
+  purchaseCostOf,
 }: {
+  purchaseCostOf: (cardId: string) => number;
   unpurchasedByCard: Map<string, Die[]>;
   cardsById: Map<string, CardDef>;
   reserve: Die[];
@@ -982,10 +996,10 @@ function BuyCard({
   // not the 2s and 3s); if fewer than three are affordable, the rest of
   // the strip fills with the cheapest unaffordable ones - the closest to
   // being buyable.
-  const costOf = (cardId: string) => cardsById.get(cardId)?.purchaseCost ?? 0;
+  const costOf = purchaseCostOf;
   const canAfford = (cardId: string) => {
     const card = cardsById.get(cardId);
-    return pickEnergyForCost(reserve, card?.purchaseCost ?? 0, card?.energyTypes[0] ?? null) !== null;
+    return pickEnergyForCost(reserve, costOf(cardId), card?.energyTypes[0] ?? null) !== null;
   };
   const entries = [...unpurchasedByCard.entries()];
   const affordableEntries = entries.filter(([id]) => canAfford(id)).sort(([a], [b]) => costOf(b) - costOf(a));
@@ -1020,7 +1034,7 @@ function BuyCard({
                   <EnergyBadge key={t} type={t} size={11} />
                 ))}
                 <b className="dkm-buy-cost" style={{ color: `var(--${(card?.energyTypes[0] ?? "claw").toLowerCase()})` }}>
-                  {card?.purchaseCost}
+                  <CostNumber printed={card?.purchaseCost ?? 0} actual={costOf(cardId)} />
                 </b>
               </span>
             </button>
@@ -1341,8 +1355,10 @@ function RosterSheet({
   reserve,
   onBuy,
   onClose,
+  purchaseCostOf,
 }: {
   title: string;
+  purchaseCostOf: (cardId: string) => number;
   cards: { card: CardDef | undefined; cardId: string; dieId: string; remaining: number }[];
   /** Only true for your OWN roster, during Main, on your turn - see the
    *  real bug this fixed (2026-09-16): every "Roster" button on the page
@@ -1381,7 +1397,7 @@ function RosterSheet({
         {cards.map(({ card, cardId, dieId, remaining }) => {
           const Avatar = CHARACTER_ICONS[cardId];
           const types = card?.energyTypes ?? [];
-          const affordable = canBuy && pickEnergyForCost(reserve, card?.purchaseCost ?? 0, types[0] ?? null) !== null;
+          const affordable = canBuy && pickEnergyForCost(reserve, purchaseCostOf(cardId), types[0] ?? null) !== null;
           const row = (
             <>
               <span className="dkm-roster-avatar">{Avatar ? <Avatar size={20} /> : <TardigradeIcon size={20} />}</span>
@@ -1402,7 +1418,7 @@ function RosterSheet({
                   <EnergyBadge key={t} type={t} size={12} />
                 ))}
                 <b className="dkm-roster-cost" style={{ color: `var(--${(types[0] ?? "claw").toLowerCase()})` }}>
-                  {card?.purchaseCost}
+                  <CostNumber printed={card?.purchaseCost ?? 0} actual={purchaseCostOf(cardId)} />
                 </b>
               </span>
               <span className="dkm-roster-left">{remaining}</span>
@@ -1682,6 +1698,12 @@ export function DiceKingdomMobilePage() {
   // callback, not just "we tried." Self-clears; the persistent Invite
   // row above the Log is still there afterward for a second copy.
   const [inviteCopiedBanner, setInviteCopiedBanner] = useState(false);
+  const [linkCopied, setLinkCopied] = useState<"copied" | "failed" | null>(null);
+  useEffect(() => {
+    if (!linkCopied) return;
+    const timer = window.setTimeout(() => setLinkCopied(null), 2000);
+    return () => window.clearTimeout(timer);
+  }, [linkCopied]);
   useEffect(() => {
     if (!inviteCopiedBanner) return;
     const timer = window.setTimeout(() => setInviteCopiedBanner(false), 4000);
@@ -2204,14 +2226,20 @@ export function DiceKingdomMobilePage() {
   }
   const laneAttackersForBreakdown = laneBreakdown !== null ? (attackersByLane[laneBreakdown] ?? []) : [];
 
+  // What a card costs YOU to buy, discounts included (V2GameStateDto.PurchaseCosts).
+  function purchaseCostOf(cardId: string): number {
+    return game!.purchaseCosts?.[cardId] ?? cardsById.get(cardId)?.purchaseCost ?? 0;
+  }
+
   function costFor(die: Die): { amount: number; matchType: string | null } {
     if (die.zone === "Unpurchased") {
       const card = die.cardId ? cardsById.get(die.cardId) : undefined;
-      return { amount: card?.purchaseCost ?? 0, matchType: card?.energyTypes[0] ?? null };
+      return { amount: purchaseCostOf(die.cardId ?? ""), matchType: card?.energyTypes[0] ?? null };
     }
     if (!die.cardId || die.level === null) return { amount: 0, matchType: null };
     const card = die.cardId ? cardsById.get(die.cardId) : undefined;
-    return { amount: card?.levels[die.level - 1]?.fieldingCost ?? 0, matchType: null };
+    // The server's cost, discounts included (V2DieDto.FieldingCost).
+    return { amount: die.fieldingCost ?? card?.levels[die.level - 1]?.fieldingCost ?? 0, matchType: null };
   }
 
   function toggleReroll(id: string) {
@@ -2675,6 +2703,7 @@ export function DiceKingdomMobilePage() {
               selectedId={selectedId}
               onSelect={toggleSelect}
               onOpenRoster={() => setRosterViewFor(you)}
+              purchaseCostOf={purchaseCostOf}
             />
           )}
           {phase === "attack" && (
@@ -2727,8 +2756,19 @@ export function DiceKingdomMobilePage() {
         {!vsComputer && link && (
           <div className="dkm-invite">
             <span>Invite</span>
-            <button type="button" className="dkm-text-btn" onClick={() => navigator.clipboard?.writeText(link)}>
-              Copy link
+            {/* Says so when it worked (direct feedback, 2026-09-27: it
+                copied, but "felt like it did nothing"). */}
+            <button
+              type="button"
+              className="dkm-text-btn"
+              onClick={() =>
+                navigator.clipboard?.writeText(link).then(
+                  () => setLinkCopied("copied"),
+                  () => setLinkCopied("failed"),
+                )
+              }
+            >
+              {linkCopied === "copied" ? "Copied ✓" : linkCopied === "failed" ? "Couldn't copy" : "Copy link"}
             </button>
           </div>
         )}
@@ -2907,6 +2947,7 @@ export function DiceKingdomMobilePage() {
           reserve={yourReserve}
           onBuy={toggleSelect}
           onClose={() => setRosterViewFor(null)}
+          purchaseCostOf={purchaseCostOf}
         />
       )}
     </div>

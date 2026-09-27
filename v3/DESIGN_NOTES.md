@@ -3142,3 +3142,30 @@ last to go. The greedy fallback (15+ dice) does the same. This applies
 everywhere auto-pay is used: purchases, fielding, Globals, and the
 computer opponent. The manual payment sheet is unchanged. Checked the
 reported case plus three others against the real function.
+
+## Playtest fixes: Resurrection, discounted costs, copy link (2026-09-27)
+
+- **Resurrection's Global "did not work".** It draws from your bag, and
+  with an empty bag it drew nothing. Rule 2.3.2 refills the bag from the
+  Used Pile whenever you need to draw and it's empty; the turn's own draw
+  did that, ability draws didn't. `DrawToZone` from the Bag now uses the
+  same refilling `TurnEngine.DrawFromBag`, and logs "has no dice left to
+  draw" if both are empty. (It did work with dice in the bag, checked
+  against the live API.)
+- **"Paid 1 to field, the double-energy Tardigrade didn't spin down."**
+  The engine charges Owl correctly (new test). The likely cause is Golden
+  Eagle's -1 fielding discount: the client showed and asked for the
+  PRINTED cost, while the server charged the discounted one, 0, so
+  nothing was spent. Owl's -1 purchase discount was invisible the same
+  way.
+  - The server now sends real costs: `V2DieDto.FieldingCost` and
+    `V2GameStateDto.PurchaseCosts` (per card, for the viewing player).
+  - Both pages and the computer opponent use them.
+  - A discounted fielding cost shows in green on the die. A discounted
+    price shows the printed one struck through (Buy strip, roster).
+  - Checked: an Eagle creature printed at 1 shows a green 0 and fields
+    without touching energy; Owl's roster shows 2→1, 3→2...
+- **Copy link** now reads "Copied ✓" for two seconds, or "Couldn't copy".
+- **KO'd die "did not go to Prep":** not reproduced. Every KO in a probe
+  game went to its owner's Prep (Out of Play only for unblocked
+  attackers, which is correct). Asked the user for specifics.

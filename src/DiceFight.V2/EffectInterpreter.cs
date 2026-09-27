@@ -402,12 +402,22 @@ public static class EffectInterpreter
 
     private static void ExecuteDrawToZone(DrawToZone n, EffectContext ctx, Action onComplete)
     {
-        var pool = ctx.State.DiceIn(ctx.ControllerId, n.FromZone).ToList();
-        Shuffle(pool, ctx.Random);
-        var drawnCount = Math.Min(pool.Count, Math.Max(0, n.Count));
-        if (drawnCount > 0)
-            LogAbility(ctx, $"{SourceName(ctx)}: {ctx.State.NameOf(ctx.ControllerId)} draws {drawnCount} {(drawnCount == 1 ? "die" : "dice")} into their {n.ToZone}.");
-        foreach (var die in pool.Take(Math.Max(0, n.Count)))
+        // Drawing from the Bag refills it from the Used Pile when it runs
+        // dry (rule 2.3.2 - "whenever you need to draw dice and your bag
+        // is empty"), same as the turn's own draw.
+        List<DieInstance> drawn;
+        if (n.FromZone == Zone.Bag)
+            drawn = TurnEngine.DrawFromBag(ctx.State, ctx.ControllerId, Math.Max(0, n.Count), ctx.Random);
+        else
+        {
+            var pool = ctx.State.DiceIn(ctx.ControllerId, n.FromZone).ToList();
+            Shuffle(pool, ctx.Random);
+            drawn = pool.Take(Math.Max(0, n.Count)).ToList();
+        }
+        LogAbility(ctx, drawn.Count > 0
+            ? $"{SourceName(ctx)}: {ctx.State.NameOf(ctx.ControllerId)} draws {drawn.Count} {(drawn.Count == 1 ? "die" : "dice")} into their {n.ToZone}."
+            : $"{SourceName(ctx)}: {ctx.State.NameOf(ctx.ControllerId)} has no dice left to draw.");
+        foreach (var die in drawn)
         {
             die.Zone = n.ToZone;
             if (n.ToZone == Zone.ReservePool)

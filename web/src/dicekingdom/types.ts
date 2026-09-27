@@ -80,6 +80,8 @@ export interface Die {
   attackOrder?: number | null;
   /** Showing an action face - a Basic Action die ready to use. */
   isActionFace?: boolean;
+  /** Fielding cost right now, discounts included; null without a creature face. */
+  fieldingCost?: number | null;
 }
 
 export interface PlayerState {
@@ -124,6 +126,8 @@ export interface GameState {
   blocks?: BlockAssignment[];
   /** Who may act in Main / the attack window right now (priority); null elsewhere. */
   priorityPlayerId?: string | null;
+  /** What each card in the game costs YOU to buy, discounts included. */
+  purchaseCosts?: Record<string, number> | null;
 }
 
 export interface Seat {

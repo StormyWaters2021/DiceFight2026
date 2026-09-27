@@ -187,7 +187,12 @@ export function DieCube(props: {
                       (2026-09-07): a Tardigrade's free faces should still
                       print "0" rather than leave the corner blank, so a
                       free die reads as "costs 0" and not "cost unknown". */}
-                  <span className="die-cube-cost">{face.fieldingCost}</span>
+                  <span
+                    className={`die-cube-cost${face.printedCost !== undefined && face.fieldingCost < face.printedCost ? " discounted" : ""}`}
+                    title={face.printedCost !== undefined && face.fieldingCost < face.printedCost ? `Discounted from ${face.printedCost}` : undefined}
+                  >
+                    {face.fieldingCost}
+                  </span>
                   <span className="die-cube-attack">{face.attack}</span>
                   <span className="die-cube-defense">{face.defense}</span>
                   {isFront && (props.damage ?? 0) > 0 && (

@@ -3580,3 +3580,14 @@
   width: 100%;
   margin-top: 14px;
 }
+
+/* A cost a Champion discount changed (2026-09-27): the die's corner number
+   turns green, and a purchase price shows the printed one struck through. */
+.dicekingdom .die-cube-cost.discounted {
+  color: #8fd18a;
+  font-weight: 800;
+}
+.dk-mobile .dkm-cost-printed {
+  opacity: 0.55;
+  font-weight: 400;
+}

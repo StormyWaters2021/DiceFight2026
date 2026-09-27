@@ -93,7 +93,12 @@ public sealed record V2DieDto(
     // client stacks a lane's attackers by it.
     int? AttackOrder = null,
     // Showing an action face (a Basic Action die that can be used).
-    bool IsActionFace = false)
+    bool IsActionFace = false,
+    // What fielding this die costs right now, champion discounts and any
+    // other modifier included (QueryEngine.GetFieldingCost) - the client
+    // used to read the printed cost, so a discount made "pay 1" charge 0
+    // with nothing on screen saying why (direct feedback, 2026-09-27).
+    int? FieldingCost = null)
 {
     private static readonly HashSet<DiceFight.V2.Model.Zone> InPlayZones =
         [DiceFight.V2.Model.Zone.FieldZone, DiceFight.V2.Model.Zone.AttackZone];
@@ -118,7 +123,8 @@ public sealed record V2DieDto(
             showBreakdown ? QueryEngine.GetDefenseBreakdown(state, die).Select(V2StatModifierDto.From).ToList() : null,
             die.Damage,
             die.AttackOrder,
-            face?.Kind == FaceKind.ActionFace);
+            face?.Kind == FaceKind.ActionFace,
+            hasCharacterFace ? QueryEngine.GetFieldingCost(state, die) : null);
     }
 }
 
@@ -173,7 +179,10 @@ public sealed record V2GameStateDto(
     IReadOnlyList<V2BlockAssignment>? Blocks = null,
     // Who may act in the current Main Step / action window (Priority.cs);
     // null outside those windows.
-    string? PriorityPlayerId = null)
+    string? PriorityPlayerId = null,
+    // What each card in this game costs YOU to buy (discounts included) -
+    // the purchase-side twin of V2DieDto.FieldingCost. Null without a seat.
+    IReadOnlyDictionary<string, int>? PurchaseCosts = null)
 {
     public static V2GameStateDto From(string gameId, GameState state, string? yourPlayerId = null, int version = 0) => new(
         gameId, state.ActivePlayerId, state.CurrentStep.ToString(), state.CurrentStepId,
@@ -183,7 +192,11 @@ public sealed record V2GameStateDto(
         state.Log.Select(V2GameLogEntryDto.From).ToList(),
         yourPlayerId, version,
         state.DeclaredBlocks?.Pairs.Select(p => new V2BlockAssignment(p.AttackerDieId, p.BlockerDieId)).ToList() ?? [],
-        state.PriorityPlayerId);
+        state.PriorityPlayerId,
+        yourPlayerId is null ? null
+            : state.PlayerOne.TeamCardIds.Concat(state.PlayerTwo.TeamCardIds).Distinct()
+                .Where(state.CardCatalog.ContainsKey)
+                .ToDictionary(id => id, id => QueryEngine.GetPurchaseCost(state, state.CardCatalog[id], yourPlayerId)));
 }
 
 // ---- Request bodies ----

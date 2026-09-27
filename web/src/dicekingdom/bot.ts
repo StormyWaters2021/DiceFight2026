@@ -49,7 +49,7 @@ export function decisionOwner(game: GameState): string | null {
 
 function fieldingCost(die: Die, cardsById: Map<string, CardDef>): number {
   if (!die.cardId || die.level === null) return 0; // Tardigrade - free, matches costFor()
-  return cardsById.get(die.cardId)?.levels[die.level - 1]?.fieldingCost ?? 0;
+  return die.fieldingCost ?? cardsById.get(die.cardId)?.levels[die.level - 1]?.fieldingCost ?? 0;
 }
 
 // Which reserve energy dice to spend on `cost`, with at least one pip matching

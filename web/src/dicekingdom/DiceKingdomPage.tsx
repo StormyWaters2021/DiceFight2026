@@ -1046,11 +1046,12 @@ export function DiceKingdomPage() {
   function costFor(die: Die): { amount: number; matchType: string | null } {
     if (die.zone === "Unpurchased") {
       const card = die.cardId ? cardsById.get(die.cardId) : undefined;
-      return { amount: card?.purchaseCost ?? 0, matchType: card?.energyTypes[0] ?? null };
+      // Discounts included (V2GameStateDto.PurchaseCosts / V2DieDto.FieldingCost).
+      return { amount: (die.cardId ? game?.purchaseCosts?.[die.cardId] : undefined) ?? card?.purchaseCost ?? 0, matchType: card?.energyTypes[0] ?? null };
     }
     if (!die.cardId || die.level === null) return { amount: 0, matchType: null }; // Tardigrade - free
     const card = die.cardId ? cardsById.get(die.cardId) : undefined;
-    return { amount: card?.levels[die.level - 1]?.fieldingCost ?? 0, matchType: null };
+    return { amount: die.fieldingCost ?? card?.levels[die.level - 1]?.fieldingCost ?? 0, matchType: null };
   }
 
   // Whether a Reserve Pool die can currently be clicked, and what

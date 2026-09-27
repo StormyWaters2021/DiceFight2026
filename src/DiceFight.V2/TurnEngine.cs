@@ -130,7 +130,10 @@ public static class TurnEngine
     // project) - previously unported here (direct feedback, 2026-09-05:
     // drawing with only 1 die left in the Bag drew just that 1, instead
     // of refilling from the Used Pile and continuing to the real count).
-    private static List<DieInstance> DrawFromBag(GameState state, string playerId, int count, Random random)
+    // Internal so ability draws (EffectInterpreter's DrawToZone) refill the
+    // same way - Resurrection's Global drew nothing from an empty Bag
+    // (direct feedback, 2026-09-27).
+    internal static List<DieInstance> DrawFromBag(GameState state, string playerId, int count, Random random)
     {
         var drawn = new List<DieInstance>();
         for (var i = 0; i < count; i++)

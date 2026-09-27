@@ -61,7 +61,7 @@ export const FACE_TRANSFORMS = [
 type Avatar = (p: { size?: number }) => ReactElement;
 
 export type CubeFace =
-  | { kind: "character"; level: number; fieldingCost: number; attack: number; defense: number; avatar?: Avatar }
+  | { kind: "character"; level: number; fieldingCost: number; attack: number; defense: number; avatar?: Avatar; printedCost?: number }
   | { kind: "energy"; icon: string; amount: number; avatar?: Avatar }
   // A Basic Action's action face - no stats, just its plant emblem.
   | { kind: "action"; avatar?: Avatar };
@@ -160,7 +160,11 @@ export function facesFor(die: Die, cardsById: Map<string, CardDef>): DieFaces {
   faces[0] = {
     ...showing,
     avatar: existing.avatar,
-    ...(showing.kind === "character" && sameLevel?.kind === "character" ? { fieldingCost: sameLevel.fieldingCost } : {}),
+    // The server's cost when it sent one (discounts included), with the
+    // printed one kept so a discount can be shown (DieCube).
+    ...(showing.kind === "character" && sameLevel?.kind === "character"
+      ? { fieldingCost: die.fieldingCost ?? sameLevel.fieldingCost, printedCost: sameLevel.fieldingCost }
+      : {}),
   };
   return { faces, index: 0 };
 }

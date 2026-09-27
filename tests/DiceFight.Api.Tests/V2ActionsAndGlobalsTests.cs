@@ -197,6 +197,85 @@ public class V2ActionsAndGlobalsTests
         Assert.Equal(Zone.OutOfPlay, action.Zone);
     }
 
+    private static (V2GameSession Session, V2GamesController A, V2GamesController B) StartInMainAs(string p1, string p2)
+    {
+        var store = new V2GameStore();
+        var created = V2SeatedController.CreatedDto(V2SeatedController.Anonymous(store).Create(new CreateV2GameRequest(p1, p2)));
+        var session = store.GetSession(created.Game.GameId);
+        var a = V2SeatedController.For(store, session, "teamA");
+        var b = V2SeatedController.For(store, session, "teamB");
+        a.ClearAndDraw(session.Id); a.Roll(session.Id); a.FinishRoll(session.Id);
+        foreach (var d in session.State.Dice.Where(d => d.Zone == Zone.ReservePool)) { d.Zone = Zone.UsedPile; d.CurrentFaceIndex = null; }
+        return (session, a, b);
+    }
+
+    // Direct feedback (2026-09-27): paying a 1-cost fielding with a
+    // double-energy Tardigrade didn't spin it down.
+    private static DieInstance CharacterAtCost(GameState state, string player, int printedCost)
+    {
+        foreach (var die in state.Dice.Where(d => d.ControllerId == player && d.CardId is { } c && state.CardCatalog[c].CardType == CardType.Character))
+        {
+            var faces = state.CardCatalog[die.CardId!].Die.Faces;
+            var i = faces.ToList().FindIndex(f => f.Character?.FieldingCost == printedCost);
+            if (i < 0) continue;
+            die.Zone = Zone.ReservePool;
+            die.CurrentFaceIndex = i;
+            return die;
+        }
+        throw new InvalidOperationException($"No character with a {printedCost}-cost level.");
+    }
+
+    [Fact]
+    public void Owl_Paying_1_With_A_Double_Energy_Tardigrade_Spins_It_Down()
+    {
+        var (session, a, _) = StartInMainAs("GreatHornedOwl", "Wolf");
+        var state = session.State;
+        var creature = CharacterAtCost(state, "teamA", 1);
+        var payer = Tardigrade(state, "teamA", Zone.ReservePool, 0); // 2 Eye
+
+        var dto = V2SeatedController.Dto(a.Field(session.Id, new V2FieldRequest(creature.Id, [payer.Id])));
+
+        Assert.Equal(1, dto.Dice.Single(d => d.Id == creature.Id).FieldingCost ?? 1); // Owl has no fielding discount
+        Assert.Equal("FieldZone", dto.Dice.Single(d => d.Id == creature.Id).Zone);
+        var paid = dto.Dice.Single(d => d.Id == payer.Id);
+        Assert.Equal("ReservePool", paid.Zone);
+        Assert.Equal(1, paid.EnergyAmount); // spun down, 1 Eye left
+    }
+
+    [Fact]
+    public void Discounted_Costs_Reach_The_Client()
+    {
+        // Golden Eagle: -1 fielding on its own dice.
+        var (eagleGame, eagle, _) = StartInMainAs("GoldenEagle", "Wolf");
+        var creature = CharacterAtCost(eagleGame.State, "teamA", 1);
+        Assert.Equal(0, V2SeatedController.Dto(eagle.Get(eagleGame.Id)).Dice.Single(d => d.Id == creature.Id).FieldingCost);
+
+        // Great Horned Owl: -1 purchase, for the Owl player only.
+        var (owlGame, owl, wolf) = StartInMainAs("GreatHornedOwl", "Wolf");
+        var anyCard = owlGame.State.PlayerOne.TeamCardIds[0];
+        var printed = owlGame.State.CardCatalog[anyCard].PurchaseCost;
+        Assert.Equal(printed - 1, V2SeatedController.Dto(owl.Get(owlGame.Id)).PurchaseCosts![anyCard]);
+        Assert.Equal(printed, V2SeatedController.Dto(wolf.Get(owlGame.Id)).PurchaseCosts![anyCard]);
+    }
+
+    // Direct feedback (2026-09-27): Resurrection's Global "did not work" -
+    // with an empty Bag it drew nothing, where the rules refill the Bag
+    // from the Used Pile first (2.3.2).
+    [Fact]
+    public void Resurrections_Global_Refills_An_Empty_Bag()
+    {
+        var (session, a, _) = StartInMainAs("GoldenEagle", "Wolf");
+        var state = session.State;
+        foreach (var d in state.Dice.Where(d => d.ControllerId == "teamA" && d.Zone == Zone.Bag)) d.Zone = Zone.UsedPile;
+        var wing = Tardigrade(state, "teamA", Zone.ReservePool, 0); // 2 Wing
+        var index = DiceKingdomConfig.Resurrection.Abilities.ToList().FindIndex(x => x.Trigger == TriggerKind.Global);
+
+        a.UseGlobal(session.Id, new V2UseGlobalRequest(DiceKingdomConfig.Resurrection.Id, index, [wing.Id]));
+
+        Assert.Single(state.DiceIn("teamA", Zone.PrepArea));
+        Assert.Contains(state.Log, l => l.Text.Contains("draws 1 die into their PrepArea"));
+    }
+
     [Fact]
     public void Card_Dto_Describes_The_Action_And_Its_Global()
     {
