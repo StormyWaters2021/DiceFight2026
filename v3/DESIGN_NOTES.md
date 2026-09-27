@@ -3169,3 +3169,12 @@ reported case plus three others against the real function.
 - **KO'd die "did not go to Prep":** not reproduced. Every KO in a probe
   game went to its owner's Prep (Out of Play only for unblocked
   attackers, which is correct). Asked the user for specifics.
+- **KO'd blocker "went back to his field" (follow-up with details):** 2A +
+  1A in one lane vs a 3D Tardigrade, and the preview said KO. The engine
+  resolves that exact case correctly (new API test, through the new
+  priority flow). The likely cause was **Distraction's Global**. Its
+  target was "any creature in the Attack Zone", and blockers stand there
+  too, so an Armadillo player could pull their own doomed blocker back to
+  the field. New `TargetFilter.AttackersOnly` (the active player's Attack
+  Zone dice; documented in V2_VOCABULARY.md) restricts it to attackers,
+  as the card says. Test: its choice now offers only the attackers.

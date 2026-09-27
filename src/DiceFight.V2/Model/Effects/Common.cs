@@ -73,7 +73,13 @@ public sealed record TargetFilter(
     bool Self = false,
     string? BindAs = null,
     string? Bound = null,
-    TargetOwnership AnsweredBy = TargetOwnership.Own)
+    TargetOwnership AnsweredBy = TargetOwnership.Own,
+    // Only the Active player's dice in the Attack Zone - the attackers,
+    // not the blockers standing in the same zone. Ownership can't say
+    // this: "attacker" is Own or Opposing depending on whose turn it is.
+    // First user: Distraction's Global (2026-09-27 playtest - it could
+    // pull a BLOCKER back to the field, which saved it from a KO).
+    bool AttackersOnly = false)
 {
     // Rule 3.3.4/3.3.5 - only Field Zone (which includes Attack Zone) is
     // targetable by default.

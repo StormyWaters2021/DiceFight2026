@@ -276,6 +276,51 @@ public class V2ActionsAndGlobalsTests
         Assert.Contains(state.Log, l => l.Text.Contains("draws 1 die into their PrepArea"));
     }
 
+    // Playtest report (2026-09-27): 2A + 1A attacking in one lane, blocked
+    // by a 3D Tardigrade; the preview said KO, but it stayed on the field.
+    [Fact]
+    public void Two_Attackers_Pooling_3_Damage_KO_A_3_Defense_Blocker_Into_Prep()
+    {
+        var (session, a, b) = StartInMainAs("Wolf", "GreatHornedOwl");
+        var state = session.State;
+        var twoA = Tardigrade(state, "teamA", Zone.FieldZone, 2); // L2 1/1 +1A Wolf = 2A
+        var oneA = Tardigrade(state, "teamA", Zone.FieldZone, 0); // L1 0/1 +1A Wolf = 1A
+        var wall = Tardigrade(state, "teamB", Zone.FieldZone, 4); // Bulwark 1/3
+
+        a.EnterAttackStep(session.Id);
+        a.DeclareAttackers(session.Id, new V2DeclareAttackersRequest([new V2AttackerDeclaration(twoA.Id, 0), new V2AttackerDeclaration(oneA.Id, 0)]));
+        b.DeclareBlockers(session.Id, new V2DeclareBlockersRequest([new V2BlockAssignment(twoA.Id, wall.Id)]));
+        a.AssignCombatDamage(session.Id, new V2AssignCombatDamageRequest([]));
+
+        Assert.Equal(Zone.PrepArea, wall.Zone);
+    }
+
+    // Same report: Distraction's Global ("move one attacker back to its
+    // Field Zone") could target the defender's own BLOCKER, which also
+    // stands in the Attack Zone - pulling it out of a lethal block.
+    [Fact]
+    public void Distractions_Global_Can_Only_Move_An_Attacker_Not_A_Blocker()
+    {
+        var (session, a, b) = StartInMainAs("Wolf", "Armadillo");
+        var state = session.State;
+        var attacker1 = Tardigrade(state, "teamA", Zone.FieldZone, 2);
+        var attacker2 = Tardigrade(state, "teamA", Zone.FieldZone, 0);
+        var wall = Tardigrade(state, "teamB", Zone.FieldZone, 4);
+        var shell = Tardigrade(state, "teamB", Zone.ReservePool, 0); // 2 Shell, left over from their turn
+        var index = DiceKingdomConfig.Distraction.Abilities.ToList().FindIndex(x => x.Trigger == TriggerKind.Global);
+
+        a.EnterAttackStep(session.Id);
+        b.Pass(session.Id); // Armadillo holds Shell, so Main hands them priority first
+        a.DeclareAttackers(session.Id, new V2DeclareAttackersRequest([new V2AttackerDeclaration(attacker1.Id, 0), new V2AttackerDeclaration(attacker2.Id, 1)]));
+        b.DeclareBlockers(session.Id, new V2DeclareBlockersRequest([new V2BlockAssignment(attacker1.Id, wall.Id)]));
+        a.AssignCombatDamage(session.Id, new V2AssignCombatDamageRequest([])); // Wolf passes; Armadillo may respond
+        b.UseGlobal(session.Id, new V2UseGlobalRequest(DiceKingdomConfig.Distraction.Id, index, [shell.Id]));
+
+        Assert.NotNull(state.PendingChoice);
+        Assert.Equal([attacker1.Id, attacker2.Id], state.PendingChoice!.CandidateIds.Order().ToList());
+        Assert.DoesNotContain(wall.Id, state.PendingChoice.CandidateIds);
+    }
+
     [Fact]
     public void Card_Dto_Describes_The_Action_And_Its_Global()
     {

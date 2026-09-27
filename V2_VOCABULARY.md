@@ -121,8 +121,13 @@ that hands control back to the granter.
 
 ```
 Ownership  Zones  Kind  Count  Tags  Affiliations  Stat
-Optional  Self  BindAs  Bound  AnsweredBy
+Optional  Self  BindAs  Bound  AnsweredBy  AttackersOnly
 ```
+
+`AttackersOnly` narrows to the Active player's dice in the Attack Zone —
+the attackers, not the blockers standing beside them. `Ownership` can't
+say "attacker", since that is `Own` or `Opposing` depending on whose turn
+it is. Added 2026-09-27 for Dice Kingdom's Distraction.
 
 `Kind`: `AnyDie` · `CharacterDie` · `ActionDie` · `BasicActionDie` ·
 `Player` · `DieOrPlayer`.

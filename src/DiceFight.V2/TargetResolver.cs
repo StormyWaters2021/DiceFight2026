@@ -107,6 +107,9 @@ public static class TargetResolver
             _ => dice,
         };
 
+        if (filter.AttackersOnly)
+            dice = dice.Where(d => d.Zone == Zone.AttackZone && d.ControllerId == state.ActivePlayerId);
+
         if (filter.Kind == TargetKind.CharacterDie)
             dice = dice.Where(d => FaceOf(d)?.Character is not null);
         else if (filter.Kind == TargetKind.ActionDie)

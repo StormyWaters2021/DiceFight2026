@@ -518,7 +518,7 @@ public static class DiceKingdomConfig
                 new CombatFlag(new TargetFilter(Kind: TargetKind.CharacterDie, Ownership: TargetOwnership.Opposing,
                     Zones: [Zone.FieldZone], Count: 2, AnsweredBy: TargetOwnership.Opposing), CombatFlagKind.CantBlock)),
             new TriggeredAbility(TriggerKind.Global,
-                new MoveDie(new TargetFilter(Kind: TargetKind.CharacterDie, Zones: [Zone.AttackZone]), Zone.FieldZone),
+                new MoveDie(new TargetFilter(Kind: TargetKind.CharacterDie, Zones: [Zone.AttackZone], AttackersOnly: true), Zone.FieldZone),
                 EnergyCost: new EnergyCost(1, "Shell")),
         ],
         Continuous: []);
