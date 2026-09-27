@@ -3195,3 +3195,19 @@ reported case plus three others against the real function.
   - The other actions and Globals got prompts too ("choose a creature to
     get +3A and Overcrush this turn", "choose an attacker to send back to
     its Field Zone", ...).
+
+## Great Horned Owl: Foresight replaces the purchase discount (2026-09-27)
+
+Playtest: "characters cost 1 less" was "probably too much". User picked
+**Foresight**: once per turn, in your Main Step (with priority), reroll one
+die in your Reserve Pool. Fits Eye (control/insight).
+
+- New `ChampionPassiveKind.Foresight`. It's an action, not a modifier, so
+  ChampionRegistry registers nothing.
+- `TurnEngine.UseForesight` handles it, tracked in
+  `GameState.ForesightUsedThisTurn` (cleared at Clear and Draw).
+- New `foresight` endpoint; `V2PlayerDto.ForesightAvailable`.
+- Mobile: while it's available, every Reserve die is tappable and offers
+  "Foresight: reroll this die". Desktop has no UI for it yet; the
+  computer opponent doesn't use it.
+- `PurchaseCostDiscount` stays in the engine, just unused by any Champion.

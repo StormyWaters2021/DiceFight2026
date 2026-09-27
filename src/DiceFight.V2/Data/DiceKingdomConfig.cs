@@ -666,7 +666,9 @@ public static class DiceKingdomConfig
         {
             TardigradePool = [new BasicDicePoolEntry(TardigradeDie("Wing"), Count: 8)],
         },
-        new("GreatHornedOwl", "Great Horned Owl", "Eye", ChampionPassiveKind.PurchaseCostDiscount, Amount: 1)
+        // Foresight replaced a -1 purchase discount (2026-09-27 playtest:
+        // "probably too much").
+        new("GreatHornedOwl", "Great Horned Owl", "Eye", ChampionPassiveKind.Foresight, Amount: 1)
         {
             TardigradePool = [new BasicDicePoolEntry(TardigradeDie("Eye"), Count: 8)],
         },

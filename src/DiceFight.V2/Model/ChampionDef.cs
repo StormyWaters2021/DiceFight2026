@@ -25,6 +25,11 @@ public enum ChampionPassiveKind
     DefenseBuff,
     FieldingCostDiscount,
     PurchaseCostDiscount,
+    // Once per turn, reroll one die in your Reserve Pool (Great Horned
+    // Owl, 2026-09-27 - replaced its purchase discount, which played as
+    // too strong). An action the player takes (TurnEngine.UseForesight),
+    // not a modifier, so ChampionRegistry registers nothing for it.
+    Foresight,
 }
 
 public sealed record ChampionDef(

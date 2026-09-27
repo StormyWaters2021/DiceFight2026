@@ -210,6 +210,9 @@ public sealed class GameState
     // SkipAttackWhenMainEnds carries the active player's attack/no-attack
     // choice (rule 2.6.7.1(3)) from their pass to the moment Main ends.
     public string? PriorityPlayerId { get; set; }
+    // Players who've used their Champion's Foresight this turn
+    // (TurnEngine.UseForesight); cleared at Clear and Draw.
+    public HashSet<string> ForesightUsedThisTurn { get; } = [];
     public string? PriorityWindowStepId { get; set; }
     public bool SkipAttackWhenMainEnds { get; set; }
     // Whether the Inactive player has used a Global in this window - an

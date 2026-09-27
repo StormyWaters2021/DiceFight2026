@@ -89,6 +89,8 @@ export interface PlayerState {
   name: string;
   life: number;
   champion: Champion | null;
+  /** Great Horned Owl's Foresight is theirs and unused this turn. */
+  foresightAvailable?: boolean;
 }
 
 export interface PendingChoice {

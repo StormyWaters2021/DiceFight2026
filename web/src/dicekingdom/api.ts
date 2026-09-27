@@ -73,6 +73,9 @@ function makeClient(tokenOverride?: string | null) {
       request<GameState>(`/${id}/assign-combat-damage`, { method: "POST", body: JSON.stringify({ assignments }) }, tokenOverride),
     // Pass priority - the Inactive player's "no Global" (Priority.cs).
     pass: (id: string) => request<GameState>(`/${id}/pass`, { method: "POST" }, tokenOverride),
+    // Great Horned Owl: reroll one Reserve Pool die, once per turn.
+    foresight: (id: string, dieId: string) =>
+      request<GameState>(`/${id}/foresight`, { method: "POST", body: JSON.stringify({ dieId }) }, tokenOverride),
     useAction: (id: string, dieId: string) =>
       request<GameState>(`/${id}/use-action`, { method: "POST", body: JSON.stringify({ dieId }) }, tokenOverride),
     useGlobal: (id: string, cardId: string, abilityIndex: number, energyDieIds: string[]) =>

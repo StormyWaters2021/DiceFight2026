@@ -53,6 +53,7 @@ public static class TurnEngine
         // ending).
         state.LogEvent(state.ActivePlayerId, $"{state.NameOf(state.ActivePlayerId)}'s turn", isTurnStart: true);
         state.GlobalsUsedThisTurn.Clear();
+        state.ForesightUsedThisTurn.Clear();
         state.PurchasedThisTurn.Clear();
         state.FieldedCharacterThisTurn.Clear();
         state.CharacterDiceKOdThisTurn.Clear();
@@ -260,6 +261,34 @@ public static class TurnEngine
     // to Main" - the zero-dice-selected path through rule 2.4.3/2.4.4,
     // kept as its own call (rather than requiring RerollOwn(..., [])) to
     // match the two distinct buttons the client shows.
+    // Great Horned Owl's Foresight: once per turn, during your Main Step,
+    // reroll one die in your Reserve Pool.
+    public static bool HasForesight(GameState state, string playerId) =>
+        state.GetPlayer(playerId).ChampionId is { } championId
+        && state.Config.Champions.FirstOrDefault(c => c.Id == championId)?.PassiveKind == ChampionPassiveKind.Foresight;
+
+    public static void UseForesight(GameState state, AbilityQueue queue, IDiceRoller roller, string playerId, string dieId)
+    {
+        RequireStep(state, TurnStep.Main);
+        if (playerId != state.ActivePlayerId)
+            throw new InvalidOperationException("Foresight can only be used on your own turn.");
+        if (!HasForesight(state, playerId))
+            throw new InvalidOperationException("Your Champion doesn't have Foresight.");
+        if (state.ForesightUsedThisTurn.Contains(playerId))
+            throw new InvalidOperationException("Foresight has already been used this turn.");
+        var die = FindDie(state, dieId);
+        if (die.ControllerId != playerId || die.Zone != Zone.ReservePool || state.GetCurrentFace(die) is not { } priorFace)
+            throw new InvalidOperationException("Foresight rerolls one of your own rolled Reserve Pool dice.");
+
+        var definition = state.GetDieDefinition(die);
+        die.CurrentFaceIndex = roller.Roll(definition);
+        var newFace = definition.Faces[die.CurrentFaceIndex.Value];
+        state.ForesightUsedThisTurn.Add(playerId);
+        state.LogEvent(playerId, $"{state.NameOf(playerId)} uses Foresight to reroll {(die.CardId is { } c ? state.CardCatalog[c].Name : "a Tardigrade")}.");
+        EventBus.Fire(state, queue, new GameEvent(TriggerKind.DieFaceChanged, die, die.ControllerId, state.CurrentStepId,
+            new DieFaceChangedPayload(priorFace, newFace, FaceChangeCause.Reroll)));
+    }
+
     public static void FinishRoll(GameState state, AbilityQueue queue)
     {
         RequireStep(state, TurnStep.RollAndReroll);

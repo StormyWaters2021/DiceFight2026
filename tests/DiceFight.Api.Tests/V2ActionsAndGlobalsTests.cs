@@ -250,12 +250,32 @@ public class V2ActionsAndGlobalsTests
         var creature = CharacterAtCost(eagleGame.State, "teamA", 1);
         Assert.Equal(0, V2SeatedController.Dto(eagle.Get(eagleGame.Id)).Dice.Single(d => d.Id == creature.Id).FieldingCost);
 
-        // Great Horned Owl: -1 purchase, for the Owl player only.
-        var (owlGame, owl, wolf) = StartInMainAs("GreatHornedOwl", "Wolf");
+        // Purchase costs come through per player too - at printed price now
+        // that Owl's purchase discount is gone (replaced by Foresight).
+        var (owlGame, owl, _) = StartInMainAs("GreatHornedOwl", "Wolf");
         var anyCard = owlGame.State.PlayerOne.TeamCardIds[0];
-        var printed = owlGame.State.CardCatalog[anyCard].PurchaseCost;
-        Assert.Equal(printed - 1, V2SeatedController.Dto(owl.Get(owlGame.Id)).PurchaseCosts![anyCard]);
-        Assert.Equal(printed, V2SeatedController.Dto(wolf.Get(owlGame.Id)).PurchaseCosts![anyCard]);
+        Assert.Equal(owlGame.State.CardCatalog[anyCard].PurchaseCost, V2SeatedController.Dto(owl.Get(owlGame.Id)).PurchaseCosts![anyCard]);
+    }
+
+    // Great Horned Owl's Foresight (2026-09-27): once per turn, in Main,
+    // reroll one die in your Reserve Pool.
+    [Fact]
+    public void Foresight_Rerolls_One_Reserve_Die_Once_Per_Turn()
+    {
+        var (session, owl, wolf) = StartInMainAs("GreatHornedOwl", "Wolf");
+        var state = session.State;
+        var first = Tardigrade(state, "teamA", Zone.ReservePool, 0);
+        var second = Tardigrade(state, "teamA", Zone.ReservePool, 0);
+        Assert.True(V2SeatedController.Dto(owl.Get(session.Id)).PlayerOne.ForesightAvailable);
+        Assert.False(V2SeatedController.Dto(owl.Get(session.Id)).PlayerTwo.ForesightAvailable); // Wolf has no Foresight
+
+        var dto = V2SeatedController.Dto(owl.Foresight(session.Id, new V2UseActionRequest(first.Id)));
+
+        Assert.False(dto.PlayerOne.ForesightAvailable);
+        Assert.Contains(dto.Log, l => l.Text == "Great Horned Owl uses Foresight to reroll a Tardigrade.");
+        Assert.NotNull(first.CurrentFaceIndex);
+        Assert.Throws<InvalidOperationException>(() => owl.Foresight(session.Id, new V2UseActionRequest(second.Id)));
+        Assert.Throws<NotYourTurnException>(() => wolf.Foresight(session.Id, new V2UseActionRequest(second.Id)));
     }
 
     // Direct feedback (2026-09-27): Resurrection's Global "did not work" -

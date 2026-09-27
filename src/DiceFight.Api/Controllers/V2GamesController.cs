@@ -189,6 +189,17 @@ public sealed class V2GamesController(V2GameStore store) : ControllerBase
         return Ok(Result(gameId, state));
     }
 
+    [HttpPost("{gameId}/foresight")]
+    public ActionResult<V2GameStateDto> Foresight(string gameId, [FromBody] V2UseActionRequest request)
+    {
+        var state = RequireTurn(gameId, V2Actor.Active);
+        Priority.RequireHolder(state, state.ActivePlayerId);
+        var queue = new AbilityQueue();
+        TurnEngine.UseForesight(state, queue, new DiceFight.V2.RandomDiceRoller(new Random()), state.ActivePlayerId, request.DieId);
+        Drain(state, queue);
+        return Ok(Result(gameId, state));
+    }
+
     [HttpPost("{gameId}/use-action")]
     public ActionResult<V2GameStateDto> UseAction(string gameId, [FromBody] V2UseActionRequest request)
     {

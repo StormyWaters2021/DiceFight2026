@@ -971,8 +971,11 @@ function BuyCard({
   onSelect,
   onOpenRoster,
   purchaseCostOf,
+  foresightReady = false,
 }: {
   purchaseCostOf: (cardId: string) => number;
+  /** Foresight can be used right now - any Reserve die can be tapped for it. */
+  foresightReady?: boolean;
   unpurchasedByCard: Map<string, Die[]>;
   cardsById: Map<string, CardDef>;
   reserve: Die[];
@@ -1047,7 +1050,7 @@ function BuyCard({
         {rolledReserve.length === 0 && <span className="dkm-empty-hint">Nothing rolled yet.</span>}
         {rolledReserve.map((d) => {
           // A creature face to field, or an action face to use.
-          const fieldable = d.effectiveAttack !== null || !!d.isActionFace;
+          const fieldable = d.effectiveAttack !== null || !!d.isActionFace || foresightReady;
           return (
             <DTile
               key={d.id}
@@ -2322,6 +2325,9 @@ export function DiceKingdomMobilePage() {
   // whoever holds priority may act - the active player freely, the other
   // player once (then it's back to the active player).
   const havePriority = game.priorityPlayerId === you;
+  // Great Horned Owl's Foresight: your Main Step, with priority, once per turn.
+  const foresightReady =
+    !!youPlayer.foresightAvailable && isYourTurn && step === "main" && havePriority && !game.pendingChoice;
   const actionsBlocked: string | null = game.pendingChoice
     ? "Finish the current choice first"
     : !isYourTurn
@@ -2383,6 +2389,15 @@ export function DiceKingdomMobilePage() {
           if (ids === null) return;
           if (amount === 0 || noChoice) run(() => api.field(game.gameId, selectedDie.id, amount === 0 ? [] : spendable.map((d) => d.id)));
           else setPayingFieldId(selectedDie.id);
+        },
+      });
+    }
+    if (selectedDie.zone === "ReservePool" && selectedDie.controllerId === you && foresightReady) {
+      inspectActions.push({
+        label: "Foresight: reroll this die",
+        run: () => {
+          setSelectedId(null);
+          run(() => api.foresight(game.gameId, selectedDie.id));
         },
       });
     }
@@ -2704,6 +2719,7 @@ export function DiceKingdomMobilePage() {
               onSelect={toggleSelect}
               onOpenRoster={() => setRosterViewFor(you)}
               purchaseCostOf={purchaseCostOf}
+              foresightReady={foresightReady}
             />
           )}
           {phase === "attack" && (

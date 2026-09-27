@@ -142,17 +142,21 @@ public sealed record ChampionDto(string Id, string Name, string EnergySymbolId, 
         ChampionPassiveKind.DefenseBuff => $"+{c.Amount} DEF to all your dice",
         ChampionPassiveKind.FieldingCostDiscount => $"Your dice cost {c.Amount} less to field (min 0)",
         ChampionPassiveKind.PurchaseCostDiscount => $"Your Character purchases cost {c.Amount} less (min 1)",
+        ChampionPassiveKind.Foresight => "Foresight: once per turn, in your Main Step, reroll one die in your Reserve Pool",
         _ => "",
     };
 }
 
-public sealed record V2PlayerDto(string Id, string Name, int Life, ChampionDto? Champion)
+// ForesightAvailable: this player's Champion has Foresight and it's still
+// unused this turn (TurnEngine.UseForesight) - the client offers it then.
+public sealed record V2PlayerDto(string Id, string Name, int Life, ChampionDto? Champion, bool ForesightAvailable = false)
 {
     public static V2PlayerDto From(GameState state, Player player) => new(
         player.Id, player.Name, player.Life,
         state.Config.Champions.FirstOrDefault(c => c.Id == player.ChampionId) is { } champion
             ? ChampionDto.From(champion)
-            : null);
+            : null,
+        TurnEngine.HasForesight(state, player.Id) && !state.ForesightUsedThisTurn.Contains(player.Id));
 }
 
 public sealed record V2PendingChoiceDto(
