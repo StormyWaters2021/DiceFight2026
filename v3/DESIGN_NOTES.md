@@ -3211,3 +3211,40 @@ die in your Reserve Pool. Fits Eye (control/insight).
   "Foresight: reroll this die". Desktop has no UI for it yet; the
   computer opponent doesn't use it.
 - `PurchaseCostDiscount` stays in the engine, just unused by any Champion.
+
+## Roster ATK/DEF rebalanced - the split, not the Homash formula (2026-09-27)
+
+Playtest feedback: "the vast majority of the characters seem to have only
+1 or 2 attack, while it seems most of them have 4D or higher... the
+elephant has a 12D, which doesn't exist in Dice Masters."
+
+Checked against the ~3,200 three-level Characters in the bulk card
+catalog: real Dice Masters averages 3.7 ATK / 4.0 DEF per level (ratio
+1.07, max DEF 10 anywhere in the catalog). The 2026-09-21 Homash
+recalibration (115b2dd) had pushed Dice Kingdom to 1.8 ATK / 5.8 DEF
+(ratio 3.3) - half the roster at 1 ATK or less, Elephant's L3 at 12 DEF.
+**The formula was fine; the ATK/DEF split inside each level's fixed total
+was the bug** - Homash only ever reads `sum(ATK + DEF)` per level, never
+how it's divided, so nothing about the totals, the purchase costs, the
+fielding costs, or the bands in COST_MODEL.md needed to change.
+
+Fix, applied to all 35 Characters in `DiceKingdomConfig.cs`: for each
+level, keep the exact same ATK+DEF total and re-split it roughly evenly,
+then nudge 1 point toward the Champion pairing's own lean (the
+"symbiotic pairing" from the roster-mixing note: Claw+Wing lean 1 point
+toward ATK, Shell+Eye lean 1 point toward DEF), stopping short of ATK
+going negative or DEF hitting 0. Elephant's L3 is now 7A/10D (was
+5A/12D); Honey Badger's L1 is now 1A/1D (was 0A/2D).
+
+Because only the split changed: `DiceKingdomCostModelTests` (Homash
+bands) passed unchanged, no new test needed there. `COST_MODEL.md`'s
+roster table regenerated from the new data (same Homash column, new
+field/ATK/DEF column) with a note on the fix. One existing test broke
+for a real reason - `CapeBuffalo_Aura_Boosts_Its_Teams_Attack_While_Active`
+hardcoded Honey Badger's base ATK (was 0, now 1) - updated its expected
+total accordingly. Checked live: `/api/v2/games/cards` and the mobile
+roster sheet both show the new numbers (confirmed Elephant, Honey Badger,
+Hippopotamus, and the whole Owl roster against the regenerated table).
+336 V2 + 29 Api tests pass; `tsc -b`/`vite build` clean (no frontend
+change needed - stats are never hardcoded client-side, always read live
+from the card DTO).

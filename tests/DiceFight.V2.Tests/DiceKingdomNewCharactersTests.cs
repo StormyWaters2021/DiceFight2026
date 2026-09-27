@@ -152,10 +152,11 @@ public class DiceKingdomNewCharactersTests
         TurnEngine.Field(state, queue, honeyBadger.Id, [energyIds[1]]);
         Drain(state, queue);
 
-        // base 0 ATK + Cape Buffalo's own +1 aura + Wolf's own Champion
-        // passive (+1 ATK to all your dice, ChampionRegistry) - both
-        // apply to every one of p1's dice, this one included.
-        Assert.Equal(2, QueryEngine.GetAttack(state, honeyBadger));
+        // base 1 ATK (rebalanced 2026-09-27, was 0) + Cape Buffalo's own +1
+        // aura + Wolf's own Champion passive (+1 ATK to all your dice,
+        // ChampionRegistry) - both apply to every one of p1's dice, this
+        // one included.
+        Assert.Equal(3, QueryEngine.GetAttack(state, honeyBadger));
     }
 
     // The actual point of the whole 2026-09-07 face-layout change: a
