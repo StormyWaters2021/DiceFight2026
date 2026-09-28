@@ -360,4 +360,46 @@ public class DiceKingdomNewCharactersTests
         // correctly excluded.
         Assert.Equal(lifeBefore - 4, state.PlayerTwo.Life);
     }
+
+    // Proves CountUnit.EnergySymbols really SUMS pips shown across every
+    // matching die, not just the die COUNT - the whole point of "Lantern
+    // Ring"-style scaling (Model/Effects/EffectNode.cs's own GrantAbility
+    // remarks). Dice are built directly on specific faces (rather than
+    // via TardigradeEnergy, which always lands on the 2-pip L1 face) so
+    // the fielding-cost payer is an EXACT match for Phoenix's cost (1) -
+    // SpendEnergy only spins a die down to a lower face on an OVERSPEND
+    // (rule 2.6.1.4), and an exact match is fully consumed instead, so
+    // there's no ambiguity about whether that same die also lingers in
+    // the Reserve Pool to be double-counted by its own trigger.
+    [Fact]
+    public void Phoenix_Deals_Damage_Equal_To_Every_Energy_Symbol_Left_In_The_Reserve_Pool_When_Fielded()
+    {
+        var state = NewGame(); // p1 = Wolf, p2 = Armadillo - the ability itself doesn't care which Champion fields it
+        var queue = new AbilityQueue();
+
+        var twoL1Dice = TardigradeEnergy(state, "p1", "Claw", 2); // two dice on the 2-pip L1 face = 4 pips
+        var extraPip = new DieInstance
+        {
+            Id = "p1-extra-pip", PoolDieId = "TardigradeClaw", OwnerId = "p1",
+            ControllerId = "p1", Zone = Zone.ReservePool, CurrentFaceIndex = 2, // L2, 1 pip
+        };
+        state.Dice.Add(extraPip);
+        var fieldingPayer = new DieInstance
+        {
+            Id = "p1-fielding-payer", PoolDieId = "TardigradeClaw", OwnerId = "p1",
+            ControllerId = "p1", Zone = Zone.ReservePool, CurrentFaceIndex = 3, // L2, 1 pip - exact match for cost 1
+        };
+        state.Dice.Add(fieldingPayer);
+
+        var phoenix = ReadyCharacter(state, DiceKingdomConfig.Phoenix.Id, "p1"); // fielding cost 1 at level 1
+
+        var lifeBefore = state.PlayerTwo.Life;
+        TurnEngine.Field(state, queue, phoenix.Id, [fieldingPayer.Id]);
+        Drain(state, queue);
+
+        Assert.Equal(Zone.OutOfPlay, state.Dice.Single(d => d.Id == fieldingPayer.Id).Zone); // spent in full, not spun down (and so no longer in the Reserve Pool at all)
+        // 4 (the two L1 dice) + 1 (extraPip's L2 face) = 5 pips still
+        // sitting in the Reserve Pool once fieldingPayer has left it.
+        Assert.Equal(lifeBefore - 5, state.PlayerTwo.Life);
+    }
 }

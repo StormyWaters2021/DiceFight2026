@@ -372,14 +372,35 @@ public static class DiceKingdomConfig
         Abilities: [],
         Continuous: []);
 
-    public static readonly CardDef Albatross = new(
-        Id: "DK-WING-08", Name: "Albatross", Subtitle: null, Set: "Dice Kingdom", CardType: CardType.Character,
-        PurchaseCost: 5, EnergySymbolIds: ["Wing"],
-        Die: CharacterDie("DK-WING-08Die", energyType: "Wing", (1, 3, 3), (1, 4, 5), (2, 5, 6)),
+    // Finisher (2026-09-29, user request - "like Lantern Ring/Green
+    // Lantern"): a burst that scales with banked resources rather than
+    // board stats, matching GrantAbility's own motivating example in
+    // Model/Effects/EffectNode.cs ("that die gains: deal 1 damage to
+    // target player for each matching energy in your Reserve Pool").
+    // Simplified from that quote in one deliberate way: this counts EVERY
+    // energy symbol in the Reserve Pool, not just Wing-matching ones - a
+    // Tardigrade die (PoolDieId, no CardId) carries no card-derived
+    // EnergySymbolId tag at all (CardDef.cs's own tag-unification
+    // remarks), so a Tags:AnyOf:["Wing"] filter would silently miss every
+    // Tardigrade sitting in reserve, which is most of a Wing team's own
+    // banked energy. Counting all of it plays true to the archetype
+    // anyway - Golden Eagle's own FieldingCostDiscount passive means a
+    // Wing team banks reserve energy faster than most, so "hoard instead
+    // of spending it all" is a real tension this rewards. No GrantAbility
+    // indirection needed either - nothing else needs to inherit this
+    // text, so the card just carries the ability itself. Replaces
+    // Albatross as Golden Eagle's own-energy "power" slot (was 5-cost).
+    public static readonly CardDef Phoenix = new(
+        Id: "DK-WING-08", Name: "Phoenix", Subtitle: null, Set: "Dice Kingdom", CardType: CardType.Character,
+        PurchaseCost: 6, EnergySymbolIds: ["Wing"],
+        Die: CharacterDie("DK-WING-08Die", energyType: "Wing", (1, 3, 4), (2, 4, 5), (2, 6, 6)),
         DieLimit: 4, Affiliations: [], Keywords: ["On Field"],
-        RawText: "On Field: deal 2 damage to a target creature.",
+        RawText: "On Field: deal 1 damage to the opponent for each energy symbol in your Reserve Pool.",
         Abilities: [new TriggeredAbility(TriggerKind.DieFielded,
-            new DealDamage(new Fixed(2), new TargetFilter(Kind: TargetKind.CharacterDie)))],
+            new DealDamage(
+                new PerMatch(new TargetFilter(Kind: TargetKind.AnyDie, Ownership: TargetOwnership.Own, Zones: [Zone.ReservePool]),
+                    Multiplier: 1, Unit: CountUnit.EnergySymbols),
+                new TargetFilter(Kind: TargetKind.Player, Ownership: TargetOwnership.Opposing)))],
         Continuous: []);
 
     // 2026-09-12 addition - Wing had no natural 2-cost pick among the
@@ -647,7 +668,7 @@ public static class DiceKingdomConfig
     {
         HoneyBadger, Wolverine, GrizzlyBear, Orca, PeregrineFalcon, Silverback, Stoat, CapeBuffalo, Mongoose,
         Hippopotamus, MuskOx, Pangolin, HermitCrab, Opossum, QueenTermite, Rhinoceros, BoxTurtle,
-        Osprey, BarnSwallow, Hummingbird, MountainGoat, MonarchButterfly, HomingPigeon, Greyhound, Albatross, Swift,
+        Osprey, BarnSwallow, Hummingbird, MountainGoat, MonarchButterfly, HomingPigeon, Greyhound, Phoenix, Swift,
         BarnOwl, Hyena, Anglerfish, Cowbird, Magpie, Basilisk, Elephant, Fox, Cuttlefish,
         AngerIssues, Distraction, Resurrection, Mutation,
     }.ToDictionary(c => c.Id);
@@ -689,8 +710,11 @@ public static class DiceKingdomConfig
         // Own 2/3/mid/power: HermitCrab(2)/Pangolin(3)/MuskOx(4)/Rhinoceros(6).
         // SnappingTurtle (was the 5-cost power slot) replaced 2026-09-28.
         ["Armadillo"] = [HermitCrab.Id, Pangolin.Id, MuskOx.Id, Rhinoceros.Id, Fox.Id, Cowbird.Id, CapeBuffalo.Id, Hummingbird.Id],
-        // Own 2/3/mid/power: Swift(2)/BarnSwallow(3)/Osprey(4)/Albatross(5).
-        ["GoldenEagle"] = [Swift.Id, BarnSwallow.Id, Osprey.Id, Albatross.Id, GrizzlyBear.Id, PeregrineFalcon.Id, BoxTurtle.Id, BarnOwl.Id],
+        // Own 2/3/mid/power: Swift(2)/BarnSwallow(3)/Osprey(4)/Phoenix(6).
+        // Albatross (was the 5-cost power slot) replaced 2026-09-29 by
+        // Phoenix, a genuine finisher tier, same treatment the other
+        // three Champions' power slots already got 2026-09-28.
+        ["GoldenEagle"] = [Swift.Id, BarnSwallow.Id, Osprey.Id, Phoenix.Id, GrizzlyBear.Id, PeregrineFalcon.Id, BoxTurtle.Id, BarnOwl.Id],
         // Own 2/3/mid/power: Cuttlefish(2)/Magpie(3)/Hyena(4)/Basilisk(7).
         // Raven (was the 5-cost power slot, despite what this comment used
         // to claim - it was never actually 7) replaced 2026-09-28.
