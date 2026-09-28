@@ -31,6 +31,25 @@ public static class BotEnergy
     private static double KeepValue(GameState state, DieInstance die) =>
         state.GetCurrentFace(die)?.Character is { } c ? 0.5 + 0.5 * (c.Attack + c.Defense) / 2.0 : 0;
 
+    // With `virtualEnergy` (deck-out, GameState.VirtualEnergy) to spend
+    // too: TurnEngine.SpendEnergy uses it automatically, before any die, so
+    // this picks dice for whatever is left - using as much Virtual as the
+    // type requirement allows (generic energy can't satisfy a type, so at
+    // least one pip must still come from a die). Returns the dice and how
+    // much Virtual that plan leaves spent.
+    public static (IReadOnlyList<string> Dice, int VirtualUsed)? PickWithVirtual(
+        GameState state, IReadOnlyList<DieInstance> pool, int cost, string? requiredSymbolId, int virtualEnergy)
+    {
+        if (cost <= 0) return ([], 0);
+        var maxVirtual = Math.Min(virtualEnergy, requiredSymbolId is null ? cost : cost - 1);
+        for (var v = maxVirtual; v >= 0; v--)
+        {
+            if (cost - v == 0) return ([], v);
+            if (Pick(state, pool, cost - v, requiredSymbolId) is { } dice) return (dice, v);
+        }
+        return null;
+    }
+
     public static IReadOnlyList<string>? Pick(GameState state, IReadOnlyList<DieInstance> pool, int cost, string? requiredSymbolId)
     {
         if (cost <= 0) return [];

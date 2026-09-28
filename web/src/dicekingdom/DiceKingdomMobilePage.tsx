@@ -16,7 +16,7 @@ import { DieCube, type CubeSpin } from "./DieCube";
 import { facesFor } from "./dieFaces";
 import { useDieFlights, usePhaseHeight } from "./dieFlights";
 import { useDiceRoll, type RollTarget } from "./useDiceRoll";
-import { botDecisionCall, decisionOwner, pickEnergy } from "./bot";
+import { actionCardsInGame, activeCouldAct, botDecisionCall, decisionOwner, pickEnergy } from "./bot";
 import type { BotDecision, CardDef, Die, GameState, GlobalAbility, PendingChoice, PlayerState, StatModifier } from "./types";
 
 // Dice Kingdom - mobile refresh (2026-09). A GENUINELY SEPARATE front end
@@ -203,27 +203,12 @@ function blockAssignmentsToApi(assignments: Record<string, string[]>): { attacke
 // spent just counts toward the total amount, of ANY type at all. A
 // Claw-heavy reserve can absolutely buy a Wing card, one Wild pip plus
 // spare Claim for the rest, same as the physical game.
-function pickEnergyForCost(reserve: Die[], cost: number, matchType: string | null): string[] | null {
+// `virtualEnergy`: the payer's deck-out generic energy (bot.ts pickEnergy).
+function pickEnergyForCost(reserve: Die[], cost: number, matchType: string | null, virtualEnergy = 0): string[] | null {
   // Shared with the bot - see bot.ts pickEnergy for how the leftover die is chosen.
-  return pickEnergy(reserve, cost, matchType);
+  return pickEnergy(reserve, cost, matchType, virtualEnergy);
 }
 
-// Every Basic Action card in this game (one per Champion) - read off the
-// dice, since the state carries no roster list.
-function actionCardsInGame(game: GameState, cardsById: Map<string, CardDef>): CardDef[] {
-  const ids = new Set(game.dice.map((d) => d.cardId).filter((id): id is string => !!id && !!cardsById.get(id)?.isAction));
-  return [...ids].map((id) => cardsById.get(id)!).filter((c) => c.global);
-}
-
-// Could the active player still do something in the action window - use
-// an action die or afford a Global? If not, their pass is automatic when
-// nothing was blocked (the server then auto-passes the other player too
-// if THEY can't do anything - Priority.cs).
-function activeCouldAct(game: GameState, cardsById: Map<string, CardDef>): boolean {
-  const reserve = game.dice.filter((d) => d.controllerId === game.activePlayerId && d.zone === "ReservePool");
-  if (reserve.some((d) => d.isActionFace)) return true;
-  return actionCardsInGame(game, cardsById).some((c) => pickEnergyForCost(reserve, c.global!.cost, c.global!.energyType) !== null);
-}
 
 interface ChainStep {
   label: string;
@@ -517,15 +502,25 @@ function FacedownTile({ die, size }: { die: Die; size: number }) {
   );
 }
 
-function EnergyChips({ dice, size = 16 }: { dice: Die[]; size?: number }) {
+// `generic`: the player's deck-out Virtual energy (PlayerState.virtualEnergy)
+// - shown as plain generic energy rather than as its own marker (user call,
+// 2026-09-28: it's spent first and can't spin down anyway, so telling it
+// apart would only be clutter).
+function EnergyChips({ dice, size = 16, generic = 0 }: { dice: Die[]; size?: number; generic?: number }) {
   const totals = new Map<string, number>();
   for (const d of dice) {
     if (!d.energySymbolId || d.energyAmount <= 0) continue;
     totals.set(d.energySymbolId, (totals.get(d.energySymbolId) ?? 0) + d.energyAmount);
   }
-  if (totals.size === 0) return <span className="dkm-reserve-empty">reserve empty</span>;
+  if (totals.size === 0 && generic <= 0) return <span className="dkm-reserve-empty">reserve empty</span>;
   return (
     <div className="dkm-energy-chips">
+      {generic > 0 && (
+        <span className="dkm-energy-chip" style={{ borderColor: "var(--generic, #b8ae9c)" }} title="Generic energy - usable for any cost, not a type">
+          <b style={{ color: "var(--generic, #b8ae9c)" }}>{generic}</b>
+          <small>generic</small>
+        </span>
+      )}
       {[...totals.entries()].map(([type, amount]) => (
         <span key={type} className="dkm-energy-chip" style={{ borderColor: `var(--${type.toLowerCase()})` }}>
           <EnergyBadge type={type} size={size} />
@@ -779,7 +774,7 @@ function MatCard({
           {player.life} <small>life</small>
         </span>
         <span className="dkm-reserve-anchor" data-pile={`${mine ? "mine" : "opp"}-reserve`}>
-          <EnergyChips dice={reserve} size={mine ? 16 : 15} />
+          <EnergyChips dice={reserve} size={mine ? 16 : 15} generic={player.virtualEnergy ?? 0} />
         </span>
         <span className="dkm-mat-head-actions">
           <button type="button" className="dkm-chip-btn" data-pile={`${mine ? "mine" : "opp"}-roster`} onClick={onOpenRoster}>
@@ -972,8 +967,11 @@ function BuyCard({
   onOpenRoster,
   purchaseCostOf,
   foresightReady = false,
+  virtualEnergy = 0,
 }: {
   purchaseCostOf: (cardId: string) => number;
+  /** Deck-out generic energy, spent automatically before any die. */
+  virtualEnergy?: number;
   /** Foresight can be used right now - any Reserve die can be tapped for it. */
   foresightReady?: boolean;
   unpurchasedByCard: Map<string, Die[]>;
@@ -1002,7 +1000,7 @@ function BuyCard({
   const costOf = purchaseCostOf;
   const canAfford = (cardId: string) => {
     const card = cardsById.get(cardId);
-    return pickEnergyForCost(reserve, costOf(cardId), card?.energyTypes[0] ?? null) !== null;
+    return pickEnergyForCost(reserve, costOf(cardId), card?.energyTypes[0] ?? null, virtualEnergy) !== null;
   };
   const entries = [...unpurchasedByCard.entries()];
   const affordableEntries = entries.filter(([id]) => canAfford(id)).sort(([a], [b]) => costOf(b) - costOf(a));
@@ -1359,9 +1357,12 @@ function RosterSheet({
   onBuy,
   onClose,
   purchaseCostOf,
+  virtualEnergy = 0,
 }: {
   title: string;
   purchaseCostOf: (cardId: string) => number;
+  /** Deck-out generic energy, spent automatically before any die. */
+  virtualEnergy?: number;
   cards: { card: CardDef | undefined; cardId: string; dieId: string; remaining: number }[];
   /** Only true for your OWN roster, during Main, on your turn - see the
    *  real bug this fixed (2026-09-16): every "Roster" button on the page
@@ -1400,7 +1401,7 @@ function RosterSheet({
         {cards.map(({ card, cardId, dieId, remaining }) => {
           const Avatar = CHARACTER_ICONS[cardId];
           const types = card?.energyTypes ?? [];
-          const affordable = canBuy && pickEnergyForCost(reserve, purchaseCostOf(cardId), types[0] ?? null) !== null;
+          const affordable = canBuy && pickEnergyForCost(reserve, purchaseCostOf(cardId), types[0] ?? null, virtualEnergy) !== null;
           const row = (
             <>
               <span className="dkm-roster-avatar">{Avatar ? <Avatar size={20} /> : <TardigradeIcon size={20} />}</span>
@@ -2293,6 +2294,8 @@ export function DiceKingdomMobilePage() {
   // whoever holds priority may act - the active player freely, the other
   // player once (then it's back to the active player).
   const havePriority = game.priorityPlayerId === you;
+  // Deck-out generic energy - the server spends it before any die.
+  const yourVirtual = youPlayer.virtualEnergy ?? 0;
   // Great Horned Owl's Foresight: your Main Step, with priority, once per turn.
   const foresightReady =
     !!youPlayer.foresightAvailable && isYourTurn && step === "main" && havePriority && !game.pendingChoice;
@@ -2314,7 +2317,7 @@ export function DiceKingdomMobilePage() {
         : "Main Step or the attack window only";
   const railGlobals: RailGlobal[] = actionCardsInGame(game, cardsById).map((card) => {
     const g = card.global!;
-    const affordable = pickEnergyForCost(yourReserve, g.cost, g.energyType) !== null;
+    const affordable = pickEnergyForCost(yourReserve, g.cost, g.energyType, yourVirtual) !== null;
     return {
       card,
       global: g,
@@ -2323,7 +2326,7 @@ export function DiceKingdomMobilePage() {
   });
   const readyActions = yourReserve.filter((d) => d.isActionFace);
   function useGlobal(rg: RailGlobal) {
-    const ids = pickEnergyForCost(yourReserve, rg.global.cost, rg.global.energyType);
+    const ids = pickEnergyForCost(yourReserve, rg.global.cost, rg.global.energyType, yourVirtual);
     if (ids === null) return;
     setSelectedId(null);
     run(() => api.useGlobal(game!.gameId, rg.card.id, rg.global.abilityIndex, ids));
@@ -2336,7 +2339,7 @@ export function DiceKingdomMobilePage() {
   if (selectedDie) {
     if (selectedDie.zone === "Unpurchased" && step === "main" && isYourTurn) {
       const { amount, matchType } = costFor(selectedDie);
-      const ids = pickEnergyForCost(yourReserve, amount, matchType);
+      const ids = pickEnergyForCost(yourReserve, amount, matchType, yourVirtual);
       inspectActions.push({
         label: ids === null ? "Can't afford" : `Purchase (${amount})`,
         run: () => {
@@ -2346,16 +2349,18 @@ export function DiceKingdomMobilePage() {
     }
     if (selectedDie.zone === "ReservePool" && rolled(selectedDie) && selectedDie.effectiveAttack !== null && step === "main" && isYourTurn) {
       const { amount, matchType } = costFor(selectedDie);
-      const ids = pickEnergyForCost(yourReserve, amount, matchType);
-      // Free (Tardigrade) or no real choice (every energy die is needed)
-      // pays itself; anything else asks which dice to spend.
+      const ids = pickEnergyForCost(yourReserve, amount, matchType, yourVirtual);
+      // Free (Tardigrade), covered by Virtual energy, or no real choice
+      // (every energy die is needed) pays itself; anything else asks which
+      // dice to spend.
       const spendable = yourReserve.filter((d) => d.energyAmount > 0 && d.id !== selectedDie.id);
       const noChoice = spendable.reduce((n, d) => n + d.energyAmount, 0) === amount;
       inspectActions.push({
         label: ids === null ? "Can't afford" : "Field this creature",
         run: () => {
           if (ids === null) return;
-          if (amount === 0 || noChoice) run(() => api.field(game.gameId, selectedDie.id, amount === 0 ? [] : spendable.map((d) => d.id)));
+          if (amount === 0 || ids.length === 0) run(() => api.field(game.gameId, selectedDie.id, []));
+          else if (noChoice) run(() => api.field(game.gameId, selectedDie.id, spendable.map((d) => d.id)));
           else setPayingFieldId(selectedDie.id);
         },
       });
@@ -2688,6 +2693,7 @@ export function DiceKingdomMobilePage() {
               onOpenRoster={() => setRosterViewFor(you)}
               purchaseCostOf={purchaseCostOf}
               foresightReady={foresightReady}
+              virtualEnergy={yourVirtual}
             />
           )}
           {phase === "attack" && (
@@ -2898,7 +2904,8 @@ export function DiceKingdomMobilePage() {
         return (
           <PaymentSheet
             title={`Field ${nameOf(die, cardsById)}`}
-            cost={amount}
+            // Virtual energy pays first, server-side (fielding has no type).
+            cost={Math.max(0, amount - yourVirtual)}
             energyDice={yourReserve.filter((d) => d.energyAmount > 0 && d.id !== die.id)}
             cardsById={cardsById}
             onConfirm={(ids) => {
@@ -2932,6 +2939,7 @@ export function DiceKingdomMobilePage() {
           onBuy={toggleSelect}
           onClose={() => setRosterViewFor(null)}
           purchaseCostOf={purchaseCostOf}
+          virtualEnergy={yourVirtual}
         />
       )}
     </div>

@@ -120,6 +120,24 @@ public static class TurnEngine
             state.LogEvent(state.ActivePlayerId, $"{state.NameOf(state.ActivePlayerId)} draws {drawn.Count} {(drawn.Count == 1 ? "die" : "dice")}.");
         }
 
+        // Deck-out (user-supplied rule, 2026-09-28): each die short of the
+        // draw count - Bag and Used Pile both empty, i.e. too many dice
+        // fielded or out of play - costs 1 life and grants 1 generic
+        // Virtual energy for this Main Step (GameState.VirtualEnergy). A
+        // player who fields everything will eventually lose this way,
+        // which is the point: there's a reason to keep dice in the bag.
+        var shortfall = state.Config.Rules.DrawCount - drawn.Count;
+        state.VirtualEnergy.Remove(state.ActivePlayerId);
+        if (shortfall > 0)
+        {
+            var player = state.GetPlayer(state.ActivePlayerId);
+            player.Life -= shortfall;
+            state.VirtualEnergy[state.ActivePlayerId] = shortfall;
+            state.LogEvent(state.ActivePlayerId,
+                $"{state.NameOf(state.ActivePlayerId)} can't draw {shortfall} {(shortfall == 1 ? "die" : "dice")}: " +
+                $"takes {shortfall} damage and gains {shortfall} Virtual energy.");
+        }
+
         state.IsFirstTurn = false;
         state.MoveToStep(StepIds.RollAndReroll);
     }
@@ -345,7 +363,7 @@ public static class TurnEngine
             m.PlayerId == state.ActivePlayerId && (m.CardKind is null || m.CardKind == card.CardType));
         var cost = QueryEngine.GetPurchaseCost(state, card, state.ActivePlayerId);
         if (pending is not null) cost = Math.Max(1, cost + pending.Delta);
-        SpendEnergy(state, energyDice, cost, card.EnergySymbolIds);
+        SpendEnergy(state, energyDice, cost, card.EnergySymbolIds, payerId: state.ActivePlayerId);
 
         die.ControllerId = state.ActivePlayerId; // rule 1.1.4 - purchaser becomes controller
         die.Zone = pending?.GoesToZone ?? Zone.UsedPile;
@@ -379,7 +397,7 @@ public static class TurnEngine
 
         var energyDice = ResolveOwnReservePoolEnergy(state, energyDieIdsToSpend);
         var cost = QueryEngine.GetFieldingCost(state, die);
-        SpendEnergy(state, energyDice, cost, requiredSymbolIds: []);
+        SpendEnergy(state, energyDice, cost, requiredSymbolIds: [], payerId: state.ActivePlayerId);
 
         die.Zone = Zone.FieldZone;
         state.FieldedCharacterThisTurn.Add(die.ControllerId);
@@ -456,7 +474,8 @@ public static class TurnEngine
         // inactive player can use Globals at all.
         SpendEnergy(state, energyDice, cost,
             ability.EnergyCost?.RequiredSymbolId is { } required ? [required] : [],
-            playerId == state.ActivePlayerId ? Zone.OutOfPlay : Zone.UsedPile);
+            playerId == state.ActivePlayerId ? Zone.OutOfPlay : Zone.UsedPile,
+            payerId: playerId);
 
         if (ability.OncePerTurn) state.GlobalsUsedThisTurn.Add((playerId, cardId));
         state.LogEvent(playerId, $"{state.NameOf(playerId)} uses {card.Name}'s Global.");
@@ -517,6 +536,7 @@ public static class TurnEngine
         // energy stays in the Reserve Pool until the owner's next Clear
         // and Draw, and unused Action dice go at Clean Up instead.
         state.MoveToStep(StepIds.MainEnd);
+        state.VirtualEnergy.Remove(state.ActivePlayerId); // lasts only through Main (ClearAndDraw)
         foreach (var die in state.DiceIn(state.ActivePlayerId, Zone.ReservePool).ToList())
         {
             if (state.GetCurrentFace(die)?.Character is null) continue;
@@ -705,18 +725,54 @@ public static class TurnEngine
     // characters carry two or more (some carry all four), which is why
     // this takes a list rather than the single symbol it took until
     // 2026-08-24. Wild satisfies any requirement.
+    //
+    // `payerId`'s Virtual energy (deck-out, GameState.VirtualEnergy) is
+    // generic and spent automatically, before any die: it can't be kept
+    // past this Main Step, so there's never a reason to hold it. It can't
+    // satisfy a type requirement (it's generic), so the amount used is the
+    // most that still leaves the offered dice covering every required type,
+    // preferring whichever amount wastes the fewest pips - a client that
+    // doesn't know about Virtual energy and offers dice for the full cost
+    // still works, the surplus dice are simply left untouched.
     private static void SpendEnergy(
         GameState state, IReadOnlyList<DieInstance> energyDice, int amountNeeded,
-        IReadOnlyList<string> requiredSymbolIds, Zone spentZone = Zone.OutOfPlay)
+        IReadOnlyList<string> requiredSymbolIds, Zone spentZone = Zone.OutOfPlay, string? payerId = null)
+    {
+        var virtualAvailable = payerId is null ? 0 : Math.Min(state.VirtualEnergyOf(payerId), amountNeeded);
+        Exception? lastError = null;
+        (int Virtual, int Overspend)? best = null;
+        for (var v = virtualAvailable; v >= 0; v--)
+        {
+            try
+            {
+                var overspend = SpendDice(state, energyDice, amountNeeded - v, amountNeeded > 0, requiredSymbolIds, spentZone, dryRun: true);
+                if (best is null || overspend < best.Value.Overspend) best = (v, overspend);
+                if (overspend == 0) break;
+            }
+            catch (InvalidOperationException ex) { lastError ??= ex; }
+        }
+        if (best is not { } pick) throw lastError!;
+        SpendDice(state, energyDice, amountNeeded - pick.Virtual, amountNeeded > 0, requiredSymbolIds, spentZone, dryRun: false);
+        if (pick.Virtual > 0) state.VirtualEnergy[payerId!] = state.VirtualEnergyOf(payerId!) - pick.Virtual;
+    }
+
+    // The die half of SpendEnergy; returns the overspent pip count.
+    // `dryRun` validates without moving anything.
+    private static int SpendDice(
+        GameState state, IReadOnlyList<DieInstance> energyDice, int amountNeeded, bool typesApply,
+        IReadOnlyList<string> requiredSymbolIds, Zone spentZone, bool dryRun)
     {
         var wildIds = new HashSet<string>(state.Config.EnergySymbols.Where(s => s.IsWild).Select(s => s.Id));
         var genericIds = new HashSet<string>(state.Config.EnergySymbols.Where(s => s.IsGeneric).Select(s => s.Id));
 
-        // amountNeeded == 0 bypasses the type requirement too - a free
+        // A cost of 0 bypasses the type requirement too - a free
         // purchase/field has nothing for the type check to apply to.
         // Caught while designing the Phase 2 test, but a real latent bug
         // regardless (a discount can legitimately bring a cost to 0).
-        var unmatched = amountNeeded == 0 ? [] : new HashSet<string>(requiredSymbolIds);
+        // `typesApply` is about the ORIGINAL cost, not the dice's share of
+        // it: Virtual energy is generic, so it can shrink what the dice
+        // owe to 0 but never excuse them from covering the type.
+        var unmatched = !typesApply ? [] : new HashSet<string>(requiredSymbolIds);
         var wildPips = 0;
 
         // Rule 2.6.1.4 - stop consuming dice the instant the amount is
@@ -777,6 +833,7 @@ public static class TurnEngine
             throw new InvalidOperationException($"Offered energy doesn't include the required symbol(s) {string.Join(", ", unmatched)}.");
 
         var overspend = total - amountNeeded;
+        if (dryRun) return overspend;
         for (var i = 0; i < included.Count; i++)
         {
             var die = included[i];
@@ -784,6 +841,7 @@ public static class TurnEngine
             if (isPartial && TrySpinDown(state, die, overspend)) continue; // stays in place, showing the reduced face
             die.Zone = spentZone;
         }
+        return overspend;
     }
 
     // Rule 2.6.1.4 - a die spent for less than its printed face value

@@ -246,6 +246,7 @@ static class Stats
         {
             BotActionKind.Pass or BotActionKind.DeclareAttackers or BotActionKind.DeclareBlockers => "combat",
             BotActionKind.CleanUp => "end of turn (Basilisk)",
+            BotActionKind.ClearAndDraw => "opponent's deck-out",
             BotActionKind.UseAction or BotActionKind.UseGlobal => "actions/globals",
             _ => "main (On Field/Awaken/On Attack)",
         };

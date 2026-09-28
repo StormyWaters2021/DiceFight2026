@@ -91,6 +91,9 @@ export interface PlayerState {
   champion: Champion | null;
   /** Great Horned Owl's Foresight is theirs and unused this turn. */
   foresightAvailable?: boolean;
+  /** Generic energy from dice they couldn't draw this turn (deck-out) -
+   *  the server spends it automatically before any die; gone after Main. */
+  virtualEnergy?: number;
 }
 
 export interface PendingChoice {

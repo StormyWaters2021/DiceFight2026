@@ -102,7 +102,9 @@ public static class Priority
         var reserveFaces = state.DiceIn(playerId, Zone.ReservePool)
             .Select(d => state.GetCurrentFace(d)).OfType<Face>().ToList();
         var wildIds = state.Config.EnergySymbols.Where(s => s.IsWild).Select(s => s.Id).ToHashSet();
-        var totalPips = reserveFaces.Sum(f => f.Symbols.Sum(s => s.Count));
+        // Virtual energy (deck-out) counts toward the amount but, being
+        // generic, never toward a type requirement.
+        var totalPips = reserveFaces.Sum(f => f.Symbols.Sum(s => s.Count)) + state.VirtualEnergyOf(playerId);
 
         foreach (var cardId in state.PlayerOne.TeamCardIds.Concat(state.PlayerTwo.TeamCardIds).Distinct())
         {

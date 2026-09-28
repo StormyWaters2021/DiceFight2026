@@ -6,7 +6,7 @@
 // from the simulator's). What stays here: whose decision it is right now,
 // how to carry a decision out through the API, and pickEnergy, which the
 // human auto-pay still uses.
-import type { BotDecision, Die, GameState } from "./types";
+import type { BotDecision, CardDef, Die, GameState } from "./types";
 import type { apiAs } from "./api";
 
 // Same test ../DiceKingdomPage.tsx's own `rolled()` uses - moved here so
@@ -39,6 +39,25 @@ export function decisionOwner(game: GameState): string | null {
   return decisionSteps.has(game.currentStepId) ? game.activePlayerId : null;
 }
 
+// Every Basic Action card in this game (one per Champion) - read off the
+// dice, since the state carries no roster list.
+export function actionCardsInGame(game: GameState, cardsById: Map<string, CardDef>): CardDef[] {
+  const ids = new Set(game.dice.map((d) => d.cardId).filter((id): id is string => !!id && !!cardsById.get(id)?.isAction));
+  return [...ids].map((id) => cardsById.get(id)!).filter((c) => c.global);
+}
+
+// Could the active player still do something in the action window - use
+// an action die or afford a Global? If not, their pass is automatic when
+// nothing was blocked (the server then auto-passes the other player too
+// if THEY can't do anything - Priority.cs). Shared by both pages' auto-
+// skip effects (user call, 2026-09-28: never auto-pass while a Global is
+// usable - desktop used to pass regardless).
+export function activeCouldAct(game: GameState, cardsById: Map<string, CardDef>): boolean {
+  const reserve = game.dice.filter((d) => d.controllerId === game.activePlayerId && d.zone === "ReservePool");
+  if (reserve.some((d) => d.isActionFace)) return true;
+  return actionCardsInGame(game, cardsById).some((c) => pickEnergy(reserve, c.global!.cost, c.global!.energyType) !== null);
+}
+
 // Which reserve energy dice to spend on `cost`, with at least one pip matching
 // `matchType` (or Wild) when the card has a type requirement - same rule as
 // TurnEngine.SpendEnergy. Null if it can't be paid.
@@ -56,8 +75,19 @@ export function decisionOwner(game: GameState): string | null {
 // 2026-09-26): with 3 Claw and 2 Wild, buying a 4-cost Wolverine spent
 // BOTH Wilds, leaving none to pay for the opponent's Global - a Wild is
 // the one energy that can pay for anything, so it's the last to go.
-export function pickEnergy(pool: Die[], cost: number, matchType: string | null): string[] | null {
+//
+// `virtualEnergy` (deck-out generic energy, PlayerState.virtualEnergy) is
+// spent by the server automatically before any die, so only the rest needs
+// dice - all of it but one pip when a type is required (generic can't
+// satisfy a type), mirroring BotEnergy.PickWithVirtual.
+export function pickEnergy(pool: Die[], cost: number, matchType: string | null, virtualEnergy = 0): string[] | null {
   if (cost <= 0) return [];
+  const usableVirtual = Math.min(virtualEnergy, matchType ? cost - 1 : cost);
+  for (let v = usableVirtual; v > 0; v--) {
+    if (cost - v === 0) return [];
+    const ids = pickEnergy(pool, cost - v, matchType);
+    if (ids) return ids;
+  }
   const dice = pool.filter((d) => d.energyAmount > 0).sort((a, b) => a.energyAmount - b.energyAmount);
   const matches = (d: Die) => !matchType || d.energySymbolId === matchType || d.energySymbolId === "Wild";
   if (dice.length > 14) return pickEnergyGreedy(dice, cost, matchType);

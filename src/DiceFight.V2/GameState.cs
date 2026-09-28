@@ -203,6 +203,14 @@ public sealed class GameState
     // trackers above, nothing needs to read this after the step ends.
     public HashSet<string> RerolledThisStep { get; } = [];
 
+    // Deck-out (user-supplied rule, 2026-09-28): for each die a player
+    // can't draw in Clear and Draw, they take 1 damage and gain 1 generic
+    // "Virtual" energy - not a die, can't spin, just a count - which lasts
+    // until the end of that Main Step (TurnEngine.ClearAndDraw grants it,
+    // EnterAttackStep expires it, SpendEnergy spends it automatically).
+    public Dictionary<string, int> VirtualEnergy { get; } = [];
+    public int VirtualEnergyOf(string playerId) => VirtualEnergy.GetValueOrDefault(playerId);
+
     // Priority (rules 2.6.6 / 2.7.3.4) - see Priority.cs. Who may act in
     // the current Main Step or Attack Step action window; null outside
     // those two windows. PriorityWindowStepId is which window it was

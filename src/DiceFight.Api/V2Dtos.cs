@@ -149,14 +149,18 @@ public sealed record ChampionDto(string Id, string Name, string EnergySymbolId, 
 
 // ForesightAvailable: this player's Champion has Foresight and it's still
 // unused this turn (TurnEngine.UseForesight) - the client offers it then.
-public sealed record V2PlayerDto(string Id, string Name, int Life, ChampionDto? Champion, bool ForesightAvailable = false)
+// VirtualEnergy: generic energy from dice they couldn't draw this turn
+// (GameState.VirtualEnergy) - spent automatically before any die, gone
+// at the end of their Main Step.
+public sealed record V2PlayerDto(string Id, string Name, int Life, ChampionDto? Champion, bool ForesightAvailable = false, int VirtualEnergy = 0)
 {
     public static V2PlayerDto From(GameState state, Player player) => new(
         player.Id, player.Name, player.Life,
         state.Config.Champions.FirstOrDefault(c => c.Id == player.ChampionId) is { } champion
             ? ChampionDto.From(champion)
             : null,
-        TurnEngine.HasForesight(state, player.Id) && !state.ForesightUsedThisTurn.Contains(player.Id));
+        TurnEngine.HasForesight(state, player.Id) && !state.ForesightUsedThisTurn.Contains(player.Id),
+        state.VirtualEnergyOf(player.Id));
 }
 
 public sealed record V2PendingChoiceDto(

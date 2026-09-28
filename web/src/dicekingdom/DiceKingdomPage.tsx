@@ -10,7 +10,7 @@ import { StepRibbon } from "./StepRibbon";
 import { MatchLog } from "./MatchLog";
 import { SettingsMenu, ThemeToggle, useTheme } from "./ThemeToggle";
 import { useDiceRoll, type RollTarget } from "./useDiceRoll";
-import { botDecisionCall, decisionOwner, rolled } from "./bot";
+import { activeCouldAct, botDecisionCall, decisionOwner, rolled } from "./bot";
 import type { BlockAssignment, BotDecision, CardDef, CharacterFace, Die, GameState, PlayerState } from "./types";
 
 const POLL_INTERVAL_MS = 2000;
@@ -678,7 +678,11 @@ export function DiceKingdomPage() {
     } else if (
       game.currentStepId === "action-global-window" &&
       game.priorityPlayerId === game.activePlayerId &&
-      (game.blocks ?? []).length === 0
+      (game.blocks ?? []).length === 0 &&
+      // Never while they could still use an action die or pay a Global
+      // (user call, 2026-09-28) - e.g. Anger Issues on an unblocked
+      // attacker is exactly this window's point.
+      !activeCouldAct(game, cardsById)
     ) {
       runQuiet(() => client.assignCombatDamage(gameId, []));
     }

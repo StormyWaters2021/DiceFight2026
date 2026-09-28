@@ -3375,3 +3375,40 @@ Found along the way:
   blocked (mobile only if they can't pay any Global), which also means a
   human can't use Anger Issues on an unblocked attacker on desktop. Left
   as-is for humans; flagged.
+
+## Deck-out, generic Virtual energy, no auto-pass while a Global is usable (2026-09-28)
+
+User answers to the previous entry's open items:
+
+1. Honey Badger hitting itself on an empty board is intended - the
+   tradeoff for a cheap Character with that ability. No change.
+2. **Deck-out rule** (was missing): in Clear and Draw, for each die a
+   player can't draw, they take 1 damage and gain 1 generic "Virtual"
+   energy - not a die, can't spin, just a count, gone after that Main
+   Step. So fielding everything eventually kills you, which gives a
+   reason to keep dice in the bag. Implemented as
+   `GameState.VirtualEnergy` (granted in `TurnEngine.ClearAndDraw`,
+   expired in `EnterAttackStep`), spent automatically and first by
+   `SpendEnergy` (it can't be saved past Main, so there's no reason to
+   hold it). Being generic, it counts toward an amount but never toward a
+   type, so a typed purchase still needs one matching pip from a die;
+   `SpendEnergy` picks the amount of Virtual that keeps the payment legal
+   with the least overspend, so a client offering dice for the full cost
+   still works (surplus dice are left untouched).
+   `Priority.CanUseAnyGlobal` counts it too. DTO: `PlayerDto.virtualEnergy`.
+   UI (mobile): shown as a plain "N generic" chip in the reserve summary -
+   user call: no separate Virtual styling, it's spent first and can't
+   spin anyway; affordability checks and the field payment sheet account
+   for it. Bot: plans purchases/fielding/Globals with it, and won't field
+   a die that would leave fewer than a full draw circulating (leftover
+   Tardigrades need a 2-die margin). Tests: `DeckOutTests`.
+3. **No auto-pass while the Active player can act**: both pages' auto-
+   skip of an unblocked Attack window now uses the shared
+   `activeCouldAct` (moved to bot.ts) - desktop used to pass regardless,
+   so a human could never Anger Issues an unblocked attacker there.
+
+Simulator after the deck-out rule: win rates essentially unchanged (Wolf
+51 / Armadillo 24 / Owl 52 / Eagle 72); turn-cap games 44 -> 25 per
+1,200; deck-out damage ~0.05 life/game - the bot's circulation guard
+means it almost never decks itself (user: "a real player would avoid
+that situation").

@@ -143,14 +143,20 @@ public static class DiceKingdomBot
         // Real Characters first: an unfielded one goes to the Used Pile at
         // the end of Main (TurnEngine.EnterAttackStep), and a Tardigrade's
         // zero-energy Bulwark face (1/3) likewise has nothing else to give.
+        // Never field so much that fewer dice than a full draw stay in
+        // circulation - each die short costs 1 life every Clear and Draw
+        // (the deck-out rule, TurnEngine.ClearAndDraw).
+        var drawCount = state.Config.Rules.DrawCount;
         foreach (var die in reserve
             .Where(d => state.GetCurrentFace(d)?.Character is not null && (IsCharacterCard(state, d) || BotEnergy.Pips(state, d) == 0))
             .Where(d => d.CardId is null || QueryEngine.CanField(state, botId, d.CardId))
             .OrderByDescending(d => DieValue(state, d)))
         {
-            var pay = BotEnergy.Pick(state, reserve.Where(x => x.Id != die.Id).ToList(), QueryEngine.GetFieldingCost(state, die), null);
+            if (Circulating(state, botId) - 1 < drawCount) break;
+            var pay = BotEnergy.PickWithVirtual(state, reserve.Where(x => x.Id != die.Id).ToList(), QueryEngine.GetFieldingCost(state, die), null,
+                state.VirtualEnergyOf(botId));
             if (pay is not null)
-                return new(BotActionKind.Field, $"Field {CardName(state, die)}.") { DieId = die.Id, EnergyDieIds = pay };
+                return new(BotActionKind.Field, $"Field {CardName(state, die)}.") { DieId = die.Id, EnergyDieIds = pay.Value.Dice };
         }
 
         // Then spend energy on the best purchase plan.
@@ -160,14 +166,14 @@ public static class DiceKingdomBot
         if (CanDraw(state, botId) && GlobalDecision(state, botId, onlyRealPips: true, g => g.Effect is DrawToZone) is { } draw) return draw;
 
         // Leftover Tardigrades: fielded now or swept to the Used Pile at
-        // the end of Main. A board is capped so a few stay in the bag
-        // cycle as future energy.
-        var fieldCount = state.DiceIn(botId, Zone.FieldZone).Count();
+        // the end of Main. Only while a comfortable margin over a full
+        // draw stays in circulation - a weak 0/1 blocker isn't worth
+        // starting to deck out over.
         var leftover = reserve
             .Where(d => d.CardId is null && state.GetCurrentFace(d)?.Character is not null)
             .OrderByDescending(d => DieValue(state, d))
             .FirstOrDefault();
-        if (leftover is not null && (fieldCount < 6 || state.GetCurrentFace(leftover)!.Character!.Defense >= 3))
+        if (leftover is not null && Circulating(state, botId) - 1 >= drawCount + 2)
             return new(BotActionKind.Field, "Field a leftover Tardigrade.") { DieId = leftover.Id, EnergyDieIds = [] };
 
         return new(BotActionKind.Pass, "Done in Main - on to the Attack Step.");
@@ -182,6 +188,12 @@ public static class DiceKingdomBot
     // A draw effect with an empty Bag and Used Pile just burns the energy.
     private static bool CanDraw(GameState state, string botId) =>
         state.DiceIn(botId, Zone.Bag).Any() || state.DiceIn(botId, Zone.UsedPile).Any();
+
+    // Dice that will come back around to be drawn: everything this player
+    // controls that isn't on the board or still unbought (spent energy in
+    // Out of Play returns to the Used Pile at Clean Up).
+    private static int Circulating(GameState state, string botId) =>
+        state.Dice.Count(d => d.ControllerId == botId && d.Zone is not (Zone.FieldZone or Zone.AttackZone or Zone.Unpurchased));
 
     private static bool ShouldUseActionInMain(GameState state, string botId, DieInstance die)
     {
@@ -228,7 +240,7 @@ public static class DiceKingdomBot
 
         (double Value, (CardDef Card, DieInstance Die, IReadOnlyList<string> Pay)? First) best = (0, null);
 
-        void Search(List<DieInstance> pool, Dictionary<string, int> copies, double value, int depth,
+        void Search(List<DieInstance> pool, int virtualLeft, Dictionary<string, int> copies, double value, int depth,
             (CardDef, DieInstance, IReadOnlyList<string>)? first)
         {
             if (value > best.Value) best = (value, first);
@@ -240,15 +252,15 @@ public static class DiceKingdomBot
                 var gain = PurchaseValue(state, botId, card, copies.GetValueOrDefault(card.Id), offType);
                 if (gain < 2.0) continue; // not worth diluting the bag for
                 var cost = QueryEngine.GetPurchaseCost(state, card, botId);
-                var pay = BotEnergy.Pick(state, pool, cost, card.EnergySymbolIds.FirstOrDefault());
-                if (pay is null) continue;
+                if (BotEnergy.PickWithVirtual(state, pool, cost, card.EnergySymbolIds.FirstOrDefault(), virtualLeft) is not { } pay) continue;
                 var nextCopies = new Dictionary<string, int>(copies) { [card.Id] = copies.GetValueOrDefault(card.Id) + 1 };
-                Search(pool.Where(d => !pay.Contains(d.Id)).ToList(), nextCopies, value + gain, depth + 1,
-                    first ?? (card, dice[bought], pay));
+                Search(pool.Where(d => !pay.Dice.Contains(d.Id)).ToList(), virtualLeft - pay.VirtualUsed, nextCopies, value + gain, depth + 1,
+                    first ?? (card, dice[bought], pay.Dice));
             }
         }
 
-        Search(reserve.Where(d => BotEnergy.Pips(state, d) > 0).ToList(), new Dictionary<string, int>(owned), 0, 0, null);
+        Search(reserve.Where(d => BotEnergy.Pips(state, d) > 0).ToList(), state.VirtualEnergyOf(botId),
+            new Dictionary<string, int>(owned), 0, 0, null);
         if (best.First is not { } step) return null;
         return new(BotActionKind.Purchase, $"Buy {step.Card.Name}.") { DieId = step.Die.Id, EnergyDieIds = step.Pay };
     }
@@ -314,9 +326,8 @@ public static class DiceKingdomBot
                 var option = new GlobalOption(card, i, ability.Effect, QueryEngine.GetGlobalEnergyCost(state, card, ability, botId),
                     ability.EnergyCost?.RequiredSymbolId);
                 if (!want(option)) continue;
-                var pay = BotEnergy.Pick(state, pool, option.Cost, option.Type);
-                if (pay is null) continue;
-                return new(BotActionKind.UseGlobal, $"Use {card.Name}'s Global.") { CardId = cardId, AbilityIndex = i, EnergyDieIds = pay };
+                if (BotEnergy.PickWithVirtual(state, pool, option.Cost, option.Type, state.VirtualEnergyOf(botId)) is not { } pay) continue;
+                return new(BotActionKind.UseGlobal, $"Use {card.Name}'s Global.") { CardId = cardId, AbilityIndex = i, EnergyDieIds = pay.Dice };
             }
         }
         return null;
