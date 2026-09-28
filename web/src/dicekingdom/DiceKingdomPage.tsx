@@ -10,8 +10,8 @@ import { StepRibbon } from "./StepRibbon";
 import { MatchLog } from "./MatchLog";
 import { SettingsMenu, ThemeToggle, useTheme } from "./ThemeToggle";
 import { useDiceRoll, type RollTarget } from "./useDiceRoll";
-import { decideAttackers, decideBlockers, decideMainAction, decidePendingChoice, decisionOwner, rolled } from "./bot";
-import type { BlockAssignment, CardDef, CharacterFace, Die, GameState, PlayerState } from "./types";
+import { botDecisionCall, decisionOwner, rolled } from "./bot";
+import type { BlockAssignment, BotDecision, CardDef, CharacterFace, Die, GameState, PlayerState } from "./types";
 
 const POLL_INTERVAL_MS = 2000;
 // Pause before each computer-opponent move, so a Main Step full of
@@ -668,6 +668,10 @@ export function DiceKingdomPage() {
     // unblocked, both landed here and stuck).
     const owner = decisionOwner(game);
     if (!owner) return;
+    // The computer's seat answers its own empty steps (bot-decision) -
+    // auto-passing its Attack window here would take away its best play,
+    // pumping an attacker nobody blocked.
+    if (vsComputer && owner === game.playerTwo.id) return;
     const client = apiAs(gameId, owner);
     if (game.currentStepId === "assign-blockers" && assignBlockersAttackerCount === 0) {
       runQuiet(() => client.declareBlockers(gameId, []));
@@ -837,7 +841,6 @@ export function DiceKingdomPage() {
     const g = gameRef.current;
     if (!g || decisionOwner(g) !== botId) return;
     const gid = g.gameId;
-    const step = g.currentStepId;
     // NOT the shared `api` - this browser only ever holds ONE seat's
     // token as its "current" identity (seats.ts's tokenFor), the human's,
     // same as any other pass-and-play session. Acting as the computer
@@ -847,85 +850,35 @@ export function DiceKingdomPage() {
     // with "It is not your turn" until this existed - `api` alone can
     // never act as a seat this browser hasn't selected.)
     const botApi = apiAs(gid, botId);
-
-    if (g.pendingChoice) {
-      await runBot(() => botApi.resolvePendingChoice(gid, decidePendingChoice(g)));
+    let decision: BotDecision | null;
+    try {
+      decision = await botApi.botDecision(gid, botSkipIdsRef.current);
+    } catch (e) {
+      console.warn("[bot] couldn't fetch a decision, retrying next tick:", e);
       return;
     }
-    // Handed priority on the human's turn - the computer never uses
-    // Globals, so it passes.
-    if (g.priorityPlayerId === botId && g.activePlayerId !== botId) {
-      await runBot(() => botApi.pass(gid));
-      return;
-    }
-    if (step === "start-of-turn") {
-      await runBot(() => botApi.clearAndDraw(gid));
-      return;
-    }
-    if (step === "roll-and-reroll") {
-      const hasRolled = g.dice.some(
-        (d) => d.controllerId === botId && (d.zone === "PrepArea" || d.zone === "ReservePool") && rolled(d),
-      );
-      await runBot(() => (hasRolled ? botApi.finishRoll(gid) : botApi.roll(gid)));
-      return;
-    }
-    if (step === "main") {
-      const decision = decideMainAction(g, botId, cardsById, botSkipIdsRef.current);
-      if (decision.kind === "enterAttackStep") {
-        await runBot(() => botApi.enterAttackStep(gid));
-        return;
-      }
-      const result =
-        decision.kind === "field"
-          ? await runBot(() => botApi.field(gid, decision.dieId, decision.energyDieIds))
-          : await runBot(() => botApi.purchase(gid, decision.dieId, decision.energyDieIds));
-      if (!result) {
-        // Either a legality rule bot.ts doesn't model rejected this
-        // candidate (see decideMainAction's own remarks), or the action
-        // was simply stale - either way, rule it out for this turn and
-        // let the next tick try something else instead of retrying it
-        // forever.
-        botSkipIdsRef.current.add(decision.dieId);
-      }
-      return;
-    }
-    if (step === "select-attackers") {
-      const result = await runBot(() => botApi.declareAttackers(gid, decideAttackers(g, botId)));
-      if (!result) await runBot(() => botApi.declareAttackers(gid, []));
-      return;
-    }
-    if (step === "assign-blockers") {
-      const assignments = decideBlockers(g, botId);
-      // Mirrors handleBlockerSlotClick's own bookkeeping: whichever side
-      // ends up resolving Action/Global Window (action-global-window,
-      // below) reads the pairing back out of this same local state, not
-      // out of GameState - see that branch's own remarks.
+    if (!decision) return;
+    const d = decision;
+    if (d.kind === "declareBlockers") {
+      // Mirrors a human's own block bookkeeping, so the pairing shows on
+      // the board while the Action/Global window is open.
       const map: Record<string, string | null> = {};
-      for (const a of assignments) map[a.attackerDieId] = a.blockerDieId;
+      for (const a of d.assignments) map[a.attackerDieId] = a.blockerDieId;
       setBlockAssignments(map);
-      const result = await runBot(() => botApi.declareBlockers(gid, assignments));
-      if (!result) {
-        setBlockAssignments({});
-        await runBot(() => botApi.declareBlockers(gid, []));
-      }
-      return;
     }
-    if (step === "action-global-window") {
-      const assignments = Object.entries(blockAssignmentsRef.current)
-        .filter(([, b]) => b)
-        .map(([attackerDieId, blockerDieId]) => ({ attackerDieId, blockerDieId: blockerDieId! }));
-      // The empty case is handled generically by the auto-skip effect
-      // above (now identity-correct for vs-computer too, via apiAs - see
-      // its own remarks) - only step in here for a real pairing, so the
-      // two never race to submit the same "nothing to resolve" call.
-      if (assignments.length === 0) return;
-      await runBot(() => botApi.assignCombatDamage(gid, assignments));
-      return;
-    }
-    if (step === "return-to-field") {
-      await runBot(() => botApi.cleanUp(gid));
+    const result = await runBot(() => botDecisionCall(botApi, gid, d));
+    if (result) return;
+    // Rejected (a rule the bot doesn't model) or stale by the time it
+    // fired: rule a die out for the rest of this turn, or fall back to
+    // the empty declaration, instead of retrying the same thing forever.
+    if (d.dieId) botSkipIdsRef.current.add(d.dieId);
+    else if (d.kind === "declareAttackers") await runBot(() => botApi.declareAttackers(gid, []));
+    else if (d.kind === "declareBlockers") {
+      setBlockAssignments({});
+      await runBot(() => botApi.declareBlockers(gid, []));
     }
   }
+
 
   // A heartbeat, not a one-shot scheduled off `game`'s own dependencies -
   // deliberately so. An earlier version rescheduled itself purely by

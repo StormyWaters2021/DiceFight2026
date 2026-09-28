@@ -1,27 +1,19 @@
-// A basic rule-based "computer" opponent for Dice Kingdom - lets someone
-// play solo instead of needing a second person for pass-and-play. Not
-// meant to play well: no lookahead, no combo awareness, no card-specific
-// strategy. Each function below answers one narrow question ("what should
-// I field/purchase right now", "who should block whom") using only
-// what's visible on GameState - the same information a human player sees.
-// DiceKingdomPage.tsx is the only caller; it drives the actual turn
-// (calling the api and updating React state) using these as pure
-// decision functions, same separation as its own selectionAction().
-import type { BlockAssignment, CardDef, Die, GameState } from "./types";
+// The "vs computer" opponent's client half. The DECISIONS now come from
+// the server (GET .../bot-decision -> DiceFight.V2/Bot/DiceKingdomBot.cs),
+// the same policy tools/Simulator plays, so the simulator's balance numbers
+// describe the opponent people actually face (user call, 2026-09-28 - this
+// file used to hold its own separate TypeScript policy, which had drifted
+// from the simulator's). What stays here: whose decision it is right now,
+// how to carry a decision out through the API, and pickEnergy, which the
+// human auto-pay still uses.
+import type { BotDecision, Die, GameState } from "./types";
+import type { apiAs } from "./api";
 
 // Same test ../DiceKingdomPage.tsx's own `rolled()` uses - moved here so
 // both it and this module share one definition rather than two copies
 // drifting apart.
 export function rolled(d: Die): boolean {
   return d.effectiveAttack !== null || d.energySymbolId !== null;
-}
-
-function controlledBy(game: GameState, playerId: string, zone?: string): Die[] {
-  return game.dice.filter((d) => d.controllerId === playerId && (!zone || d.zone === zone));
-}
-
-function ownedBy(game: GameState, playerId: string, zone?: string): Die[] {
-  return game.dice.filter((d) => d.ownerId === playerId && (!zone || d.zone === zone));
 }
 
 // Whoever has to act next, or null if the current step runs on its own
@@ -45,11 +37,6 @@ export function decisionOwner(game: GameState): string | null {
     "return-to-field",
   ]);
   return decisionSteps.has(game.currentStepId) ? game.activePlayerId : null;
-}
-
-function fieldingCost(die: Die, cardsById: Map<string, CardDef>): number {
-  if (!die.cardId || die.level === null) return 0; // Tardigrade - free, matches costFor()
-  return die.fieldingCost ?? cardsById.get(die.cardId)?.levels[die.level - 1]?.fieldingCost ?? 0;
 }
 
 // Which reserve energy dice to spend on `cost`, with at least one pip matching
@@ -133,117 +120,40 @@ function pickEnergyGreedy(dice: Die[], cost: number, matchType: string | null): 
   return total >= cost ? picked : null;
 }
 
-export type MainDecision =
-  | { kind: "field"; dieId: string; energyDieIds: string[] }
-  | { kind: "purchase"; dieId: string; energyDieIds: string[] }
-  | { kind: "enterAttackStep" };
-
-// Field the best available character if affordable, else buy the most
-// expensive affordable card, else move on. "Best"/"most expensive" is a
-// stand-in for real card evaluation - fine for a basic opponent, not
-// meant to reflect actual card power. `skipIds` lets the caller rule out
-// a candidate that the server already rejected once this turn (a
-// legality rule this module doesn't model, e.g. a lockout ability) so
-// the bot doesn't retry it forever.
-export function decideMainAction(
-  game: GameState,
-  botId: string,
-  cardsById: Map<string, CardDef>,
-  skipIds: ReadonlySet<string>,
-): MainDecision {
-  const energyPool = controlledBy(game, botId, "ReservePool").filter((d) => d.energyAmount > 0);
-
-  // Purchases first, about two turns in three when one is affordable -
-  // previously fielding always ran first and spent the energy, so the bot
-  // never bought anything. Random per decision, so it still fields
-  // sometimes too. Cheaper-than-best candidates are fine: sorted by cost,
-  // most expensive affordable wins.
-  const purchaseCandidates = ownedBy(game, botId, "Unpurchased")
-    .filter((d) => d.cardId && !skipIds.has(d.id))
-    .map((d) => ({ die: d, card: cardsById.get(d.cardId!) }))
-    .filter((x): x is { die: Die; card: CardDef } => !!x.card)
-    .sort((a, b) => b.card.purchaseCost - a.card.purchaseCost);
-  if (Math.random() < 0.67) {
-    for (const { die, card } of purchaseCandidates) {
-      const pay = pickEnergy(energyPool, card.purchaseCost, card.energyTypes[0] ?? null);
-      if (pay) return { kind: "purchase", dieId: die.id, energyDieIds: pay };
-    }
+// Carries out one server-side bot decision through the matching endpoint.
+export function botDecisionCall(
+  client: ReturnType<typeof apiAs>,
+  gameId: string,
+  d: BotDecision,
+): Promise<GameState> {
+  switch (d.kind) {
+    case "clearAndDraw":
+      return client.clearAndDraw(gameId);
+    case "roll":
+      return client.roll(gameId);
+    case "reroll":
+      return client.reroll(gameId, d.dieIds);
+    case "finishRoll":
+      return client.finishRoll(gameId);
+    case "foresight":
+      return client.foresight(gameId, d.dieId!);
+    case "field":
+      return client.field(gameId, d.dieId!, d.energyDieIds);
+    case "purchase":
+      return client.purchase(gameId, d.dieId!, d.energyDieIds);
+    case "useAction":
+      return client.useAction(gameId, d.dieId!);
+    case "useGlobal":
+      return client.useGlobal(gameId, d.cardId!, d.abilityIndex, d.energyDieIds);
+    case "pass":
+      return d.skipAttack ? client.skipAttackStep(gameId) : client.pass(gameId);
+    case "declareAttackers":
+      return client.declareAttackers(gameId, d.attackers);
+    case "declareBlockers":
+      return client.declareBlockers(gameId, d.assignments);
+    case "resolvePendingChoice":
+      return client.resolvePendingChoice(gameId, d.dieIds);
+    case "cleanUp":
+      return client.cleanUp(gameId);
   }
-
-  const fieldCandidates = controlledBy(game, botId, "ReservePool")
-    .filter((d) => rolled(d) && d.effectiveAttack !== null && !skipIds.has(d.id))
-    .sort((a, b) => (b.effectiveAttack! + (b.effectiveDefense ?? 0)) - (a.effectiveAttack! + (a.effectiveDefense ?? 0)));
-  for (const die of fieldCandidates) {
-    const pay = pickEnergy(energyPool.filter((d) => d.id !== die.id), fieldingCost(die, cardsById), null);
-    if (pay) return { kind: "field", dieId: die.id, energyDieIds: pay };
-  }
-
-  // Nothing fielded and the coin flip skipped buying - still buy if possible.
-  for (const { die, card } of purchaseCandidates) {
-    const pay = pickEnergy(energyPool, card.purchaseCost, card.energyTypes[0] ?? null);
-    if (pay) return { kind: "purchase", dieId: die.id, energyDieIds: pay };
-  }
-
-  return { kind: "enterAttackStep" };
-}
-
-// Attacks with every fielded character showing 2 or more Attack - direct
-// feedback (2026-09-21): a 1A die swinging in is just a free kill for the
-// defender's blocker. There's no defensive cost to attacking otherwise (it
-// returns to the Field Zone at Clean Up either way and blocking
-// eligibility doesn't depend on having attacked).
-export const BOT_MIN_ATTACK = 2;
-export function decideAttackers(game: GameState, botId: string): { dieId: string; lane: number }[] {
-  const attackers = controlledBy(game, botId, "FieldZone").filter((d) => rolled(d) && (d.effectiveAttack ?? 0) >= BOT_MIN_ATTACK);
-  return attackers.map((d, i) => ({ dieId: d.id, lane: i % 4 }));
-}
-
-// Greedily pairs the biggest attackers against the best available
-// blocker, skipping a block entirely when nothing on the field would
-// either kill the attacker or survive it - a pure numbers trade, no
-// keyword/ability awareness (Unblockable, must-block, etc.); an illegal
-// pairing here is expected to be caught and retried empty by the caller.
-export function decideBlockers(game: GameState, botId: string): BlockAssignment[] {
-  const attackers = game.dice
-    .filter((d) => d.zone === "AttackZone" && d.controllerId === game.activePlayerId)
-    .sort((a, b) => (b.effectiveAttack ?? 0) - (a.effectiveAttack ?? 0));
-  const available = new Map(
-    controlledBy(game, botId, "FieldZone")
-      .filter((d) => rolled(d) && d.effectiveAttack !== null)
-      .map((d) => [d.id, d] as const),
-  );
-
-  const assignments: BlockAssignment[] = [];
-  for (const attacker of attackers) {
-    let best: Die | null = null;
-    let bestScore = 0;
-    for (const blocker of available.values()) {
-      const kills = (blocker.effectiveAttack ?? 0) >= (attacker.effectiveDefense ?? 0);
-      const survives = (blocker.effectiveDefense ?? 0) > (attacker.effectiveAttack ?? 0);
-      // A blocker that neither kills nor survives still stops the attacker's
-      // damage reaching the player (and a KO'd die just goes to Prep), so a
-      // chump block beats taking it in the face: 0.5 baseline.
-      const score = (kills ? 2 : 0) + (survives ? 1 : 0) || ((attacker.effectiveAttack ?? 0) > 0 ? 0.5 : 0);
-      if (score > bestScore) {
-        bestScore = score;
-        best = blocker;
-      }
-    }
-    if (best) {
-      assignments.push({ attackerDieId: attacker.id, blockerDieId: best.id });
-      available.delete(best.id);
-    }
-  }
-  return assignments;
-}
-
-// A pending choice's content (what it's even choosing between) isn't
-// modeled here - just satisfies the minimum count asked for, in whatever
-// order the server offered candidates. Good enough for the choices a
-// basic opponent will actually hit in this catalog; not a stand-in for
-// understanding what the choice does.
-export function decidePendingChoice(game: GameState): string[] {
-  const choice = game.pendingChoice;
-  if (!choice) return [];
-  return choice.candidateIds.slice(0, Math.max(choice.minCount, 0));
 }

@@ -1,4 +1,5 @@
 using DiceFight.V2;
+using DiceFight.V2.Bot;
 using DiceFight.V2.Data;
 using DiceFight.V2.Model;
 using Microsoft.AspNetCore.Mvc;
@@ -63,6 +64,21 @@ public sealed class V2GamesController(V2GameStore store) : ControllerBase
     {
         var (session, _) = RequireSeat(gameId);
         return Ok(Result(gameId, session.State));
+    }
+
+    // The shared computer opponent's next move for the calling seat
+    // (DiceFight.V2/Bot) - 204 No Content when it isn't that seat's
+    // decision. Read-only: the client carries the move out through the
+    // matching endpoint itself, so its pacing/animation stays client-side.
+    // `skip`: comma-separated die ids the client already saw rejected this
+    // turn (a rule the bot doesn't model), never offered again.
+    [HttpGet("{gameId}/bot-decision")]
+    public ActionResult<V2BotDecisionDto> BotDecision(string gameId, [FromQuery] string? skip)
+    {
+        var (session, playerId) = RequireSeat(gameId);
+        var skipIds = (skip ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries).ToHashSet();
+        var decision = DiceKingdomBot.Decide(session.State, playerId, skipIds);
+        return decision is null ? NoContent() : Ok(V2BotDecisionDto.From(decision));
     }
 
     [HttpPost("{gameId}/clear-and-draw")]

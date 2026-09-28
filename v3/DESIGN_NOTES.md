@@ -3303,3 +3303,75 @@ rerolls (prefer stat faces for non-Tardigrade Characters, some
 preference for Wild), and buying the opponent's Basic Action for
 off-type energy. Per-Champion "personas" (e.g. aggressive Wolf) later -
 not urgent while testing with powers off.
+
+## One shared bot: web opponent = simulator (2026-09-28)
+
+User call: the web "vs computer" opponent and the simulator must be the
+same bot (per-Champion "personas" - e.g. an aggressive Wolf - wanted
+later, not urgent while testing powers-off). Done by moving the policy
+server-side:
+
+- `src/DiceFight.V2/Bot/` - `DiceKingdomBot.Decide(state, playerId)`
+  returns the single next move (one engine call's worth), `BotDriver`
+  applies it locally exactly as the matching controller endpoint does
+  (priority, draining, the pending-choice queue), `BotEnergy` is the
+  payment picker (bot.ts's pickEnergy port: Wilds last, and prefers
+  spending bare energy faces over Tardigrades it could still field).
+  `BotPersona` holds the taste knobs (only `Default` exists).
+- `GET /api/v2/games/{id}/bot-decision[?skip=...]` (204 when it isn't
+  that seat's decision). `bot.ts` lost its own TypeScript policy; both
+  pages' `performBotAction` now fetch the decision and carry it out via
+  `botDecisionCall`. The auto-skip effect no longer answers for the
+  computer's seat - auto-passing its Attack window took away its best
+  play (pumping an unblocked attacker).
+- `tools/Simulator` now drives both seats through BotDriver, teams include
+  the Champion's Basic Action (as the API builds them), and the
+  SIM_BUY/SIM_ORDER switches are gone (that policy lives in the bot).
+  New switch: `SIM_NO_GLOBALS=cardId,...` strips a card's Globals.
+- `PendingChoice.Intent` (Harmful/Beneficial/Unknown), set per effect in
+  EffectInterpreter, so the bot aims damage/KO/can't-block at the
+  opponent and pumps at itself - the old simulator answered with random
+  candidates.
+
+Bot behavior (details in DiceKingdomBot's header): rerolls Characters
+that rolled energy; fishes for Wild with 1-pip Tardigrades when an
+off-type card is wanted; fields real Characters, then buys the best-value
+plan (up to 3 buys; repeat copies worth less; an opponent's Basic Action
+worth more when its energy pays for an off-type card), then fields
+leftover Tardigrades; uses Basic Actions/Globals; attacks only where no
+blocker kills it for free, keeps enough home to survive the crack-back,
+all-in on lethal (an unblocked attacker leaves play, rule 2.7.4.3.1 -
+bot.ts's old "no defensive cost to attacking" comment was wrong); blocks
+by trade value, chumps only to survive or at low life.
+
+Powers-off round-robin with the shared bot (1,200 games):
+
+| | Wolf | Armadillo | Owl | Eagle |
+|---|---|---|---|---|
+| Win rate | 52.7 | 25.3 | 49.0 | 72.2 |
+
+Worst pairing: Armadillo vs Eagle 10/90. Games are 15-30 turns (was
+35-48), first seat wins 56%, ~4% hit the 50-turn cap. Off-type splash
+cards are now bought (Cowbird 41%, Box Turtle 41%, Opossum 55%, Queen
+Termite 51% of games fielded - were 0-15%), matching the user's own
+experience; Hippopotamus, Elephant, Cape Buffalo, Peregrine Falcon still
+rare. Finishers still land in only 4-23% of games (Silverback 4%) -
+7-cost is hard to reach with 4 dice in a 15-25-turn race.
+
+Eagle's edge is NOT mainly Resurrection's Global (1 Wing: draw a die,
+used ~2x/game): stripping it (SIM_NO_GLOBALS=DK-ACT-03) only moved Eagle
+72.2 -> 69.8. It's the cheap draw engines (Swift / Barn Swallow) in what
+is now a racing game. Armadillo's walls (Hermit Crab 1 ATK) are weak in a
+race.
+
+Found along the way:
+- Honey Badger's mandatory "deal 1 damage to a target creature" hits
+  itself (or another own creature) when the opponent's board is empty -
+  it's the only legal target. Card-design question for the user.
+- Real stalls happen: a player with every die on the Field draws 0 each
+  turn (no deck-out rule), and at low life neither side attacks. The bot
+  test caps turns rather than requiring a winner.
+- Both pages auto-pass the Active player's Attack window when nothing was
+  blocked (mobile only if they can't pay any Global), which also means a
+  human can't use Anger Issues on an unblocked attacker on desktop. Left
+  as-is for humans; flagged.

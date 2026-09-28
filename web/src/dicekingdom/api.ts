@@ -1,5 +1,5 @@
 import { seatsFor, tokenFor } from "./seats";
-import type { BlockAssignment, CardDef, Champion, CreatedGame, GameState } from "./types";
+import type { BlockAssignment, BotDecision, CardDef, Champion, CreatedGame, GameState } from "./types";
 
 // v2 counterpart to ../api.ts - same relative-BASE_URL/seat-header/
 // request<T> shape, pointed at api/v2/games instead of api/games. A
@@ -85,6 +85,22 @@ function makeClient(tokenOverride?: string | null) {
         tokenOverride,
       ),
     cleanUp: (id: string) => request<GameState>(`/${id}/clean-up`, { method: "POST" }, tokenOverride),
+
+    // The computer opponent's next move for this seat, or null when it
+    // isn't this seat's decision (204). `skip`: dice already rejected
+    // this turn - see V2GamesController.BotDecision.
+    botDecision: async (id: string, skip: Iterable<string>): Promise<BotDecision | null> => {
+      const query = [...skip].length ? `?skip=${encodeURIComponent([...skip].join(","))}` : "";
+      const res = await fetch(`${BASE_URL}/${id}/bot-decision${query}`, {
+        headers: seatHeader(`/${id}`, tokenOverride),
+      });
+      if (res.status === 204) return null;
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error(body.error ?? `Request failed: ${res.status}`);
+      }
+      return res.json() as Promise<BotDecision>;
+    },
 
     resolvePendingChoice: (id: string, chosenDieIds: string[]) =>
       request<GameState>(

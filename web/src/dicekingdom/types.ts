@@ -146,3 +146,34 @@ export interface BlockAssignment {
   attackerDieId: string;
   blockerDieId: string;
 }
+
+// GET .../bot-decision - the shared computer opponent's next move
+// (DiceFight.V2/Bot/DiceKingdomBot.cs, the same policy tools/Simulator
+// plays). Only the fields `kind` uses are meaningful; bot.ts's
+// botDecisionCall maps each kind onto the matching endpoint.
+export interface BotDecision {
+  kind:
+    | "clearAndDraw"
+    | "roll"
+    | "reroll"
+    | "finishRoll"
+    | "foresight"
+    | "field"
+    | "purchase"
+    | "useAction"
+    | "useGlobal"
+    | "pass"
+    | "declareAttackers"
+    | "declareBlockers"
+    | "resolvePendingChoice"
+    | "cleanUp";
+  reason: string;
+  dieId: string | null;
+  dieIds: string[];
+  energyDieIds: string[];
+  cardId: string | null;
+  abilityIndex: number;
+  skipAttack: boolean;
+  attackers: { dieId: string; lane: number }[];
+  assignments: BlockAssignment[];
+}

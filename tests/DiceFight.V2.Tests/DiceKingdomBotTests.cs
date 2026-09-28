@@ -1,0 +1,112 @@
+using DiceFight.V2.Bot;
+using DiceFight.V2.Data;
+using DiceFight.V2.Model;
+
+namespace DiceFight.V2.Tests;
+
+// The shared computer opponent (Bot/DiceKingdomBot.cs) - the same policy
+// the web client's "vs computer" seat and tools/Simulator both run.
+public class DiceKingdomBotTests
+{
+    private static GameState NewGame(string one, string two)
+    {
+        Player Build(string id, string champion)
+        {
+            var p = new Player { Id = id, Name = champion, ChampionId = champion };
+            p.TeamCardIds.AddRange(DiceKingdomConfig.CharactersByChampion[champion]);
+            p.TeamCardIds.Add(DiceKingdomConfig.ActionByChampion[champion]);
+            return p;
+        }
+        var state = GameSetup.NewGame(DiceKingdomConfig.Config, DiceKingdomConfig.Catalog, Build("p1", one), Build("p2", two));
+        Priority.Sync(state);
+        return state;
+    }
+
+    // Bot vs bot through BotDriver for every Champion pairing: every
+    // decision must be one the engine accepts (the bot is supposed to
+    // only offer legal moves). Most games end; a few can genuinely stall
+    // (walled-off boards, or a player with every die on the Field and
+    // nothing left to draw - there's no deck-out rule yet), so a turn cap
+    // ends those rather than failing the test.
+    [Theory]
+    [InlineData("Wolf", "Armadillo")]
+    [InlineData("Wolf", "GreatHornedOwl")]
+    [InlineData("Wolf", "GoldenEagle")]
+    [InlineData("Armadillo", "GreatHornedOwl")]
+    [InlineData("Armadillo", "GoldenEagle")]
+    [InlineData("GreatHornedOwl", "GoldenEagle")]
+    public void Bot_Plays_Every_Pairing_With_Only_Legal_Moves(string one, string two)
+    {
+        var finished = 0;
+        for (var seed = 0; seed < 5; seed++)
+        {
+            var state = NewGame(one, two);
+            var driver = new BotDriver(state, new Random(seed));
+            var turns = 0;
+            var lastActive = state.ActivePlayerId;
+            while (state.PlayerOne.Life > 0 && state.PlayerTwo.Life > 0 && turns < 80)
+            {
+                var owner = driver.DecisionOwner();
+                var decision = DiceKingdomBot.Decide(state, owner);
+                Assert.NotNull(decision);
+                driver.Apply(owner, decision!); // throws if the engine rejects the move
+                if (state.ActivePlayerId != lastActive) { lastActive = state.ActivePlayerId; turns++; }
+            }
+            if (state.PlayerOne.Life <= 0 || state.PlayerTwo.Life <= 0) finished++;
+        }
+        Assert.True(finished >= 3, $"only {finished}/5 games finished within 80 turns");
+    }
+
+    [Fact]
+    public void Only_The_Player_Whose_Decision_It_Is_Gets_One()
+    {
+        var state = NewGame("Wolf", "Armadillo");
+        Assert.Equal(BotActionKind.ClearAndDraw, DiceKingdomBot.Decide(state, "p1")!.Kind);
+        Assert.Null(DiceKingdomBot.Decide(state, "p2"));
+    }
+
+    // A harmful choice goes at the opponent's best creature, not this
+    // player's own (the old simulator bot answered with random picks).
+    [Fact]
+    public void Harmful_Choice_Targets_The_Opponents_Best_Creature()
+    {
+        var state = NewGame("Wolf", "Armadillo");
+        var mine = state.Dice.First(d => d.OwnerId == "p1" && d.CardId is null);
+        var theirs = state.Dice.Where(d => d.OwnerId == "p2" && d.CardId is null).Take(2).ToList();
+        foreach (var d in theirs.Append(mine)) { d.Zone = Zone.FieldZone; d.CurrentFaceIndex = 2; } // 1/1
+        theirs[1].CurrentFaceIndex = 4; // Bulwark 1/3 - the more valuable one
+        string[]? answer = null;
+        state.PendingChoice = new PendingChoice
+        {
+            ControllerId = "p1",
+            Description = "Deal 1 damage to a target creature.",
+            CandidateIds = [mine.Id, theirs[0].Id, theirs[1].Id],
+            MinCount = 1,
+            MaxCount = 1,
+            Intent = ChoiceIntent.Harmful,
+            Resolve = ids => answer = [.. ids],
+        };
+
+        var decision = DiceKingdomBot.Decide(state, "p1")!;
+
+        Assert.Equal(BotActionKind.ResolvePendingChoice, decision.Kind);
+        Assert.Equal([theirs[1].Id], decision.DieIds);
+    }
+
+    // A Character die that rolled energy gets rerolled for a body.
+    [Fact]
+    public void Rerolls_A_Character_Die_Showing_Energy()
+    {
+        var state = NewGame("Wolf", "Armadillo");
+        state.MoveToStep(StepIds.RollAndReroll);
+        var badger = state.Dice.First(d => d.OwnerId == "p1" && d.CardId == DiceKingdomConfig.HoneyBadger.Id);
+        badger.Zone = Zone.ReservePool;
+        badger.ControllerId = "p1";
+        badger.CurrentFaceIndex = 3; // an energy face
+
+        var decision = DiceKingdomBot.Decide(state, "p1")!;
+
+        Assert.Equal(BotActionKind.Reroll, decision.Kind);
+        Assert.Contains(badger.Id, decision.DieIds);
+    }
+}

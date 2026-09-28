@@ -197,6 +197,7 @@ public static class EffectInterpreter
             ControllerId = answeredBy,
             Description = "You may.",
             CandidateIds = [standInId],
+            Intent = ChoiceIntent.Beneficial,
             MinCount = 0,
             MaxCount = 1,
             Resolve = chosen =>
@@ -231,7 +232,7 @@ public static class EffectInterpreter
 
     private static void ExecuteDealDamage(DealDamage n, EffectContext ctx, Action onComplete)
     {
-        ResolveTarget(ctx, n.Target, ProtectionFor(ctx.Trigger), targets =>
+        ResolveTarget(ctx, n.Target, ProtectionFor(ctx.Trigger), ChoiceIntent.Harmful, targets =>
         {
             if (targets.Count == 0) { onComplete(); return; } // rule 3.1.10
 
@@ -270,6 +271,7 @@ public static class EffectInterpreter
             ControllerId = ctx.ControllerId,
             Description = $"Assign 1 damage ({remainingAmount} remaining).",
             CandidateIds = alive,
+            Intent = ChoiceIntent.Harmful,
             MinCount = 1,
             MaxCount = 1,
             Resolve = chosen =>
@@ -353,7 +355,7 @@ public static class EffectInterpreter
 
     private static void ExecuteKo(Ko n, EffectContext ctx, Action onComplete)
     {
-        ResolveTarget(ctx, n.Target, ProtectionFor(ctx.Trigger), ids =>
+        ResolveTarget(ctx, n.Target, ProtectionFor(ctx.Trigger), ChoiceIntent.Harmful, ids =>
         {
             foreach (var id in ids)
             {
@@ -389,7 +391,7 @@ public static class EffectInterpreter
 
     private static void ExecuteMoveDie(MoveDie n, EffectContext ctx, Action onComplete)
     {
-        ResolveTarget(ctx, n.Target, ProtectionFor(ctx.Trigger), ids =>
+        ResolveTarget(ctx, n.Target, ProtectionFor(ctx.Trigger), MoveIntent(n), ids =>
         {
             foreach (var id in ids)
             {
@@ -441,7 +443,7 @@ public static class EffectInterpreter
 
     private static void ExecuteFieldDie(FieldDie n, EffectContext ctx, Action onComplete)
     {
-        ResolveTarget(ctx, n.Target, ProtectionFor(ctx.Trigger), ids =>
+        ResolveTarget(ctx, n.Target, ProtectionFor(ctx.Trigger), ChoiceIntent.Beneficial, ids =>
         {
             foreach (var id in ids)
             {
@@ -532,7 +534,7 @@ public static class EffectInterpreter
 
     private static void ExecuteSpin(Spin n, EffectContext ctx, Action onComplete)
     {
-        ResolveTarget(ctx, n.Target, ProtectionFor(ctx.Trigger), ids =>
+        ResolveTarget(ctx, n.Target, ProtectionFor(ctx.Trigger), (n.LevelDelta ?? 0) > 0 ? ChoiceIntent.Beneficial : n.LevelDelta < 0 || n.SetLevel is not null ? ChoiceIntent.Harmful : ChoiceIntent.Unknown, ids =>
         {
             foreach (var id in ids)
             {
@@ -560,7 +562,7 @@ public static class EffectInterpreter
 
     private static void ExecuteSpinToEnergy(SpinToEnergy n, EffectContext ctx, Action onComplete)
     {
-        ResolveTarget(ctx, n.Target, ProtectionFor(ctx.Trigger), ids =>
+        ResolveTarget(ctx, n.Target, ProtectionFor(ctx.Trigger), ChoiceIntent.Harmful, ids =>
         {
             foreach (var id in ids)
             {
@@ -603,7 +605,7 @@ public static class EffectInterpreter
 
     private static void ExecuteModifyStat(ModifyStat n, EffectContext ctx, Action onComplete)
     {
-        ResolveTarget(ctx, n.Target, ProtectionFor(ctx.Trigger), ids =>
+        ResolveTarget(ctx, n.Target, ProtectionFor(ctx.Trigger), (n.AtkDelta ?? 0) + (n.DefDelta ?? 0) > 0 ? ChoiceIntent.Beneficial : (n.AtkDelta ?? 0) + (n.DefDelta ?? 0) < 0 ? ChoiceIntent.Harmful : ChoiceIntent.Unknown, ids =>
         {
             var grantedDuring = n.Duration == Duration.UntilYourNextTurn ? ctx.State.ActivePlayerId : null;
             var source = ctx.Bindings.GetValueOrDefault("self", "ability");
@@ -641,7 +643,7 @@ public static class EffectInterpreter
 
     private static void ExecuteGrantTag(GrantTag n, EffectContext ctx, Action onComplete)
     {
-        ResolveTarget(ctx, n.Target, ProtectionFor(ctx.Trigger), ids =>
+        ResolveTarget(ctx, n.Target, ProtectionFor(ctx.Trigger), ChoiceIntent.Beneficial, ids =>
         {
             var grantedDuring = n.Duration == Duration.UntilYourNextTurn ? ctx.State.ActivePlayerId : null;
             foreach (var id in ids)
@@ -660,7 +662,7 @@ public static class EffectInterpreter
     // (V2_VOCABULARY_HISTORY.md Part 16).
     private static void ExecuteGrantAbility(GrantAbility n, EffectContext ctx, Action onComplete)
     {
-        ResolveTarget(ctx, n.Target, ProtectionFor(ctx.Trigger), ids =>
+        ResolveTarget(ctx, n.Target, ProtectionFor(ctx.Trigger), ChoiceIntent.Beneficial, ids =>
         {
             var grantedDuring = n.Duration == Duration.UntilYourNextTurn ? ctx.State.ActivePlayerId : null;
             foreach (var id in ids)
@@ -671,7 +673,7 @@ public static class EffectInterpreter
 
     private static void ExecuteBlankText(BlankText n, EffectContext ctx, Action onComplete)
     {
-        ResolveTarget(ctx, n.Target, ProtectionFor(ctx.Trigger), ids =>
+        ResolveTarget(ctx, n.Target, ProtectionFor(ctx.Trigger), ChoiceIntent.Harmful, ids =>
         {
             var grantedDuring = n.Duration == Duration.UntilYourNextTurn ? ctx.State.ActivePlayerId : null;
             foreach (var id in ids)
@@ -778,7 +780,7 @@ public static class EffectInterpreter
     // Phase 7's concern - this template only records the grant.
     private static void ExecuteCombatFlag(CombatFlag n, EffectContext ctx, Action onComplete)
     {
-        ResolveTarget(ctx, n.Target, ProtectionFor(ctx.Trigger), ids =>
+        ResolveTarget(ctx, n.Target, ProtectionFor(ctx.Trigger), ChoiceIntent.Harmful, ids =>
         {
             foreach (var id in ids)
             {
@@ -866,7 +868,24 @@ public static class EffectInterpreter
     // pool no bigger than a non-Optional Count auto-selects everything
     // (nothing to actually choose between); anything else is a real
     // PendingChoice, routed to AnsweredBy.
-    private static void ResolveTarget(EffectContext ctx, TargetFilter filter, ProtectionFrom? protection, Action<IReadOnlyList<string>> onResolved)
+    private static void ResolveTarget(EffectContext ctx, TargetFilter filter, ProtectionFrom? protection, Action<IReadOnlyList<string>> onResolved) =>
+        ResolveTarget(ctx, filter, protection, ChoiceIntent.Unknown, onResolved);
+
+    // A move toward the Field is good for the moved die's controller, a
+    // move away from it bad - an attacker sent back to the Field Zone
+    // (Distraction's Global) counts as away, since it loses its attack.
+    private static ChoiceIntent MoveIntent(MoveDie n)
+    {
+        static int Rank(Zone z) => z switch
+        {
+            Zone.AttackZone => 5, Zone.FieldZone => 4, Zone.ReservePool => 3, Zone.PrepArea => 2, Zone.Bag => 1, _ => 0,
+        };
+        var from = n.Target.Zones is { Count: > 0 } zones ? zones.Max(Rank) : -1;
+        if (from < 0) return ChoiceIntent.Unknown;
+        return Rank(n.ToZone) > from ? ChoiceIntent.Beneficial : Rank(n.ToZone) < from ? ChoiceIntent.Harmful : ChoiceIntent.Unknown;
+    }
+
+    private static void ResolveTarget(EffectContext ctx, TargetFilter filter, ProtectionFrom? protection, ChoiceIntent intent, Action<IReadOnlyList<string>> onResolved)
     {
         var candidates = TargetResolver.Query(ctx.State, ctx.ControllerId, filter, ctx.Bindings, protection, snapshot: ctx.Snapshot);
 
@@ -901,6 +920,7 @@ public static class EffectInterpreter
             CandidateIds = candidates,
             MinCount = filter.Optional ? 0 : maxCount,
             MaxCount = maxCount,
+            Intent = intent,
             Resolve = chosen =>
             {
                 BindIfNeeded(ctx, filter, chosen);

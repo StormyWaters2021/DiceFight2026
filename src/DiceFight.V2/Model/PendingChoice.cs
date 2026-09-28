@@ -19,4 +19,12 @@ public sealed class PendingChoice
     public required int MinCount { get; init; }
     public required int MaxCount { get; init; }
     public required Action<IReadOnlyList<string>> Resolve { get; init; }
+    // Whether the effect waiting on this choice helps or hurts whatever
+    // gets picked - a hint for the computer opponent (Bot/), which
+    // otherwise can't tell "deal 1 damage to a target" from "+3A to a
+    // target" by candidate ids alone. Set where each effect resolves its
+    // target (EffectInterpreter); Unknown leaves the bot to guess.
+    public ChoiceIntent Intent { get; init; } = ChoiceIntent.Unknown;
 }
+
+public enum ChoiceIntent { Unknown, Harmful, Beneficial }

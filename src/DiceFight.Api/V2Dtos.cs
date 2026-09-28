@@ -229,3 +229,33 @@ public sealed record V2DeclareBlockersRequest(IReadOnlyList<V2BlockAssignment> A
 // CombatAssignment isn't persisted server-side between calls.
 public sealed record V2AssignCombatDamageRequest(IReadOnlyList<V2BlockAssignment> Assignments);
 public sealed record V2ResolvePendingChoiceRequest(IReadOnlyList<string> ChosenDieIds);
+
+// GET .../bot-decision - the shared computer opponent's next move
+// (DiceFight.V2/Bot/DiceKingdomBot.cs), for the web client to carry out
+// through the matching endpoint. Kind is the BotActionKind name in
+// camelCase ("purchase", "declareAttackers", ...); only the fields that
+// kind uses are meaningful.
+public sealed record V2BotDecisionDto(
+    string Kind,
+    string Reason,
+    string? DieId,
+    IReadOnlyList<string> DieIds,
+    IReadOnlyList<string> EnergyDieIds,
+    string? CardId,
+    int AbilityIndex,
+    bool SkipAttack,
+    IReadOnlyList<V2AttackerDeclaration> Attackers,
+    IReadOnlyList<V2BlockAssignment> Assignments)
+{
+    public static V2BotDecisionDto From(DiceFight.V2.Bot.BotDecision d) => new(
+        char.ToLowerInvariant(d.Kind.ToString()[0]) + d.Kind.ToString()[1..],
+        d.Reason,
+        d.DieId,
+        d.DieIds,
+        d.EnergyDieIds,
+        d.CardId,
+        d.AbilityIndex,
+        d.SkipAttack,
+        d.AttackerLanes.Select(kv => new V2AttackerDeclaration(kv.Key, kv.Value)).ToList(),
+        d.Blocks.Select(b => new V2BlockAssignment(b.AttackerId, b.BlockerId)).ToList());
+}
