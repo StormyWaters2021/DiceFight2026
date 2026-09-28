@@ -126,15 +126,27 @@ public static class DiceKingdomConfig
             new DealDamage(new Fixed(3), new TargetFilter(Kind: TargetKind.CharacterDie)))],
         Continuous: []);
 
-    public static readonly CardDef Tiger = new(
-        Id: "DK-CLAW-06", Name: "Tiger", Subtitle: null, Set: "Dice Kingdom", CardType: CardType.Character,
-        PurchaseCost: 6, EnergySymbolIds: ["Claw"],
-        Die: CharacterDie("DK-CLAW-06Die", energyType: "Claw", (1, 4, 4), (2, 5, 5), (2, 6, 6)),
-        DieLimit: 4, Affiliations: [], Keywords: ["Overcrush", "On Attack"],
-        RawText: "Overcrush. On Attack: deal 2 damage to the opponent directly.",
-        Abilities: [new TriggeredAbility(TriggerKind.DieAttacks,
-            new DealDamage(new Fixed(2), new TargetFilter(Kind: TargetKind.Player, Ownership: TargetOwnership.Opposing)))],
-        Continuous: []);
+    // Finisher (2026-09-28, user request - a top-end card affordable only
+    // once the game has run long enough, meant to break the single-
+    // cheap-blocker standoffs the champion-less simulator kept walling
+    // into). Punishes gang-blocking specifically: MultipleOf/
+    // BlockedByAtLeast are new closed-vocabulary additions made for this
+    // card (see their own remarks in Model/Effects/Common.cs and
+    // Condition.cs) - "double a die's own current stat" was a real,
+    // previously-flagged gap (Iceman DPS114's own tailed-card comment),
+    // not guessed at here. Replaces Tiger as Wolf's own-energy "power"
+    // slot (was 6-cost) - user call: replace rather than grow the roster
+    // past the Rules.MaxTeamCards: 8 invariant.
+    public static readonly CardDef Silverback = new(
+        Id: "DK-CLAW-06", Name: "Silverback", Subtitle: null, Set: "Dice Kingdom", CardType: CardType.Character,
+        PurchaseCost: 7, EnergySymbolIds: ["Claw"],
+        Die: CharacterDie("DK-CLAW-06Die", energyType: "Claw", (2, 5, 6), (3, 6, 7), (3, 7, 9)),
+        DieLimit: 4, Affiliations: [], Keywords: [],
+        RawText: "While active, whenever 2 or more creatures block Silverback, its ATK doubles for that combat.",
+        Abilities: [],
+        Continuous: [new StatAura(new TargetFilter(Self: true),
+            AtkDelta: new MultipleOf("self", StatKind.Attack, Multiplier: 1),
+            ActiveWhen: new BlockedByAtLeast(2))]);
 
     public static readonly CardDef Stoat = new(
         Id: "DK-CLAW-07", Name: "Stoat", Subtitle: null, Set: "Dice Kingdom", CardType: CardType.Character,
@@ -239,13 +251,23 @@ public static class DiceKingdomConfig
         Abilities: [],
         Continuous: [new StatAura(OwnCreatures, AtkDelta: new Fixed(1))]);
 
-    public static readonly CardDef SnappingTurtle = new(
-        Id: "DK-SHELL-07", Name: "Snapping Turtle", Subtitle: null, Set: "Dice Kingdom", CardType: CardType.Character,
-        PurchaseCost: 5, EnergySymbolIds: ["Shell"],
-        Die: CharacterDie("DK-SHELL-07Die", energyType: "Shell", (1, 1, 4), (2, 3, 5), (2, 4, 7)),
-        DieLimit: 4, Affiliations: [], Keywords: ["On Field"],
-        RawText: "On Field: KO a target creature.",
-        Abilities: [new TriggeredAbility(TriggerKind.DieFielded, new Ko(new TargetFilter(Kind: TargetKind.CharacterDie)))],
+    // Finisher (2026-09-28, user request - "like Phoenix Force Colossus":
+    // reflects whatever damage it takes back at the opponent). Fully
+    // expressible in the existing closed vocabulary - TriggerKind.
+    // DieDamaged already fires with a DamageDealtPayload (EffectInterpreter.
+    // MarkDamage), and Amount.EventValue already reads it - no engine
+    // changes needed for this one, unlike Silverback. A null Filter means
+    // "about me" (EventBus.Matches' own default), so this only reacts to
+    // damage THIS die takes, not any other Armadillo creature's. Replaces
+    // SnappingTurtle as Armadillo's own-energy "power" slot (was 5-cost).
+    public static readonly CardDef Rhinoceros = new(
+        Id: "DK-SHELL-07", Name: "Rhinoceros", Subtitle: null, Set: "Dice Kingdom", CardType: CardType.Character,
+        PurchaseCost: 6, EnergySymbolIds: ["Shell"],
+        Die: CharacterDie("DK-SHELL-07Die", energyType: "Shell", (1, 1, 5), (2, 2, 7), (2, 3, 9)),
+        DieLimit: 4, Affiliations: [], Keywords: [],
+        RawText: "While active, whenever Rhinoceros takes damage, it deals that much damage to the opponent.",
+        Abilities: [new TriggeredAbility(TriggerKind.DieDamaged,
+            new DealDamage(new EventValue(), new TargetFilter(Kind: TargetKind.Player, Ownership: TargetOwnership.Opposing)))],
         Continuous: []);
 
     public static readonly CardDef BoxTurtle = new(
@@ -415,14 +437,29 @@ public static class DiceKingdomConfig
         Abilities: [new TriggeredAbility(TriggerKind.DieFielded, new DrawToZone(1, Zone.PrepArea, Zone.Bag))],
         Continuous: []);
 
-    public static readonly CardDef Raven = new(
-        Id: "DK-EYE-06", Name: "Raven", Subtitle: null, Set: "Dice Kingdom", CardType: CardType.Character,
-        PurchaseCost: 5, EnergySymbolIds: ["Eye"],
-        Die: CharacterDie("DK-EYE-06Die", energyType: "Eye", (1, 2, 5), (2, 3, 6), (2, 4, 7)),
-        DieLimit: 4, Affiliations: [], Keywords: ["On Field"],
-        RawText: "On Field: deal 2 damage to a target creature.",
-        Abilities: [new TriggeredAbility(TriggerKind.DieFielded,
-            new DealDamage(new Fixed(2), new TargetFilter(Kind: TargetKind.CharacterDie)))],
+    // Finisher (2026-09-28, user request - "like Colossus": an end-of-
+    // turn board-wide burn that scales with how wide your board has
+    // grown). Exact same template as DpsCards.ColossusPiotr (DPS103) -
+    // TurnStepEntered + EventFilter{Step: CleanUp} + PerMatch damage -
+    // plus a Tags: NoneOf:["sidekick"] clause DPS103 didn't need (classic
+    // Sidekicks never level past 1; v3's Tardigrades do, so "non-
+    // Tardigrade" has to be said explicitly here). "sidekick" is the tag
+    // QueryEngine.GetTags already grants every card-less pool die - see
+    // its own remarks. Replaces Raven as Owl's own-energy "power" slot
+    // (was 5-cost - the roster comment above it had said 7 for a while,
+    // which was never actually true of Raven's own PurchaseCost; fixed).
+    public static readonly CardDef Basilisk = new(
+        Id: "DK-EYE-06", Name: "Basilisk", Subtitle: null, Set: "Dice Kingdom", CardType: CardType.Character,
+        PurchaseCost: 7, EnergySymbolIds: ["Eye"],
+        Die: CharacterDie("DK-EYE-06Die", energyType: "Eye", (1, 3, 6), (2, 4, 8), (2, 5, 10)),
+        DieLimit: 4, Affiliations: [], Keywords: [],
+        RawText: "While active, at the end of your turn, each of your non-Tardigrade level 2+ creatures deals 2 damage to the opponent.",
+        Abilities: [new TriggeredAbility(TriggerKind.TurnStepEntered,
+            new DealDamage(
+                new PerMatch(new TargetFilter(Kind: TargetKind.CharacterDie, Ownership: TargetOwnership.Own,
+                    Stat: new StatThreshold(StatKind.Level, Min: 2), Tags: new TagQuery(NoneOf: ["sidekick"])), Multiplier: 2),
+                new TargetFilter(Kind: TargetKind.Player, Ownership: TargetOwnership.Opposing)),
+            Filter: new EventFilter(Ownership: TargetOwnership.Own, Step: StepIds.CleanUp))],
         Continuous: []);
 
     public static readonly CardDef Elephant = new(
@@ -592,10 +629,10 @@ public static class DiceKingdomConfig
 
     public static readonly IReadOnlyDictionary<string, CardDef> Catalog = new List<CardDef>
     {
-        HoneyBadger, Wolverine, GrizzlyBear, Orca, PeregrineFalcon, Tiger, Stoat, CapeBuffalo, Mongoose,
-        Hippopotamus, MuskOx, Pangolin, HermitCrab, Opossum, QueenTermite, SnappingTurtle, BoxTurtle,
+        HoneyBadger, Wolverine, GrizzlyBear, Orca, PeregrineFalcon, Silverback, Stoat, CapeBuffalo, Mongoose,
+        Hippopotamus, MuskOx, Pangolin, HermitCrab, Opossum, QueenTermite, Rhinoceros, BoxTurtle,
         Osprey, BarnSwallow, Hummingbird, MountainGoat, MonarchButterfly, HomingPigeon, Greyhound, Albatross, Swift,
-        BarnOwl, Hyena, Anglerfish, Cowbird, Magpie, Raven, Elephant, Fox, Cuttlefish,
+        BarnOwl, Hyena, Anglerfish, Cowbird, Magpie, Basilisk, Elephant, Fox, Cuttlefish,
         AngerIssues, Distraction, Resurrection, Mutation,
     }.ToDictionary(c => c.Id);
 
@@ -629,14 +666,19 @@ public static class DiceKingdomConfig
     // guaranteed way to pay for an off-type splash card.
     public static readonly IReadOnlyDictionary<string, IReadOnlyList<string>> CharactersByChampion = new Dictionary<string, IReadOnlyList<string>>
     {
-        // Own 2/3/mid/power: HoneyBadger(2)/Mongoose(3)/Wolverine(4)/Tiger(6).
-        ["Wolf"] = [HoneyBadger.Id, Mongoose.Id, Wolverine.Id, Tiger.Id, MountainGoat.Id, Greyhound.Id, Hippopotamus.Id, Elephant.Id],
-        // Own 2/3/mid/power: HermitCrab(2)/Pangolin(3)/MuskOx(4)/SnappingTurtle(5).
-        ["Armadillo"] = [HermitCrab.Id, Pangolin.Id, MuskOx.Id, SnappingTurtle.Id, Fox.Id, Cowbird.Id, CapeBuffalo.Id, Hummingbird.Id],
+        // Own 2/3/mid/power: HoneyBadger(2)/Mongoose(3)/Wolverine(4)/Silverback(7).
+        // Tiger (was the 6-cost power slot) replaced 2026-09-28 by
+        // Silverback, a genuine finisher tier above the old curve-topper.
+        ["Wolf"] = [HoneyBadger.Id, Mongoose.Id, Wolverine.Id, Silverback.Id, MountainGoat.Id, Greyhound.Id, Hippopotamus.Id, Elephant.Id],
+        // Own 2/3/mid/power: HermitCrab(2)/Pangolin(3)/MuskOx(4)/Rhinoceros(6).
+        // SnappingTurtle (was the 5-cost power slot) replaced 2026-09-28.
+        ["Armadillo"] = [HermitCrab.Id, Pangolin.Id, MuskOx.Id, Rhinoceros.Id, Fox.Id, Cowbird.Id, CapeBuffalo.Id, Hummingbird.Id],
         // Own 2/3/mid/power: Swift(2)/BarnSwallow(3)/Osprey(4)/Albatross(5).
         ["GoldenEagle"] = [Swift.Id, BarnSwallow.Id, Osprey.Id, Albatross.Id, GrizzlyBear.Id, PeregrineFalcon.Id, BoxTurtle.Id, BarnOwl.Id],
-        // Own 2/3/mid/power: Cuttlefish(2)/Magpie(3)/Hyena(4)/Raven(7).
-        ["GreatHornedOwl"] = [Cuttlefish.Id, Magpie.Id, Hyena.Id, Raven.Id, Opossum.Id, QueenTermite.Id, Stoat.Id, HomingPigeon.Id],
+        // Own 2/3/mid/power: Cuttlefish(2)/Magpie(3)/Hyena(4)/Basilisk(7).
+        // Raven (was the 5-cost power slot, despite what this comment used
+        // to claim - it was never actually 7) replaced 2026-09-28.
+        ["GreatHornedOwl"] = [Cuttlefish.Id, Magpie.Id, Hyena.Id, Basilisk.Id, Opossum.Id, QueenTermite.Id, Stoat.Id, HomingPigeon.Id],
     };
 
     // --- Champions: no die, one flat always-on passive, plus the

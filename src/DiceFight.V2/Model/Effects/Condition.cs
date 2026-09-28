@@ -30,3 +30,19 @@ public sealed record TurnFact(TurnFactKind Fact) : Condition;
 // Finding 8 - branch on whether the checked die is currently on a
 // character face or an energy face (Making the Team-style cards).
 public sealed record OnFaceKind(FaceKind Kind, string CheckBinding = "self") : Condition;
+
+// Added by user request (2026-09-28, Wolf finisher card) - "true when the
+// checked die is CURRENTLY assigned 2+ blockers." Reads GameState.
+// DeclaredBlocks directly rather than going through TargetFilter/
+// CombatRule (neither shape has a "my own blocker count" predicate):
+// DeclaredBlocks is only non-null between CombatEngine.DeclareBlockers
+// and the ReturnToField step at the end of AssignCombatDamage (rule
+// 2.7.2 onward), so this reads false everywhere outside that window -
+// exactly right for a StatAura's ActiveWhen gate that should only apply
+// while combat damage is actually being calculated. Deliberately checks
+// CombatAssignment.BlockersOf(the checked die's own id) - a real gang-
+// block against THIS die (rule 2.7.2.2), not every blocker anywhere in
+// its lane; a lane-mate attacker's own blockers are a different, v3-only
+// concept (CombatEngine's own LaneBlockerIds) this condition does not
+// reach.
+public sealed record BlockedByAtLeast(int N, string CheckBinding = "self") : Condition;

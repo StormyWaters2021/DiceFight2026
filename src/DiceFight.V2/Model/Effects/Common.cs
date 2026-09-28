@@ -119,6 +119,20 @@ public sealed record PerMatch(TargetFilter Filter, int Multiplier, bool Distinct
 // whatever the die currently is. See QueryEngine's GetBase* queries.
 public sealed record StatOf(string Binding, StatKind Stat) : Amount;
 
+// The "StatOf x2" shape DPS114 Iceman's own migration remarks flagged as
+// missing from the closed vocabulary (2026-08-24: "ModifyStat's delta
+// fields are plain int... SetAttack's Amount-typed StatOf would only
+// echo the SAME value back, not double it - there is no 'StatOf x2'
+// shape. Tailed rather than guessing a wrong approximation"). Added by
+// user request (2026-09-28, Wolf finisher card) rather than guessed: a
+// strict superset of StatOf (Multiplier: 1 is identical to StatOf), kept
+// as its own record instead of adding Multiplier to StatOf itself so
+// every already-authored `new StatOf(...)` call site stays untouched.
+// Same base-stat-only rule as StatOf applies (see StatOf's own remarks) -
+// this is what keeps a StatAura that multiplies ITS OWN stat from
+// recursing into its own not-yet-computed total.
+public sealed record MultipleOf(string Binding, StatKind Stat, int Multiplier) : Amount;
+
 // The triggering event's own numeric payload - currently only
 // DieDamaged carries one (DamageDealtPayload.Amount), for "deal that
 // much damage" texts. Meaningless outside a triggered ability, and

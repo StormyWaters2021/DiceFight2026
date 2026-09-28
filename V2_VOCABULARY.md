@@ -95,18 +95,36 @@ whichever one does should pair it with `RequireSelf: true`.
 `StatAura` · `CostModifier` · `TagAura` · `CombatRule` · `DamageModifier`
 · `TargetingProtection` · `AbilityBlank` · `Lockout`
 
-## Conditions (7)
+## Conditions (8)
 
 `CountAtLeast` · `TargetWasKOd` · `OnBurstFace` · `OnFaceKind` ·
-`LifeComparison` · `NoKOsThisTurn` · `TurnFact`
+`LifeComparison` · `NoKOsThisTurn` · `TurnFact` · `BlockedByAtLeast`
 
-## Amounts (4)
+`BlockedByAtLeast(N, checkBinding)` (2026-09-28, Wolf's Silverback) reads
+`GameState.DeclaredBlocks` directly — non-null only between
+`CombatEngine.DeclareBlockers` and the end of `AssignCombatDamage` — for
+"is the checked die currently gang-blocked by N+ dice." Checks
+`CombatAssignment.BlockersOf(the checked die's own id)`, a real gang-block
+against THAT die (rule 2.7.2.2) — not every blocker anywhere in its lane
+(a v3-only concept, `CombatEngine`'s own `LaneBlockerIds`).
 
-`Fixed` · `PerMatch` · `StatOf(binding, stat)` · `EventValue`
+## Amounts (5)
+
+`Fixed` · `PerMatch` · `StatOf(binding, stat)` · `MultipleOf(binding,
+stat, multiplier)` · `EventValue`
 
 `StatOf` captures at BIND time, not use time — which is what makes
 rule 3.1.7's simultaneity fall out for free — and reads the `GetBase*`
 queries, so applied modifiers count and conditional auras do not.
+
+`MultipleOf` (2026-09-28, Wolf's Silverback) is the "`StatOf` x N" shape
+DPS114 Iceman's own migration flagged as missing ("no 'StatOf x2' shape
+... Tailed rather than guessing a wrong approximation") — a strict
+superset of `StatOf` (`Multiplier: 1` is identical), kept as its own
+record so every already-authored `StatOf` call site stays untouched.
+Same base-stat-only rule as `StatOf` applies, for the same reason: a
+`StatAura` multiplying its OWN stat must read the base value, or it
+recurses into its own not-yet-computed total.
 
 ## Durations (3)
 

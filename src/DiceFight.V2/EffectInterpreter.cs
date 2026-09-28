@@ -925,6 +925,13 @@ public static class EffectInterpreter
         StatOf s => ctx.CapturedStats.TryGetValue(s.Binding, out var captured) && captured.TryGetValue(s.Stat, out var value)
             ? value
             : throw new InvalidOperationException($"StatOf references binding '{s.Binding}', which is not bound to a die in this ability."),
+        // Ability-context counterpart of AmountResolver's own MultipleOf
+        // case - reads the same bind-time CapturedStats snapshot StatOf
+        // does (not a live re-query), for the identical simultaneity
+        // reason StatOf's own remarks give.
+        MultipleOf m => ctx.CapturedStats.TryGetValue(m.Binding, out var mCaptured) && mCaptured.TryGetValue(m.Stat, out var mValue)
+            ? mValue * m.Multiplier
+            : throw new InvalidOperationException($"MultipleOf references binding '{m.Binding}', which is not bound to a die in this ability."),
         EventValue => ctx.EventValue
             ?? throw new InvalidOperationException("EventValue was used by an ability whose triggering event carries no numeric payload."),
         _ => AmountResolver.Resolve(ctx.State, ctx.ControllerId, amount, ctx.Bindings, ProtectionFor(ctx.Trigger)),

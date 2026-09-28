@@ -222,4 +222,106 @@ public class DiceKingdomNewCharactersTests
         Assert.Equal(1, spunFace.Symbols.Single(s => s.SymbolId == "Claw").Count);
         Assert.Equal(2, spunFace.Character!.Level); // L2 - a real, still-fieldable creature face too
     }
+
+    // --- Finisher cards (2026-09-28, user request) - each one proves the
+    // real mechanism fires, not just that the CardDef is well-formed. ---
+
+    // Silverback also proves the two new closed-vocabulary primitives it
+    // needed (MultipleOf, BlockedByAtLeast) actually wire end-to-end
+    // through a real combat, not just in isolation.
+    [Fact]
+    public void Silverback_Doubles_Its_Attack_Only_While_Gang_Blocked()
+    {
+        var state = NewGame(); // p1 = Wolf, p2 = Armadillo
+        var queue = new AbilityQueue();
+
+        var silverback = ActiveCharacter(state, DiceKingdomConfig.Silverback.Id, "p1"); // L1: 5A/6D
+        var blocker1 = ActiveCharacter(state, DiceKingdomConfig.HermitCrab.Id, "p2");
+        var blocker2 = ActiveCharacter(state, DiceKingdomConfig.MuskOx.Id, "p2");
+
+        // Before any block is declared, GameState.DeclaredBlocks is null,
+        // so BlockedByAtLeast reads false - only Wolf's own +1 ATK
+        // champion aura is live.
+        Assert.Equal(6, QueryEngine.GetAttack(state, silverback)); // 5 base + 1 Wolf aura
+
+        TurnEngine.EnterAttackStep(state, queue);
+        Drain(state, queue);
+        CombatEngine.DeclareAttackers(state, queue, [silverback.Id]);
+        Drain(state, queue);
+
+        var assignment = new CombatAssignment();
+        assignment.AssignBlocker(silverback.Id, blocker1.Id);
+        assignment.AssignBlocker(silverback.Id, blocker2.Id);
+        CombatEngine.DeclareBlockers(state, queue, assignment, [blocker1.Id, blocker2.Id]);
+        Drain(state, queue);
+
+        // Gang-blocked by 2 now - MultipleOf("self", Attack, 1) adds
+        // Silverback's own BASE attack (5, not the Wolf-buffed 6 -
+        // MultipleOf reads base only, same rule StatOf documents,
+        // precisely so this doesn't recurse into its own not-yet-
+        // computed total) as a second delta alongside Wolf's own +1:
+        // 5 (base) + 1 (Wolf aura) + 5 (this aura, now active) = 11.
+        Assert.Equal(11, QueryEngine.GetAttack(state, silverback));
+    }
+
+    [Fact]
+    public void Rhinoceros_Reflects_Combat_Damage_It_Takes_To_The_Opponent()
+    {
+        var state = NewGame(); // p1 = Wolf, p2 = Armadillo
+        var queue = new AbilityQueue();
+
+        var rhino = ActiveCharacter(state, DiceKingdomConfig.Rhinoceros.Id, "p2"); // L1: 1A/5D(+1 Armadillo aura = 6D)
+        var attacker = ActiveCharacter(state, DiceKingdomConfig.HoneyBadger.Id, "p1", level: 3); // 2A(+1 Wolf aura = 3A) - well under Rhino's 6D, so it survives
+
+        TurnEngine.EnterAttackStep(state, queue);
+        Drain(state, queue);
+        CombatEngine.DeclareAttackers(state, queue, [attacker.Id]);
+        Drain(state, queue);
+
+        var assignment = new CombatAssignment();
+        assignment.AssignBlocker(attacker.Id, rhino.Id);
+        CombatEngine.DeclareBlockers(state, queue, assignment, [rhino.Id]);
+        Drain(state, queue);
+
+        var attackerAttack = QueryEngine.GetAttack(state, attacker);
+        var lifeBefore = state.PlayerOne.Life; // p1 - the opponent of Rhino's controller (p2)
+
+        CombatEngine.AssignCombatDamage(state, queue, assignment, new Dictionary<string, IReadOnlyDictionary<string, int>>());
+        Drain(state, queue); // resolves the DieDamaged-triggered reflect
+
+        Assert.Equal(Zone.FieldZone, rhino.Zone); // survived the hit (6D > 3A)
+        Assert.Equal(lifeBefore - attackerAttack, state.PlayerOne.Life);
+    }
+
+    [Fact]
+    public void Basilisk_Deals_2_Damage_Per_NonTardigrade_Level2Plus_Own_Creature_At_Cleanup()
+    {
+        var state = NewGame(); // p1 = Wolf, p2 = Armadillo - the ability itself doesn't care which Champion fields it
+        var queue = new AbilityQueue();
+        state.CurrentStep = TurnStep.Attack; // TurnEngine.CleanUp's own required entry step
+
+        var basilisk = ActiveCharacter(state, DiceKingdomConfig.Basilisk.Id, "p1", level: 2); // qualifies itself: L2, non-Tardigrade
+        var qualifyingAlly = ActiveCharacter(state, DiceKingdomConfig.HoneyBadger.Id, "p1", level: 2); // L2, non-Tardigrade - qualifies
+        var tooLowLevel = ActiveCharacter(state, DiceKingdomConfig.Wolverine.Id, "p1", level: 1); // L1 - must NOT qualify
+
+        // A level-2 Tardigrade (PoolDieId, no CardId - IsSidekick, tagged
+        // "sidekick") sitting right in the Field Zone - must NOT qualify
+        // either, which is the whole point of the Tags: NoneOf:["sidekick"]
+        // clause: v3's own Tardigrades DO level past 1, unlike DPS103
+        // Colossus's classic Sidekicks, which never needed this exclusion.
+        state.Dice.Add(new DieInstance
+        {
+            Id = "p1-tardigrade-l2-test", PoolDieId = "TardigradeClaw", OwnerId = "p1",
+            ControllerId = "p1", Zone = Zone.FieldZone, CurrentFaceIndex = 2, // one of the two L2 faces
+        });
+
+        var lifeBefore = state.PlayerTwo.Life;
+        TurnEngine.CleanUp(state, queue);
+        Drain(state, queue);
+
+        // Exactly 2 qualifying dice (Basilisk itself + qualifyingAlly) x
+        // 2 damage each = 4 - tooLowLevel and the L2 Tardigrade both
+        // correctly excluded.
+        Assert.Equal(lifeBefore - 4, state.PlayerTwo.Life);
+    }
 }

@@ -22,8 +22,28 @@ public static class AmountResolver
         {
             Fixed f => f.Value,
             PerMatch p => ResolvePerMatch(state, controllerId, p, bindings, protection, includeContinuous),
+            // MultipleOf's continuous-context resolution (StatAuraModifier
+            // reaches this, unlike EffectInterpreter.ResolveAmount's own
+            // ability-context copy, since a StatAura has no ability-
+            // resolution EffectContext/CapturedStats to read from - see
+            // MultipleOf's own remarks for why this reads the BASE stat).
+            MultipleOf m => ResolveMultipleOf(state, bindings, m),
             _ => throw new NotSupportedException($"Unknown Amount type '{amount.GetType().Name}'."),
         };
+    }
+
+    private static int ResolveMultipleOf(GameState state, IReadOnlyDictionary<string, string> bindings, MultipleOf m)
+    {
+        if (!bindings.TryGetValue(m.Binding, out var dieId))
+            throw new InvalidOperationException($"MultipleOf references binding '{m.Binding}', which is not bound to a die.");
+        var die = FindDie(state, dieId);
+        var baseStat = m.Stat switch
+        {
+            StatKind.Attack => QueryEngine.GetBaseAttack(state, die),
+            StatKind.Defense => QueryEngine.GetBaseDefense(state, die),
+            _ => throw new NotSupportedException($"MultipleOf doesn't support StatKind.{m.Stat}."),
+        };
+        return baseStat * m.Multiplier;
     }
 
     private static int ResolvePerMatch(GameState state, string controllerId, PerMatch p, IReadOnlyDictionary<string, string> bindings, ProtectionFrom? protection, bool includeContinuous)
