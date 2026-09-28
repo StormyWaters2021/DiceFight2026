@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    A dev-tool console app, not part of the shipped game: reads the real
+    DiceKingdomConfig.Catalog/Champions/CharactersByChampion straight out
+    of the compiled DiceFight.V2 project and renders them as one static
+    HTML reference page. Project-referenced rather than copy-pasted or
+    regex-scraped from the .cs source, specifically so this can never
+    drift from what the engine actually does - re-running it after any
+    card/champion edit is the whole point (see Program.cs's own remarks).
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\DiceFight.V2\DiceFight.V2.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -10,4 +10,7 @@
     <Project Path="tests/DiceFight.Engine.Tests/DiceFight.Engine.Tests.csproj" />
     <Project Path="tests/DiceFight.V2.Tests/DiceFight.V2.Tests.csproj" />
   </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/CardCatalogDocs/CardCatalogDocs.csproj" />
+  </Folder>
 </Solution>
