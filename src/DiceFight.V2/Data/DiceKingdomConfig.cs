@@ -141,17 +141,22 @@ public static class DiceKingdomConfig
     // Direct feedback (2026-09-28): the doubling alone made this a
     // "threat only if gang-blocked" card - a single blocker could just
     // wall it for free and dodge the whole mechanic, no different from
-    // any other creature. Added Overcrush and pushed ATK well above DEF
+    // any other creature. Added Overcrush and nudged ATK above DEF
     // (glass-cannon, not a curve-matched vanilla stick) so it is a real
     // threat EITHER way: a single blocker still eats an Overcrush
-    // leftover once it's gone (ATK comfortably clears most single
-    // blockers' Defense in this cost range), and gang-blocking to survive
-    // that walks straight into the doubling - which then blows through
-    // an even bigger Overcrush leftover on top. There is no safe block.
+    // leftover once it's gone (ATK clears most single blockers' Defense
+    // in this cost range), and gang-blocking to survive that walks
+    // straight into the doubling - which then blows through an even
+    // bigger Overcrush leftover on top. There is no safe block.
+    //
+    // Scaled back 2026-09-28 (direct feedback: the first pass's L3 13A
+    // was nearly double the roster's actual ceiling elsewhere - Elephant
+    // and CapeBuffalo both top out at 7A). L3's 9A is still the roster's
+    // new high, just not a wildly disproportionate one.
     public static readonly CardDef Silverback = new(
         Id: "DK-CLAW-06", Name: "Silverback", Subtitle: null, Set: "Dice Kingdom", CardType: CardType.Character,
         PurchaseCost: 7, EnergySymbolIds: ["Claw"],
-        Die: CharacterDie("DK-CLAW-06Die", energyType: "Claw", (2, 8, 4), (3, 10, 5), (3, 13, 6)),
+        Die: CharacterDie("DK-CLAW-06Die", energyType: "Claw", (2, 6, 4), (3, 7, 5), (3, 9, 6)),
         DieLimit: 4, Affiliations: [], Keywords: ["Overcrush"],
         RawText: "Overcrush. While active, whenever 2 or more creatures block Silverback, its ATK doubles for that combat.",
         Abilities: [],
