@@ -3458,3 +3458,26 @@ with no attackers yet), and the bot. Tests: `NoResultAbilityTests`; one
 API test updated for the dropped priority stop.
 Known gap: the mobile Global rail can still show "Use" enabled for such a
 Global - the server rejects it with a rule-3.1.10 message.
+
+### Why Armadillo loses (powers off) - roster swap experiments (2026-09-28)
+
+New simulator switch `SIM_SWAP=Champ:oldId=newId;...`. Armadillo's
+average ATK (2.50) is no lower than Owl's (2.46), and Owl wins ~50%, so
+"low ATK" alone isn't it. One-card swaps, 1,200 games each:
+
+| Armadillo swap | Armadillo win % |
+|---|---|
+| baseline | 24.3 |
+| Rhinoceros -> Basilisk (stronger finisher) | 28.3 |
+| Musk Ox (+1 DEF aura) -> Queen Termite (+1 ATK aura, identical cost/stats) | 36.3 |
+| Hermit Crab (1/3 wall) -> Opossum (Deadly) | 48.5 |
+
+The finisher barely matters (finishers land in only ~15% of games). What
+matters is the cheap end: Hermit Crab is Armadillo's most-bought card
+(2.8/game, fielded in ~97% of games) and its 1 ATK means it never KOs
+anything - blocks prevent damage but never punish, so opponents attack
+into it for free and the board never tips Armadillo's way. Its only
+removal is Hummingbird (off-type Wing), and two of its eight slots are
++DEF auras, which only buy survival in a game where blocked damage
+clears every turn anyway. (Opossum is 3-cost vs Crab's 2, so part of
+that jump is cost.)

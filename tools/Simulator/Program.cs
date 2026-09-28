@@ -21,6 +21,8 @@ using DiceFight.V2.Model.Effects;
 //                    Foresight removed)
 //   SIM_GAMES=N      games per matchup (default 200)
 //   SIM_DUMP=N       print the full match log of game N of each matchup
+//   SIM_SWAP=Champ:oldId=newId;...  what-if roster swap, e.g.
+//                    Armadillo:DK-SHELL-02=DK-SHELL-06 (Musk Ox -> Queen Termite)
 //   SIM_NO_GLOBALS=id,id  strip the Global abilities off these card ids
 //                    (e.g. DK-ACT-03 = Resurrection) - a what-if switch
 //
@@ -151,7 +153,10 @@ static (string WinnerChampionIdOrSentinel, int Turns) PlayOneGame(
 static Player BuildPlayer(string id, string championId)
 {
     var player = new Player { Id = id, Name = championId, ChampionId = championId };
-    player.TeamCardIds.AddRange(DiceKingdomConfig.CharactersByChampion[championId]);
+    var swaps = (Environment.GetEnvironmentVariable("SIM_SWAP") ?? "").Split(';', StringSplitOptions.RemoveEmptyEntries)
+        .Select(s => s.Split(':')).Where(s => s[0] == championId)
+        .Select(s => s[1].Split('=')).ToDictionary(s => s[0], s => s[1]);
+    player.TeamCardIds.AddRange(DiceKingdomConfig.CharactersByChampion[championId].Select(id => swaps.GetValueOrDefault(id, id)));
     player.TeamCardIds.Add(DiceKingdomConfig.ActionByChampion[championId]);
     return player;
 }
