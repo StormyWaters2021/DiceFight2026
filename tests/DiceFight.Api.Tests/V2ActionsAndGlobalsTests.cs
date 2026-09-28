@@ -329,8 +329,12 @@ public class V2ActionsAndGlobalsTests
         var shell = Tardigrade(state, "teamB", Zone.ReservePool, 0); // 2 Shell, left over from their turn
         var index = DiceKingdomConfig.Distraction.Abilities.ToList().FindIndex(x => x.Trigger == TriggerKind.Global);
 
+        // No priority stop for Armadillo in Main despite holding Shell:
+        // Distraction's Global moves an attacker, and in Main there are
+        // none, so it would have no result (rule 3.1.10 - Priority.
+        // CanUseAnyGlobal skips it).
         a.EnterAttackStep(session.Id);
-        b.Pass(session.Id); // Armadillo holds Shell, so Main hands them priority first
+        Assert.Equal(StepIds.SelectAttackers, state.CurrentStepId);
         a.DeclareAttackers(session.Id, new V2DeclareAttackersRequest([new V2AttackerDeclaration(attacker1.Id, 0), new V2AttackerDeclaration(attacker2.Id, 1)]));
         b.DeclareBlockers(session.Id, new V2DeclareBlockersRequest([new V2BlockAssignment(attacker1.Id, wall.Id)]));
         a.AssignCombatDamage(session.Id, new V2AssignCombatDamageRequest([])); // Wolf passes; Armadillo may respond

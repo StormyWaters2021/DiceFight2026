@@ -465,6 +465,8 @@ public static class TurnEngine
 
         if (ability.OncePerTurn && state.GlobalsUsedThisTurn.Contains((playerId, cardId)))
             throw new InvalidOperationException($"'{card.Name}''s Global has already been used this turn.");
+        if (!AbilityPreview.CouldHaveResult(state, playerId, ability.Effect, ProtectionFrom.Global))
+            throw new InvalidOperationException($"'{card.Name}''s Global would have no effect right now, so it can't be used (rule 3.1.10).");
 
         var energyDice = ResolveReservePoolEnergy(state, playerId, energyDieIdsToSpend);
         var cost = QueryEngine.GetGlobalEnergyCost(state, card, ability, playerId);
@@ -520,6 +522,13 @@ public static class TurnEngine
         // right face).
         if (state.GetCurrentFace(die)?.Kind != FaceKind.ActionFace)
             throw new InvalidOperationException($"'{card.Name}' rolled energy, not its action face - it can only be spent as energy.");
+        // Rule 2.6.4.6 / 3.1.10 - no using an Action die for no result. A
+        // card with no modelled use ability at all isn't judged (nothing to
+        // judge - AbilityPreview's own "permissive" stance).
+        var useAbilities = card.Abilities.Where(a => a.Trigger == TriggerKind.DieUsed).ToList();
+        if (useAbilities.Count > 0
+            && useAbilities.All(a => !AbilityPreview.CouldHaveResult(state, die.ControllerId, a.Effect, ProtectionFrom.Action)))
+            throw new InvalidOperationException($"'{card.Name}' would have no effect right now, so it can't be used (rule 2.6.4.6).");
 
         state.LogEvent(die.ControllerId, $"{state.NameOf(die.ControllerId)} uses {card.Name}.");
         die.Zone = Zone.OutOfPlay;

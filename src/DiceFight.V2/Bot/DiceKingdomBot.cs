@@ -134,7 +134,7 @@ public static class DiceKingdomBot
 
         // Basic Actions that pay off in Main (a combat pump waits for the
         // Attack Step's window - see ActiveWindow).
-        foreach (var die in reserve.Where(d => IsActionFace(state, d)))
+        foreach (var die in reserve.Where(d => IsActionFace(state, d) && ActionCouldHaveResult(state, d)))
         {
             if (ShouldUseActionInMain(state, botId, die))
                 return new(BotActionKind.UseAction, $"Use {CardName(state, die)}.") { DieId = die.Id };
@@ -368,6 +368,7 @@ public static class DiceKingdomBot
                 var option = new GlobalOption(card, i, ability.Effect, QueryEngine.GetGlobalEnergyCost(state, card, ability, botId),
                     ability.EnergyCost?.RequiredSymbolId);
                 if (!want(option)) continue;
+                if (!AbilityPreview.CouldHaveResult(state, botId, ability.Effect, ProtectionFrom.Global)) continue; // rule 3.1.10
                 if (BotEnergy.PickWithVirtual(state, pool, option.Cost, option.Type, state.VirtualEnergyOf(botId)) is not { } pay) continue;
                 return new(BotActionKind.UseGlobal, $"Use {card.Name}'s Global.") { CardId = cardId, AbilityIndex = i, EnergyDieIds = pay.Dice };
             }
@@ -525,7 +526,8 @@ public static class DiceKingdomBot
         var attacking = state.DiceIn(botId, Zone.AttackZone).ToList();
 
         // A combat pump action (Anger Issues) is only good now.
-        var pump = state.DiceIn(botId, Zone.ReservePool).FirstOrDefault(d => IsActionFace(state, d) && IsCombatPump(state, d));
+        var pump = state.DiceIn(botId, Zone.ReservePool)
+            .FirstOrDefault(d => IsActionFace(state, d) && IsCombatPump(state, d) && ActionCouldHaveResult(state, d));
         if (pump is not null && attacking.Count > 0)
             return new(BotActionKind.UseAction, $"Use {CardName(state, pump)}.") { DieId = pump.Id };
 
@@ -625,6 +627,11 @@ public static class DiceKingdomBot
 
     private static bool IsActionFace(GameState state, DieInstance die) =>
         die.CardId is { } id && state.CardCatalog[id].CardType.IsActionDie() && state.GetCurrentFace(die)?.Kind == FaceKind.ActionFace;
+
+    // Rule 2.6.4.6 - TurnEngine.UseAction refuses an Action die that would do nothing.
+    private static bool ActionCouldHaveResult(GameState state, DieInstance die) =>
+        state.CardCatalog[die.CardId!].Abilities.Where(a => a.Trigger == TriggerKind.DieUsed)
+            .Any(a => AbilityPreview.CouldHaveResult(state, die.ControllerId, a.Effect, ProtectionFrom.Action));
 
     private static bool IsCombatPump(GameState state, DieInstance die) =>
         state.CardCatalog[die.CardId!].Abilities.FirstOrDefault(a => a.Trigger == TriggerKind.DieUsed)?.Effect switch

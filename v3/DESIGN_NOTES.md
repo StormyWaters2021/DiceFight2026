@@ -3435,3 +3435,26 @@ games lost that way at first. Two real bot bugs, not the budget:
 Result: 0/1,200 games lost to deck-out, win rates unchanged. Burn itself
 stays rare (~0.01/game) - purchases keep the bag well above a full draw,
 so the situation seldom comes up at all.
+
+### Rule 3.1.10: no initiating a Global/Action for no result (2026-09-28)
+
+User correction: only the Clear and Draw step's draw burns / grants
+Virtual energy (already the case - `TurnEngine.ClearAndDraw` only); an
+ability's draw does as much as it can and stops. And per rule 3.1.10
+("Energy cannot be spent, or an ability initiated, ... [if] there would be
+no result or potential result that changes the game state; or there are
+no legal targets") and 2.6.4.6 (same for Action dice), a Global or Action
+die with nothing to act on can't be used at all - e.g. Resurrection's
+draw Global with an empty Bag and Used Pile. A TRIGGERED ability
+(Mountain Goat's On Attack draw) isn't gated: the die attacks normally and
+the draw fizzles, which the interpreter already did.
+
+New `AbilityPreview.CouldHaveResult` (deliberately permissive - only
+rules out an empty draw or a target filter that matches nothing; a card
+with no modelled use ability isn't judged), checked by `UseGlobal`,
+`UseAction`, `Priority.CanUseAnyGlobal` (so no priority stop is offered
+for a Global that can't do anything - e.g. Distraction's Global in Main,
+with no attackers yet), and the bot. Tests: `NoResultAbilityTests`; one
+API test updated for the dropped priority stop.
+Known gap: the mobile Global rail can still show "Use" enabled for such a
+Global - the server rejects it with a rule-3.1.10 message.

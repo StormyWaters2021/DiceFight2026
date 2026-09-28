@@ -113,6 +113,7 @@ public static class Priority
             foreach (var ability in card.Abilities.Where(a => a.Trigger == TriggerKind.Global))
             {
                 if (ability.OncePerTurn && state.GlobalsUsedThisTurn.Contains((playerId, cardId))) continue;
+                if (!AbilityPreview.CouldHaveResult(state, playerId, ability.Effect, ProtectionFrom.Global)) continue; // rule 3.1.10
                 var cost = QueryEngine.GetGlobalEnergyCost(state, card, ability, playerId);
                 if (totalPips < cost) continue;
                 var required = ability.EnergyCost?.RequiredSymbolId;
