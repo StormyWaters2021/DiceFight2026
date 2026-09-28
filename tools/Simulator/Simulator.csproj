@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    A dev-tool console app, not part of the shipped game: plays Dice
+    Kingdom Champion-vs-Champion round-robins headlessly against the real
+    DiceFight.V2 engine and prints win rates plus per-card/damage-source
+    stats. Run from the repo root:
+      cd tools/Simulator && dotnet run -c Release
+    Project-referenced (like CardCatalogDocs) so it always plays the
+    current catalog - re-run it after any card/champion edit.
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\DiceFight.V2\DiceFight.V2.csproj" />
+  </ItemGroup>
+
+</Project>

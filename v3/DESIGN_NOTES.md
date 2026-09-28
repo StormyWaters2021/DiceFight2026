@@ -3248,3 +3248,58 @@ Hippopotamus, and the whole Owl roster against the regenerated table).
 336 V2 + 29 Api tests pass; `tsc -b`/`vite build` clean (no frontend
 change needed - stats are never hardcoded client-side, always read live
 from the card DTO).
+
+## Champion round-robin simulator, powers off (2026-09-28)
+
+The headless simulator (previously only in a session scratchpad, never
+on disk in the repo) now lives at `tools/Simulator` - a console app
+project-referencing DiceFight.V2, like `tools/CardCatalogDocs`. It plays
+every Champion pairing (all six), 200 games each, seats alternated, same
+bot policy on both sides. Env switches are documented in its header
+(`SIM_POWERS`, `SIM_BUY`, `SIM_ORDER`). Seeding now uses a stable string
+hash - it used `string.GetHashCode()`, which .NET randomizes per process,
+so two runs of identical code gave different numbers.
+
+**Caveat: teams got Characters only - no Basic Actions, no Globals, no
+rerolls, random answers to pending choices.**
+
+Powers-off win rates (1,200 games per policy) flip with the bot's
+buy policy alone:
+
+| Bot policy | Wolf | Armadillo | Owl | Eagle |
+|---|---|---|---|---|
+| Field everything, then buy cheapest (original) | 38.5 | 42.5 | 46.3 | 62.7 |
+| Field everything, then buy most expensive | 44.8 | 44.0 | 46.8 | 56.5 |
+| Buy most expensive first, then field | 62.8 | 39.2 | 64.7 | 31.5 |
+
+So balance conclusions are currently dominated by the bot. Root cause:
+Tardigrade faces carry energy AND free stats, and a field-first bot
+fields ~55 Tardigrades/game, burning the energy it'd need to buy - under
+the original policy Silverback/Rhinoceros/Phoenix/Basilisk were fielded
+in 0% of games. Buy-first overcorrects (buys all 4 copies of every cheap
+card, diluting the bag).
+
+Findings that held across all three policies (worth revisiting once the
+bot is better):
+- Off-type splash cards (Hippopotamus, Cape Buffalo, Stoat, Cowbird, Box
+  Turtle, Barn Owl, Mountain Goat, Peregrine Falcon) are fielded in
+  0-6% of games. User's own play didn't have much trouble buying off-type,
+  so likely a bot problem (no reroll toward Wild faces, never buys the
+  opponent's Basic Action for its energy) rather than a design one.
+- Games run 35-48 turns for 20 life (~0.5 damage/turn); 1-5% hit the
+  50-turn cap.
+- Finishers win big when they land (win% in games where fielded:
+  Basilisk 84-85, Rhinoceros 66-84, Silverback 68-81, Phoenix 53-81) -
+  partly selection bias (they only land in long games). Basilisk is the
+  one to watch: ~2.2 unblockable end-of-turn damage/game.
+- Armadillo's cards never cleared 45% without its passive.
+- First seat wins ~53-54% under every policy.
+- The old powers-ON pass (original bot) had Wolf at 99.5% vs Owl and
+  Eagle - its +1 ATK turns every 0-ATK Tardigrade into an attacker.
+
+Next (user direction): one shared bot policy for the web opponent and
+the simulator (they had drifted into two different policies), with
+rerolls (prefer stat faces for non-Tardigrade Characters, some
+preference for Wild), and buying the opponent's Basic Action for
+off-type energy. Per-Champion "personas" (e.g. aggressive Wolf) later -
+not urgent while testing with powers off.
