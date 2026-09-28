@@ -3412,3 +3412,26 @@ Simulator after the deck-out rule: win rates essentially unchanged (Wolf
 1,200; deck-out damage ~0.05 life/game - the bot's circulation guard
 means it almost never decks itself (user: "a real player would avoid
 that situation").
+
+### Bot: deck-out burn as a budget, not a wall (2026-09-28)
+
+User: "a real player would strategically take burn damage from not having
+enough dice to draw, especially in the early game. But they would almost
+never allow themselves to actually die from it." The bot's first version
+refused any burn; now `BurnBudget` allows being up to 2 dice short (life
+after the opponent's whole board swings >= 14), 1 (>= 8), 0 below that,
+and at 3 life or less keeps a spare die (-1). Leftover Tardigrades get
+one point less budget than real Characters.
+
+The simulator's new "lost to deck-out burn" counter found 12/1,200
+games lost that way at first. Two real bot bugs, not the budget:
+- `Circulating` counted Prep Area dice, but Prep dice come back ON TOP
+  of the 4-die Bag draw and never cover a shortfall.
+- On Attack draws (Mountain Goat/Swift) and Resurrection's draw Global
+  move a die Bag -> Prep AFTER the fielding check. Both are now
+  counted: pending on-attack draws come off circulation before fielding,
+  a drawing attacker is held back if its draw would exceed the budget,
+  and draw Globals pass the same check.
+Result: 0/1,200 games lost to deck-out, win rates unchanged. Burn itself
+stays rare (~0.01/game) - purchases keep the bag well above a full draw,
+so the situation seldom comes up at all.

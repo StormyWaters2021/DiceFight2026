@@ -211,7 +211,7 @@ static class Stats
     static readonly Dictionary<(string Champ, string Src), int> DamageDealt = [];
     static readonly Dictionary<(string Champ, string What), int> Uses = [];
     static readonly Dictionary<string, int> Games = [], Wins = [], Rerolls = [];
-    static int _seatOneWins, _decided, _capHits;
+    static int _seatOneWins, _decided, _capHits, _deckOutDeaths;
 
     static string C(string pid) => _champ[pid == "p1" ? 0 : 1];
     static void Inc<K>(Dictionary<K, int> d, K k, int by = 1) where K : notnull => d[k] = d.GetValueOrDefault(k) + by;
@@ -220,7 +220,7 @@ static class Stats
     {
         Buys.Clear(); Fields.Clear(); GamesFielded.Clear(); WinsWhenFielded.Clear(); DamageDealt.Clear();
         Uses.Clear(); Games.Clear(); Wins.Clear(); Rerolls.Clear();
-        _seatOneWins = _decided = _capHits = 0;
+        _seatOneWins = _decided = _capHits = _deckOutDeaths = 0;
     }
 
     public static void BeginGame(string one, string two) { _champ = [one, two]; _fieldedThisGame.Clear(); }
@@ -250,6 +250,15 @@ static class Stats
             BotActionKind.UseAction or BotActionKind.UseGlobal => "actions/globals",
             _ => "main (On Field/Awaken/On Attack)",
         };
+        if (d.Kind == BotActionKind.ClearAndDraw && s.GetPlayer(pid).Life <= 0)
+        {
+            _deckOutDeaths++;
+            if (Environment.GetEnvironmentVariable("SIM_DEBUG_DECKOUT") == "1" && _deckOutDeaths <= 2)
+            {
+                Console.WriteLine($"--- deck-out death #{_deckOutDeaths} ({C(pid)}) - last 60 log lines ---");
+                foreach (var e in s.Log.TakeLast(60)) Console.WriteLine($"  [{e.PlayerId}] {e.Text}");
+            }
+        }
         var toP2 = lifeBefore.P2 - s.PlayerTwo.Life;
         var toP1 = lifeBefore.P1 - s.PlayerOne.Life;
         if (toP2 > 0) Inc(DamageDealt, (C("p1"), source), toP2);
@@ -275,7 +284,7 @@ static class Stats
 
     public static void Report(Dictionary<string, string> names)
     {
-        Console.WriteLine($"=== STATS === seat one (goes first) wins {_seatOneWins}/{_decided} decided ({100.0 * _seatOneWins / Math.Max(1, _decided):F1}%); games that hit the turn cap: {_capHits}");
+        Console.WriteLine($"=== STATS === seat one (goes first) wins {_seatOneWins}/{_decided} decided ({100.0 * _seatOneWins / Math.Max(1, _decided):F1}%); games that hit the turn cap: {_capHits}; lost to deck-out burn: {_deckOutDeaths}");
         foreach (var champ in Games.Keys)
         {
             var games = Games[champ];

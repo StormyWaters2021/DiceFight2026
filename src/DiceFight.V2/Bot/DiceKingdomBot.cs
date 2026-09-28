@@ -143,16 +143,21 @@ public static class DiceKingdomBot
         // Real Characters first: an unfielded one goes to the Used Pile at
         // the end of Main (TurnEngine.EnterAttackStep), and a Tardigrade's
         // zero-energy Bulwark face (1/3) likewise has nothing else to give.
-        // Never field so much that fewer dice than a full draw stay in
-        // circulation - each die short costs 1 life every Clear and Draw
-        // (the deck-out rule, TurnEngine.ClearAndDraw).
+        // Deck-out burn (TurnEngine.ClearAndDraw): each die short of a full
+        // draw costs 1 life per turn, paid back as 1 generic energy. A
+        // real player takes that burn on purpose when there's life to
+        // spare - a bigger board early is worth a few points - but never
+        // lets it get anywhere near lethal (user, 2026-09-28). So the
+        // allowed shortfall scales with life left after the opponent's
+        // current board swings in.
         var drawCount = state.Config.Rules.DrawCount;
+        var allowedShortfall = BurnBudget(state, botId);
         foreach (var die in reserve
             .Where(d => state.GetCurrentFace(d)?.Character is not null && (IsCharacterCard(state, d) || BotEnergy.Pips(state, d) == 0))
             .Where(d => d.CardId is null || QueryEngine.CanField(state, botId, d.CardId))
             .OrderByDescending(d => DieValue(state, d)))
         {
-            if (Circulating(state, botId) - 1 < drawCount) break;
+            if (Circulating(state, botId) - 1 < drawCount - allowedShortfall) break;
             var pay = BotEnergy.PickWithVirtual(state, reserve.Where(x => x.Id != die.Id).ToList(), QueryEngine.GetFieldingCost(state, die), null,
                 state.VirtualEnergyOf(botId));
             if (pay is not null)
@@ -166,14 +171,13 @@ public static class DiceKingdomBot
         if (CanDraw(state, botId) && GlobalDecision(state, botId, onlyRealPips: true, g => g.Effect is DrawToZone) is { } draw) return draw;
 
         // Leftover Tardigrades: fielded now or swept to the Used Pile at
-        // the end of Main. Only while a comfortable margin over a full
-        // draw stays in circulation - a weak 0/1 blocker isn't worth
-        // starting to deck out over.
+        // the end of Main. A weak body is worth less burn than a real
+        // Character - one point less of budget.
         var leftover = reserve
             .Where(d => d.CardId is null && state.GetCurrentFace(d)?.Character is not null)
             .OrderByDescending(d => DieValue(state, d))
             .FirstOrDefault();
-        if (leftover is not null && Circulating(state, botId) - 1 >= drawCount + 2)
+        if (leftover is not null && Circulating(state, botId) - 1 >= drawCount - Math.Max(0, allowedShortfall - 1))
             return new(BotActionKind.Field, "Field a leftover Tardigrade.") { DieId = leftover.Id, EnergyDieIds = [] };
 
         return new(BotActionKind.Pass, "Done in Main - on to the Attack Step.");
@@ -185,15 +189,53 @@ public static class DiceKingdomBot
         (CanDraw(state, botId) ? GlobalDecision(state, botId, onlyRealPips: false, g => g.Effect is DrawToZone) : null)
         ?? new(BotActionKind.Pass, "Pass.");
 
-    // A draw effect with an empty Bag and Used Pile just burns the energy.
+    // A draw-into-Prep effect is worth it only with something to draw, and
+    // only if moving that die from the Bag to Prep doesn't push next turn's
+    // deck-out burn past this player's budget (a Resurrection Global drawn
+    // on the opponent's turn decked an Owl to death at 1 life, 2026-09-28).
     private static bool CanDraw(GameState state, string botId) =>
-        state.DiceIn(botId, Zone.Bag).Any() || state.DiceIn(botId, Zone.UsedPile).Any();
+        (state.DiceIn(botId, Zone.Bag).Any() || state.DiceIn(botId, Zone.UsedPile).Any())
+        && Circulating(state, botId) - 1 >= state.Config.Rules.DrawCount - BurnBudget(state, botId);
 
-    // Dice that will come back around to be drawn: everything this player
-    // controls that isn't on the board or still unbought (spent energy in
-    // Out of Play returns to the Used Pile at Clean Up).
+    // Dice available to next turn's draw from the Bag: everything this
+    // player controls that isn't on the board, unbought, or in the Prep
+    // Area (spent energy in Out of Play returns to the Used Pile at Clean
+    // Up, and an empty Bag refills from the Used Pile). Prep dice come back
+    // too, but ON TOP of the draw - they never cover a shortfall. Counting
+    // them was the bug behind a Wolf losing at 1 life to 1 burn: Mountain
+    // Goat's "draw a die into your Prep Area" kept moving dice from the
+    // Bag into Prep, one short of what this counted (2026-09-28).
     private static int Circulating(GameState state, string botId) =>
-        state.Dice.Count(d => d.ControllerId == botId && d.Zone is not (Zone.FieldZone or Zone.AttackZone or Zone.Unpurchased));
+        state.Dice.Count(d => d.ControllerId == botId
+            && d.Zone is not (Zone.FieldZone or Zone.AttackZone or Zone.Unpurchased or Zone.PrepArea))
+        - PendingAttackDraws(state, botId);
+
+    // Dice that on-attack draws (Mountain Goat, Swift, ...) would still
+    // pull from the Bag into Prep this turn if everything able to swing
+    // does - counted against circulation, since that's exactly the second
+    // way a Wolf decked itself to death at low life (2026-09-28). Only
+    // before attacks are declared; afterward the draws already happened.
+    private static int PendingAttackDraws(GameState state, string botId) =>
+        state.ActivePlayerId == botId && state.CurrentStep == TurnStep.Main
+            ? PotentialAttackers(state, botId).Count(d => DrawsOnAttack(state, d))
+            : 0;
+
+    private static bool DrawsOnAttack(GameState state, DieInstance die) =>
+        QueryEngine.AbilitiesOf(state, die).Any(a => a.Trigger == TriggerKind.DieAttacks && a.Effect is DrawToZone);
+
+    // How many dice short of a full draw (so how many life per turn) this
+    // player will accept, from its life left after the opponent's whole
+    // board hits: plenty -> 2, some -> 1, tight -> none, and at 3 life or
+    // less -1: keep a spare die circulating, since an On Attack/Awaken draw
+    // into Prep can still pull one out of the Bag before next turn.
+    private static int BurnBudget(GameState state, string botId)
+    {
+        var life = state.GetPlayer(botId).Life;
+        if (life <= 3) return -1;
+        var theirSwing = PotentialAttackers(state, state.OpponentOf(botId)).Sum(d => QueryEngine.GetAttack(state, d));
+        var cushion = life - theirSwing;
+        return cushion >= 14 ? 2 : cushion >= 8 ? 1 : 0;
+    }
 
     private static bool ShouldUseActionInMain(GameState state, string botId, DieInstance die)
     {
@@ -356,10 +398,21 @@ public static class DiceKingdomBot
         // below our life (home dice block their biggest attackers).
         var theirAttack = PotentialAttackers(state, oppId).Select(d => QueryEngine.GetAttack(state, d)).OrderByDescending(a => a).ToList();
 
+        // An on-attack draw pulls a die out of the Bag into Prep, which
+        // doesn't help next turn's draw - don't let those swings push the
+        // deck-out burn past what this player can afford.
+        var drawable = Circulating(state, botId);
+        var minDrawable = state.Config.Rules.DrawCount - BurnBudget(state, botId);
+
         var attackers = new List<DieInstance>();
         foreach (var die in candidates)
         {
             if (!WorthSwinging(state, die, blockers, persona)) continue;
+            if (DrawsOnAttack(state, die))
+            {
+                if (drawable - 1 < minDrawable) continue;
+                drawable--;
+            }
             var home = PotentialBlockers(state, botId).Count(d => d != die && !attackers.Contains(d));
             var crackBack = theirAttack.Skip(home).Sum();
             if (crackBack >= myLife) continue;
