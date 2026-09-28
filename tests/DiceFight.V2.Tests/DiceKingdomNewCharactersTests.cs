@@ -235,14 +235,14 @@ public class DiceKingdomNewCharactersTests
         var state = NewGame(); // p1 = Wolf, p2 = Armadillo
         var queue = new AbilityQueue();
 
-        var silverback = ActiveCharacter(state, DiceKingdomConfig.Silverback.Id, "p1"); // L1: 5A/6D
+        var silverback = ActiveCharacter(state, DiceKingdomConfig.Silverback.Id, "p1"); // L1: 8A/4D
         var blocker1 = ActiveCharacter(state, DiceKingdomConfig.HermitCrab.Id, "p2");
         var blocker2 = ActiveCharacter(state, DiceKingdomConfig.MuskOx.Id, "p2");
 
         // Before any block is declared, GameState.DeclaredBlocks is null,
         // so BlockedByAtLeast reads false - only Wolf's own +1 ATK
         // champion aura is live.
-        Assert.Equal(6, QueryEngine.GetAttack(state, silverback)); // 5 base + 1 Wolf aura
+        Assert.Equal(9, QueryEngine.GetAttack(state, silverback)); // 8 base + 1 Wolf aura
 
         TurnEngine.EnterAttackStep(state, queue);
         Drain(state, queue);
@@ -256,12 +256,48 @@ public class DiceKingdomNewCharactersTests
         Drain(state, queue);
 
         // Gang-blocked by 2 now - MultipleOf("self", Attack, 1) adds
-        // Silverback's own BASE attack (5, not the Wolf-buffed 6 -
+        // Silverback's own BASE attack (8, not the Wolf-buffed 9 -
         // MultipleOf reads base only, same rule StatOf documents,
         // precisely so this doesn't recurse into its own not-yet-
         // computed total) as a second delta alongside Wolf's own +1:
-        // 5 (base) + 1 (Wolf aura) + 5 (this aura, now active) = 11.
-        Assert.Equal(11, QueryEngine.GetAttack(state, silverback));
+        // 8 (base) + 1 (Wolf aura) + 8 (this aura, now active) = 17.
+        Assert.Equal(17, QueryEngine.GetAttack(state, silverback));
+    }
+
+    // Direct feedback (2026-09-28): doubling-only made Silverback a
+    // "threat only if gang-blocked" card - a single blocker could just
+    // wall it for free and dodge the whole mechanic. Overcrush (added
+    // alongside a real ATK bump) is what makes it dangerous EITHER way -
+    // this proves the single-blocker path specifically: the doubling
+    // never activates (only 1 blocker), but Overcrush still carries the
+    // leftover once that one blocker is gone.
+    [Fact]
+    public void Silverback_Still_Overwhelms_A_Single_Blocker_Via_Overcrush()
+    {
+        var state = NewGame(); // p1 = Wolf, p2 = Armadillo
+        var queue = new AbilityQueue();
+
+        var silverback = ActiveCharacter(state, DiceKingdomConfig.Silverback.Id, "p1"); // 9A (8 base + Wolf's +1)
+        var blocker = ActiveCharacter(state, DiceKingdomConfig.HermitCrab.Id, "p2"); // 3D (+1 Armadillo aura = 4D)
+
+        TurnEngine.EnterAttackStep(state, queue);
+        Drain(state, queue);
+        CombatEngine.DeclareAttackers(state, queue, [silverback.Id]);
+        Drain(state, queue);
+
+        var assignment = new CombatAssignment();
+        assignment.AssignBlocker(silverback.Id, blocker.Id);
+        CombatEngine.DeclareBlockers(state, queue, assignment, [blocker.Id]);
+        Drain(state, queue);
+
+        Assert.Equal(9, QueryEngine.GetAttack(state, silverback)); // NOT doubled - only 1 blocker
+
+        var lifeBefore = state.PlayerTwo.Life;
+        CombatEngine.AssignCombatDamage(state, queue, assignment, new Dictionary<string, IReadOnlyDictionary<string, int>>());
+        Drain(state, queue);
+
+        Assert.Equal(Zone.PrepArea, blocker.Zone); // the single blocker dies (4D < 9A)...
+        Assert.Equal(lifeBefore - 5, state.PlayerTwo.Life); // ...and Overcrush carries the leftover (9 - 4) straight through
     }
 
     [Fact]

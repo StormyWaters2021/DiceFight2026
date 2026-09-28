@@ -137,12 +137,23 @@ public static class DiceKingdomConfig
     // not guessed at here. Replaces Tiger as Wolf's own-energy "power"
     // slot (was 6-cost) - user call: replace rather than grow the roster
     // past the Rules.MaxTeamCards: 8 invariant.
+    //
+    // Direct feedback (2026-09-28): the doubling alone made this a
+    // "threat only if gang-blocked" card - a single blocker could just
+    // wall it for free and dodge the whole mechanic, no different from
+    // any other creature. Added Overcrush and pushed ATK well above DEF
+    // (glass-cannon, not a curve-matched vanilla stick) so it is a real
+    // threat EITHER way: a single blocker still eats an Overcrush
+    // leftover once it's gone (ATK comfortably clears most single
+    // blockers' Defense in this cost range), and gang-blocking to survive
+    // that walks straight into the doubling - which then blows through
+    // an even bigger Overcrush leftover on top. There is no safe block.
     public static readonly CardDef Silverback = new(
         Id: "DK-CLAW-06", Name: "Silverback", Subtitle: null, Set: "Dice Kingdom", CardType: CardType.Character,
         PurchaseCost: 7, EnergySymbolIds: ["Claw"],
-        Die: CharacterDie("DK-CLAW-06Die", energyType: "Claw", (2, 5, 6), (3, 6, 7), (3, 7, 9)),
-        DieLimit: 4, Affiliations: [], Keywords: [],
-        RawText: "While active, whenever 2 or more creatures block Silverback, its ATK doubles for that combat.",
+        Die: CharacterDie("DK-CLAW-06Die", energyType: "Claw", (2, 8, 4), (3, 10, 5), (3, 13, 6)),
+        DieLimit: 4, Affiliations: [], Keywords: ["Overcrush"],
+        RawText: "Overcrush. While active, whenever 2 or more creatures block Silverback, its ATK doubles for that combat.",
         Abilities: [],
         Continuous: [new StatAura(new TargetFilter(Self: true),
             AtkDelta: new MultipleOf("self", StatKind.Attack, Multiplier: 1),
