@@ -1,3 +1,5 @@
+using DiceFight.V2.Data;
+
 namespace DiceFight.V2.Bot;
 
 // One move the computer opponent wants to make next - exactly one engine
@@ -35,10 +37,10 @@ public sealed record BotDecision(BotActionKind Kind, string Reason)
     public IReadOnlyList<(string AttackerId, string BlockerId)> Blocks { get; init; } = [];
 }
 
-// Knobs for a future per-Champion play style (user, 2026-09-28: "a bot
-// running Wolf may act more aggressively" - not urgent while testing with
-// Champion powers off). Only Default exists today; every policy decision
-// that is a matter of taste rather than arithmetic reads one of these.
+// Per-Champion play style (user, 2026-09-28: "a bot running Wolf may act
+// more aggressively"). Every policy decision that is a matter of taste
+// rather than arithmetic reads one of these; ForChampion picks the one a
+// seat plays with, so the web opponent and the simulator agree.
 public sealed record BotPersona(
     // How readily an attacker swings into a board that could kill it:
     // 0 = only when no blocker can kill it, 1 = accepts even trades,
@@ -46,7 +48,32 @@ public sealed record BotPersona(
     double Aggression = 1.0,
     // How many points of incoming damage a chump block (losing the
     // blocker) is worth at full life; scales up as life drops.
-    double ChumpThreshold = 6.0)
+    double ChumpThreshold = 6.0,
+    // A card to race toward: worth RushBonus extra when buying its first
+    // copy, bought before fielding when affordable, and - until the first
+    // copy is owned - rerolls favor energy over bodies.
+    string? RushCardId = null,
+    double RushBonus = 0,
+    // A card whose Global to keep energy back for on the opponent's turn:
+    // one matching energy-face die (or Wild) stays unspent at the end of
+    // Main whenever the opponent has an attacker with HoldAgainstAttack+ ATK.
+    string? HoldForGlobalCardId = null,
+    int HoldAgainstAttack = 4)
 {
     public static readonly BotPersona Default = new();
+
+    // Armadillo (2026-09-29, user call): race to Rhinoceros, and keep a
+    // Shell back for Distraction's Global against a big attacker.
+    public static readonly BotPersona Armadillo = Default with
+    {
+        RushCardId = DiceKingdomConfig.Rhinoceros.Id,
+        RushBonus = 5,
+        HoldForGlobalCardId = DiceKingdomConfig.Distraction.Id,
+    };
+
+    public static BotPersona ForChampion(string? championId) => championId switch
+    {
+        "Armadillo" => Armadillo,
+        _ => Default,
+    };
 }

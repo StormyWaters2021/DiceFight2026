@@ -3519,3 +3519,51 @@ problem is Hermit Crab itself: the only vanilla 2-drop, never above 1
 ATK, and the most-bought, most-fielded card on the team. Other teams'
 2-drops (Honey Badger, Swift, Cuttlefish) all do something. (Caveat:
 the bot buys 2-drops heavily, which amplifies whatever the 2-drop is.)
+
+### Armadillo: roster changes, a Rhino-racing persona, and the Rhino stalemate (2026-09-29)
+
+User calls: keep the lockout on Pangolin (now live - "can't purchase or
+field", Blob/Drax-style); give Hermit Crab Pangolin's old "On Field: gain
+1 life" and lower its DEF (now 1/2 · 1/3 · 1/3, Homash 2.00 -> 1.57);
+tune an Armadillo persona to race to Rhinoceros; and - question - does the
+bot ever save Shell for Distraction against a big attacker? (No: it only
+ever used Distraction's Global with incidental leftovers, ~0.2/game.)
+
+- `BotPersona` is now per Champion (`BotPersona.ForChampion`, used by both
+  the web opponent and the simulator; `SIM_PERSONAS=off` to compare).
+  Armadillo: RushCardId = Rhinoceros (+5 value on its first copy, bought
+  before fielding when affordable, rerolls favor energy until owned) and
+  HoldForGlobalCardId = Distraction (keeps one Shell energy-face die or
+  Wild back through the opponent's turn when they have a 4+ ATK
+  attacker - only energy faces can be held; any creature-faced die, which
+  is every Tardigrade Shell pip, is swept to the Used Pile when Main ends).
+- The pick for the lockout is card-scoped: `V2PendingChoiceDto.Intent`
+  now reaches the client, and both pages show one labeled option per card
+  (name, cost, owned/unbought) instead of every die of it (mobile showed
+  32 unlabeled stat tiles; checked in headless Chromium).
+- The bot never actually played Rhinoceros: it swung it in, the opponent
+  let a 1-3 ATK attacker through, and it left play. Now (generic, read off
+  "DieDamaged -> DealDamage to the opposing player", not the name) a
+  retaliator stays home to block, blocks score the reflected damage, the
+  opponent won't block it with big hitters, and only swings wide into it
+  when more gets through than comes back.
+
+Armadillo win %, 1,200 games, powers off (Champion win% also includes
+games decided by the 50-turn-cap life tiebreak):
+
+| | Armadillo total | ...by turn-cap tiebreak | outright |
+|---|---|---|---|
+| old roster | 24.3 | - | - |
+| new roster, no persona | 36.5 | 7.0 | 29.5 |
+| new roster, Rhino-racing persona | 54.8 | 27.7 | 27.1 |
+
+With the persona Rhinoceros lands in ~80% of Armadillo games (was ~19%)
+and turn-cap games jump to ~270/1,200: nobody can attack profitably into
+a Rhino plus high-DEF walls, Armadillo won't swing its low-ATK board, and
+the game stalls with Armadillo usually ahead on life. The roster change
+is a real improvement; the persona mostly converts games into stalemates
+rather than wins. Open design question for the user: Rhinoceros as a
+near-unkillable (up to 3/9) blocker that punishes every attack may make
+stalemates structural - e.g. reflect only when blocking, a cap on
+reflected damage, or lower DEF. `DiceKingdomBotTests`' pairing test now
+only requires 1 of 5 seeds to finish (Armadillo vs Owl walls up in some).

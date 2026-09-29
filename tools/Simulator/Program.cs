@@ -23,6 +23,8 @@ using DiceFight.V2.Model.Effects;
 //   SIM_DUMP=N       print the full match log of game N of each matchup
 //   SIM_SWAP=Champ:oldId=newId;...  what-if roster swap, e.g.
 //                    Armadillo:DK-SHELL-02=DK-SHELL-06 (Musk Ox -> Queen Termite)
+//   SIM_PERSONAS=off play every seat with the Default persona instead of
+//                    its Champion's (BotPersona.ForChampion)
 //   SIM_NO_GLOBALS=id,id  strip the Global abilities off these card ids
 //                    (e.g. DK-ACT-03 = Resurrection) - a what-if switch
 //
@@ -121,7 +123,8 @@ static (string WinnerChampionIdOrSentinel, int Turns) PlayOneGame(
         }
 
         var owner = driver.DecisionOwner();
-        var decision = DiceKingdomBot.Decide(state, owner, skip)
+        var decision = DiceKingdomBot.Decide(state, owner, skip,
+                Environment.GetEnvironmentVariable("SIM_PERSONAS") == "off" ? BotPersona.Default : null)
             ?? throw new InvalidOperationException($"Bot had no decision for {owner} at step {state.CurrentStepId}.");
         var lifeBefore = (state.PlayerOne.Life, state.PlayerTwo.Life);
         if (state.PendingChoice?.Intent == ChoiceIntent.NameCard && decision.DieIds.Count > 0)
@@ -211,41 +214,12 @@ static class Catalog
 
 // Candidate cards under evaluation - simulator-only, NOT in the live
 // catalog or any real roster; reach them with SIM_SWAP. Promote one into
-// DiceKingdomConfig only once the user has seen the numbers.
+// DiceKingdomConfig only once the user has seen the numbers. (The lockout
+// Pangolin started here and went live 2026-09-29.) Build a variant from a
+// live card, e.g. `DiceKingdomConfig.HermitCrab with { Id = "PROTO-...", ... }`.
 static class Prototypes
 {
-    // Pangolin's slot (3-cost Shell, same die/stats) with a Blob/Drax-style
-    // lockout instead of "gain 1 life" (2026-09-28): Armadillo gets
-    // same-type interaction that fits a defensive team without adding
-    // another damage ping. Low stats on purpose - KO'ing it ends the
-    // lockout, and re-fielding it names a new card.
-    static CardDef LockoutPangolin(string id, string text, params SuppressionKind[] kinds) =>
-        DiceKingdomConfig.Pangolin with
-        {
-            Id = id,
-            RawText = text,
-            Abilities =
-            [
-                new TriggeredAbility(TriggerKind.DieFielded, new RememberCard(
-                    new TargetFilter(Kind: TargetKind.AnyDie, Ownership: TargetOwnership.Opposing,
-                        Zones: [Zone.Unpurchased, Zone.Bag, Zone.UsedPile, Zone.PrepArea, Zone.ReservePool,
-                            Zone.FieldZone, Zone.AttackZone, Zone.OutOfPlay],
-                        Tags: new TagQuery(NoneOf: ["sidekick", "Anger Issues", "Distraction", "Resurrection", "Mutation"]),
-                        Prompt: "name an opposing character."),
-                    "locked")),
-            ],
-            Continuous = [.. kinds.Select(k => (ContinuousDef)new Lockout(k, MemoryName: "locked"))],
-        };
-
-    public static readonly CardDef PangolinNoField = LockoutPangolin("PROTO-PANGOLIN-FIELD",
-        "On Field: name an opposing character. While Pangolin is active, your opponent can't field it.",
-        SuppressionKind.CantField);
-
-    public static readonly CardDef PangolinNoFieldNoBuy = LockoutPangolin("PROTO-PANGOLIN-FIELDBUY",
-        "On Field: name an opposing character. While Pangolin is active, your opponent can't field or purchase it.",
-        SuppressionKind.CantField, SuppressionKind.CantPurchase);
-
-    public static readonly CardDef[] All = [PangolinNoField, PangolinNoFieldNoBuy];
+    public static readonly CardDef[] All = [];
 }
 
 static class Stats
@@ -267,12 +241,14 @@ static class Stats
     public static void Reset()
     {
         Buys.Clear(); Fields.Clear(); GamesFielded.Clear(); WinsWhenFielded.Clear(); DamageDealt.Clear();
-        Uses.Clear(); Games.Clear(); Wins.Clear(); Rerolls.Clear(); NamedCards.Clear();
+        Uses.Clear(); Games.Clear(); Wins.Clear(); Rerolls.Clear(); NamedCards.Clear(); CapWins.Clear();
         _seatOneWins = _decided = _capHits = _deckOutDeaths = 0;
     }
 
-    public static void BeginGame(string one, string two) { _champ = [one, two]; _fieldedThisGame.Clear(); }
-    public static void CapHit() => _capHits++;
+    public static void BeginGame(string one, string two) { _champ = [one, two]; _fieldedThisGame.Clear(); _capThisGame = false; }
+    static bool _capThisGame;
+    static readonly Dictionary<string, int> CapWins = [];
+    public static void CapHit() { _capHits++; _capThisGame = true; }
     static readonly Dictionary<(string Champ, string Card), int> NamedCards = [];
     public static void Named(GameState s, string pid, string dieId) =>
         Inc(NamedCards, (C(pid), s.CardCatalog[s.Dice.First(d => d.Id == dieId).CardId!].Name));
@@ -324,6 +300,7 @@ static class Stats
             _decided++;
             if (winner == one) _seatOneWins++;
             Inc(Wins, winner);
+            if (_capThisGame) Inc(CapWins, winner);
         }
         foreach (var (pid, card) in _fieldedThisGame)
         {
@@ -339,7 +316,7 @@ static class Stats
         foreach (var champ in Games.Keys)
         {
             var games = Games[champ];
-            Console.WriteLine($"--- {names[champ]} ({games} games, win {100.0 * Wins.GetValueOrDefault(champ) / games:F1}%) - rerolled dice/game: {(double)Rerolls.GetValueOrDefault(champ) / games:F1} ---");
+            Console.WriteLine($"--- {names[champ]} ({games} games, win {100.0 * Wins.GetValueOrDefault(champ) / games:F1}%, {100.0 * CapWins.GetValueOrDefault(champ) / games:F1}% of games won on the turn-cap life tiebreak) - rerolled dice/game: {(double)Rerolls.GetValueOrDefault(champ) / games:F1} ---");
             var totalDmg = Math.Max(1, DamageDealt.Where(k => k.Key.Champ == champ).Sum(k => k.Value));
             foreach (var kv in DamageDealt.Where(k => k.Key.Champ == champ).OrderByDescending(k => k.Value))
                 Console.WriteLine($"  dmg via {kv.Key.Src}: {(double)kv.Value / games:F2}/game ({100.0 * kv.Value / totalDmg:F0}%)");

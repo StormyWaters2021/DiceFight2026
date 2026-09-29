@@ -1575,6 +1575,7 @@ export function DiceKingdomPage() {
           <b>{game.pendingChoice.description}</b>
         </p>
         <PendingChoiceChips
+          nameCard={game.pendingChoice.intent === "NameCard"}
           candidateIds={game.pendingChoice.candidateIds}
           max={game.pendingChoice.maxCount}
           dice={game.dice}
@@ -1895,12 +1896,15 @@ export function DiceKingdomPage() {
 }
 
 function PendingChoiceChips({
+  nameCard = false,
   candidateIds,
   max,
   dice,
   cardsById,
   onSubmit,
 }: {
+  /** The pick names a card (Pangolin's lockout): one chip per card, not per die. */
+  nameCard?: boolean;
   candidateIds: string[];
   max: number;
   dice: Die[];
@@ -1911,9 +1915,18 @@ function PendingChoiceChips({
   return (
     <>
       <div className="chiprow">
-        {candidateIds.map((id) => {
+        {(nameCard
+          ? [...new Map(candidateIds.map((id) => [dice.find((d) => d.id === id)?.cardId ?? id, id])).values()]
+          : candidateIds
+        ).map((id) => {
           const die = dice.find((d) => d.id === id);
           const name = die?.cardId ? (cardsById.get(die.cardId)?.name ?? die.cardId) : "Tardigrade";
+          if (nameCard)
+            return (
+              <span key={id} className={`chip${picked.includes(id) ? " on" : ""}`} onClick={() => setPicked(picked.includes(id) ? [] : [id])}>
+                {name}
+              </span>
+            );
           return (
             <span
               key={id}

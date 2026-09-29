@@ -47,7 +47,7 @@ public static class DiceKingdomBot
     public static BotDecision? Decide(GameState state, string botId, IReadOnlySet<string>? skip = null, BotPersona? persona = null)
     {
         skip ??= new HashSet<string>();
-        persona ??= BotPersona.Default;
+        persona ??= BotPersona.ForChampion(state.GetPlayer(botId).ChampionId);
         var active = state.ActivePlayerId;
 
         if (state.PendingChoice is { } pending)
@@ -58,7 +58,7 @@ public static class DiceKingdomBot
             var holder = state.PriorityPlayerId ?? active; // Priority.Sync opens every window with the Active player
             if (holder != botId) return null;
             if (state.CurrentStepId == StepIds.Main)
-                return botId == active ? ActiveMain(state, botId, skip) : InactiveMain(state, botId);
+                return botId == active ? ActiveMain(state, botId, skip, persona) : InactiveMain(state, botId);
             return botId == active ? ActiveWindow(state, botId) : InactiveWindow(state, botId);
         }
 
@@ -69,7 +69,7 @@ public static class DiceKingdomBot
             case TurnStep.RollAndReroll when botId == active:
                 return state.DiceIn(botId, Zone.DiceFromBag).Any() || state.DiceIn(botId, Zone.DiceFromPrep).Any()
                     ? new(BotActionKind.Roll, "Roll the drawn dice.")
-                    : DecideReroll(state, botId);
+                    : DecideReroll(state, botId, persona);
         }
 
         return state.CurrentStepId switch
@@ -85,16 +85,28 @@ public static class DiceKingdomBot
     // Roll & Reroll
     // ------------------------------------------------------------------
 
-    private static BotDecision DecideReroll(GameState state, string botId)
+    private static BotDecision DecideReroll(GameState state, string botId, BotPersona persona)
     {
         var reserve = state.DiceIn(botId, Zone.ReservePool).Where(d => !state.RerolledThisStep.Contains(d.Id)).ToList();
         var picks = new List<string>();
+        var rushing = Rushing(state, botId, persona);
 
         // A purchased Character that rolled energy: 3 of its 6 faces are
         // a body, and a body is why it was bought (user call 2026-09-28:
-        // "at the very least, prefer stat faces to energy").
-        foreach (var die in reserve.Where(d => IsCharacterCard(state, d) && state.GetCurrentFace(d)?.Character is null))
-            picks.Add(die.Id);
+        // "at the very least, prefer stat faces to energy"). Not while
+        // racing to a rush card (BotPersona.RushCardId) - then energy is
+        // the point, and a zero-energy Bulwark Tardigrade gets rerolled
+        // for some instead.
+        if (!rushing)
+        {
+            foreach (var die in reserve.Where(d => IsCharacterCard(state, d) && state.GetCurrentFace(d)?.Character is null))
+                picks.Add(die.Id);
+        }
+        else
+        {
+            foreach (var die in reserve.Where(d => d.CardId is null && BotEnergy.Pips(state, d) == 0))
+                picks.Add(die.Id);
+        }
 
         // Fish for a Wild (the Tardigrade Surge face, 1 in 6) when a card
         // worth buying needs an energy type nothing in the pool can pay -
@@ -117,9 +129,12 @@ public static class DiceKingdomBot
     // Main Step
     // ------------------------------------------------------------------
 
-    private static BotDecision ActiveMain(GameState state, string botId, IReadOnlySet<string> skip)
+    private static BotDecision ActiveMain(GameState state, string botId, IReadOnlySet<string> skip, BotPersona persona)
     {
-        var reserve = state.DiceIn(botId, Zone.ReservePool).Where(d => !skip.Contains(d.Id)).ToList();
+        // A die kept back for a Global on the opponent's turn (BotPersona.
+        // HoldForGlobalCardId) is invisible to everything below.
+        var held = HeldForGlobal(state, botId, persona);
+        var reserve = state.DiceIn(botId, Zone.ReservePool).Where(d => !skip.Contains(d.Id) && d != held).ToList();
 
         // Great Horned Owl's Foresight - on a Character die that rolled
         // energy, or failing that the least useful energy die.
@@ -138,6 +153,18 @@ public static class DiceKingdomBot
         {
             if (ShouldUseActionInMain(state, botId, die))
                 return new(BotActionKind.UseAction, $"Use {CardName(state, die)}.") { DieId = die.Id };
+        }
+
+        // Racing to a rush card: buy its first copy the moment it's
+        // affordable, before fielding spends any of the energy.
+        if (Rushing(state, botId, persona)
+            && state.Dice.FirstOrDefault(d => d.CardId == persona.RushCardId && d.OwnerId == botId && d.Zone == Zone.Unpurchased && !skip.Contains(d.Id)) is { } rushDie
+            && QueryEngine.CanPurchase(state, botId, persona.RushCardId!))
+        {
+            var card = state.CardCatalog[persona.RushCardId!];
+            if (BotEnergy.PickWithVirtual(state, reserve.Where(d => BotEnergy.Pips(state, d) > 0).ToList(),
+                    QueryEngine.GetPurchaseCost(state, card, botId), card.EnergySymbolIds.FirstOrDefault(), state.VirtualEnergyOf(botId)) is { } rushPay)
+                return new(BotActionKind.Purchase, $"Buy {card.Name} - the card this persona races for.") { DieId = rushDie.Id, EnergyDieIds = rushPay.Dice };
         }
 
         // Real Characters first: an unfielded one goes to the Used Pile at
@@ -165,7 +192,7 @@ public static class DiceKingdomBot
         }
 
         // Then spend energy on the best purchase plan.
-        if (PlanPurchase(state, botId, reserve, skip) is { } buy) return buy;
+        if (PlanPurchase(state, botId, reserve, skip, persona) is { } buy) return buy;
 
         // Spare Wing energy: Resurrection's Global draws a die into Prep.
         if (CanDraw(state, botId) && GlobalDecision(state, botId, onlyRealPips: true, g => g.Effect is DrawToZone) is { } draw) return draw;
@@ -188,6 +215,32 @@ public static class DiceKingdomBot
     private static BotDecision InactiveMain(GameState state, string botId) =>
         (CanDraw(state, botId) ? GlobalDecision(state, botId, onlyRealPips: false, g => g.Effect is DrawToZone) : null)
         ?? new(BotActionKind.Pass, "Pass.");
+
+    // Still racing to the persona's rush card: it has no copy bought yet,
+    // and one is left to buy.
+    private static bool Rushing(GameState state, string botId, BotPersona persona) =>
+        persona.RushCardId is { } rush
+        && !state.Dice.Any(d => d.CardId == rush && d.ControllerId == botId && d.Zone != Zone.Unpurchased)
+        && state.Dice.Any(d => d.CardId == rush && d.OwnerId == botId && d.Zone == Zone.Unpurchased);
+
+    // The die to keep back through the opponent's turn for the persona's
+    // Global (BotPersona.HoldForGlobalCardId - Armadillo: Distraction's
+    // "send an attacker back"), when they have a big enough attacker to
+    // be worth it. Only a bare energy face (or a Wild) can be kept: any die
+    // showing a creature face is swept to the Used Pile when Main ends.
+    private static DieInstance? HeldForGlobal(GameState state, string botId, BotPersona persona)
+    {
+        if (persona.HoldForGlobalCardId is not { } cardId || !state.CardCatalog.TryGetValue(cardId, out var card)) return null;
+        if (!state.PlayerOne.TeamCardIds.Concat(state.PlayerTwo.TeamCardIds).Contains(cardId)) return null;
+        var type = card.Abilities.FirstOrDefault(a => a.Trigger == TriggerKind.Global)?.EnergyCost?.RequiredSymbolId;
+        if (type is null) return null;
+        var threat = PotentialAttackers(state, state.OpponentOf(botId)).Any(d => QueryEngine.GetAttack(state, d) >= persona.HoldAgainstAttack);
+        if (!threat) return null;
+        return state.DiceIn(botId, Zone.ReservePool)
+            .Where(d => state.GetCurrentFace(d)?.Character is null && (BotEnergy.Pays(state, d, type) || BotEnergy.IsWild(state, d)))
+            .OrderBy(d => BotEnergy.IsWild(state, d)).ThenBy(d => BotEnergy.Pips(state, d))
+            .FirstOrDefault();
+    }
 
     // A draw-into-Prep effect is worth it only with something to draw, and
     // only if moving that die from the Bag to Prep doesn't push next turn's
@@ -265,7 +318,7 @@ public static class DiceKingdomBot
     // Best purchase plan: up to three buys (repeats allowed), each paid
     // from what's left after the previous one, scored by PurchaseValue.
     // Returns the plan's first step; the next call re-plans from there.
-    private static BotDecision? PlanPurchase(GameState state, string botId, List<DieInstance> reserve, IReadOnlySet<string> skip)
+    private static BotDecision? PlanPurchase(GameState state, string botId, List<DieInstance> reserve, IReadOnlySet<string> skip, BotPersona persona)
     {
         var options = state.Dice
             .Where(d => d.Zone == Zone.Unpurchased && d.CardId is not null && !skip.Contains(d.Id))
@@ -291,7 +344,8 @@ public static class DiceKingdomBot
             {
                 var bought = copies.GetValueOrDefault(card.Id) - owned.GetValueOrDefault(card.Id);
                 if (bought >= dice.Count) continue;
-                var gain = PurchaseValue(state, botId, card, copies.GetValueOrDefault(card.Id), offType);
+                var gain = PurchaseValue(state, botId, card, copies.GetValueOrDefault(card.Id), offType)
+                    + (card.Id == persona.RushCardId && copies.GetValueOrDefault(card.Id) == 0 ? persona.RushBonus : 0);
                 if (gain < 2.0) continue; // not worth diluting the bag for
                 var cost = QueryEngine.GetPurchaseCost(state, card, botId);
                 if (BotEnergy.PickWithVirtual(state, pool, cost, card.EnergySymbolIds.FirstOrDefault(), virtualLeft) is not { } pay) continue;
@@ -408,6 +462,11 @@ public static class DiceKingdomBot
         var attackers = new List<DieInstance>();
         foreach (var die in candidates)
         {
+            // A retaliator (Rhinoceros) does its work blocking: swung in,
+            // it goes unblocked, chips for a point or two, and leaves play
+            // (rule 2.7.4.3.1) - which is exactly what the simulator saw it
+            // do every game (2026-09-29).
+            if (IsRetaliator(state, die)) continue;
             if (!WorthSwinging(state, die, blockers, persona)) continue;
             if (DrawsOnAttack(state, die))
             {
@@ -418,6 +477,19 @@ public static class DiceKingdomBot
             var crackBack = theirAttack.Skip(home).Sum();
             if (crackBack >= myLife) continue;
             attackers.Add(die);
+        }
+        // Retaliating blockers (Rhinoceros): each can block one attacker and
+        // send its ATK back at us - it'll pick the biggest. Swinging wide is
+        // still worth it if more gets through than comes back; otherwise
+        // hold (the "never swing into it" first version stalled 18% of
+        // simulated games to the turn cap, 2026-09-29).
+        var retaliators = blockers.Count(b => IsRetaliator(state, b));
+        if (retaliators > 0 && attackers.Count > 0)
+        {
+            var atks = attackers.Select(d => QueryEngine.GetAttack(state, d)).OrderByDescending(a => a).ToList();
+            var reflected = atks.Take(retaliators).Sum();
+            var through = atks.Skip(blockers.Count).Sum();
+            if (reflected >= through) attackers.Clear();
         }
         return Declare(attackers, attackers.Count == 0 ? "Hold back - no good attacks." : $"Attack with {attackers.Count}.");
     }
@@ -510,6 +582,11 @@ public static class DiceKingdomBot
         var prevented = lane.Overcrush ? Math.Min(lane.Attack, bDef) : lane.Attack;
 
         var score = prevented * damageWeight;
+        // A retaliating blocker sends the damage it takes to the attacker's
+        // controller; a retaliating attacker sends ours back to us.
+        var reflectWeight = Math.Max(0.5, 6.0 / Math.Max(1, state.GetPlayer(state.ActivePlayerId).Life));
+        if (IsRetaliator(state, b)) score += Math.Min(lane.Attack, bDef) * reflectWeight;
+        if (lane.Attackers.Any(a => IsRetaliator(state, a))) score -= bAtk * damageWeight * 1.5;
         if (killed is not null) score += DieValue(state, killed);
         if (!survives) score -= DieValue(state, b);
         if (survives && killed is null) score += 0.5; // a free wall
@@ -639,6 +716,13 @@ public static class DiceKingdomBot
     private static IEnumerable<DieInstance> PotentialBlockers(GameState state, string playerId) =>
         state.DiceIn(playerId, Zone.FieldZone)
             .Where(d => state.GetCurrentFace(d)?.Character is not null && !d.CombatFlags.Contains(CombatFlagKind.CantBlock));
+
+    // "Whenever this takes damage, deal that much to the opponent"
+    // (Rhinoceros) - read off the card's abilities, not its name, so any
+    // future retaliator is played the same way.
+    private static bool IsRetaliator(GameState state, DieInstance die) =>
+        QueryEngine.AbilitiesOf(state, die).Any(a => a.Trigger == TriggerKind.DieDamaged
+            && a.Effect is DealDamage { Target: { Kind: TargetKind.Player, Ownership: TargetOwnership.Opposing } });
 
     private static bool IsCharacterCard(GameState state, DieInstance die) =>
         die.CardId is { } id && state.CardCatalog[id].CardType == CardType.Character;

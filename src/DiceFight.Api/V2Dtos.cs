@@ -163,11 +163,15 @@ public sealed record V2PlayerDto(string Id, string Name, int Life, ChampionDto? 
         state.VirtualEnergyOf(player.Id));
 }
 
+// Intent: what the pick does to what's picked (PendingChoice.Intent) -
+// "NameCard" tells the client the pick names a CARD, so it can offer one
+// option per card instead of every die of it (Pangolin's lockout).
 public sealed record V2PendingChoiceDto(
-    string ControllerId, string Description, IReadOnlyList<string> CandidateIds, int MinCount, int MaxCount)
+    string ControllerId, string Description, IReadOnlyList<string> CandidateIds, int MinCount, int MaxCount,
+    ChoiceIntent Intent = ChoiceIntent.Unknown)
 {
     public static V2PendingChoiceDto From(PendingChoice pending) =>
-        new(pending.ControllerId, pending.Description, pending.CandidateIds, pending.MinCount, pending.MaxCount);
+        new(pending.ControllerId, pending.Description, pending.CandidateIds, pending.MinCount, pending.MaxCount, pending.Intent);
 }
 
 public sealed record V2GameLogEntryDto(int Seq, string? PlayerId, string Text, bool IsTurnStart)

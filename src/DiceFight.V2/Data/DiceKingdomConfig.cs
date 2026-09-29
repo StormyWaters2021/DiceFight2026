@@ -231,22 +231,51 @@ public static class DiceKingdomConfig
     // design" - only 5 non-basic-action picks existed beyond Hippo/Musk
     // Ox, so Box Turtle is original rather than sourced (same simple
     // template style as the rest, no new vocabulary).
+    // Blob/Drax-style lockout (2026-09-29, user call - was "On Field:
+    // gain 1 life", which moved to Hermit Crab): same-type interaction
+    // for a defense-oriented team that isn't another damage ping. The
+    // choice is card-scoped (RememberCard, ChoiceIntent.NameCard) and
+    // offers any opposing Character die in any zone - bought or not - so
+    // the card about to come down can be named, not just one already on
+    // the board. Low stats fit the ability: KO'ing Pangolin ends the
+    // lockout, and re-fielding it names a new card. Simulated roughly
+    // neutral for Armadillo's win rate (v3/DESIGN_NOTES.md), so its stats
+    // were left alone rather than priced into a stronger Homash band.
     public static readonly CardDef Pangolin = new(
         Id: "DK-SHELL-03", Name: "Pangolin", Subtitle: null, Set: "Dice Kingdom", CardType: CardType.Character,
         PurchaseCost: 3, EnergySymbolIds: ["Shell"],
         Die: CharacterDie("DK-SHELL-03Die", energyType: "Shell", (1, 1, 3), (1, 2, 4), (1, 3, 6)),
         DieLimit: 4, Affiliations: [], Keywords: ["On Field"],
-        RawText: "On Field: gain 1 life.",
-        Abilities: [new TriggeredAbility(TriggerKind.DieFielded, new LifeChange(new Fixed(1)))],
-        Continuous: []);
+        RawText: "On Field: name an opposing character. While Pangolin is active, your opponent can't purchase or field it.",
+        Abilities:
+        [
+            new TriggeredAbility(TriggerKind.DieFielded, new RememberCard(
+                new TargetFilter(Kind: TargetKind.AnyDie, Ownership: TargetOwnership.Opposing,
+                    Zones: [Zone.Unpurchased, Zone.Bag, Zone.UsedPile, Zone.PrepArea, Zone.ReservePool,
+                        Zone.FieldZone, Zone.AttackZone, Zone.OutOfPlay],
+                    Tags: new TagQuery(NoneOf: ["sidekick", "Anger Issues", "Distraction", "Resurrection", "Mutation"]),
+                    Prompt: "name an opposing character - they can't purchase or field it while Pangolin is active."),
+                "locked")),
+        ],
+        Continuous:
+        [
+            new Lockout(SuppressionKind.CantPurchase, MemoryName: "locked"),
+            new Lockout(SuppressionKind.CantField, MemoryName: "locked"),
+        ]);
 
+    // Took Pangolin's "gain 1 life" (2026-09-29, user call): the only
+    // vanilla 2-drop was Armadillo's most-bought card and never KO'd
+    // anything (1 ATK at every level) - swapping it out for anything, even
+    // a vanilla Hippopotamus, was worth 17-30 points of win rate in the
+    // simulator. DEF lowered by 1 at each level so the ability is paid for
+    // out of its stats: Homash 2.00 -> 1.57, the weak-ability band.
     public static readonly CardDef HermitCrab = new(
         Id: "DK-SHELL-04", Name: "Hermit Crab", Subtitle: null, Set: "Dice Kingdom", CardType: CardType.Character,
         PurchaseCost: 2, EnergySymbolIds: ["Shell"],
-        Die: CharacterDie("DK-SHELL-04Die", energyType: "Shell", (0, 1, 3), (0, 1, 4), (1, 1, 4)),
-        DieLimit: 4, Affiliations: [], Keywords: [],
-        RawText: "Vanilla - no ability.",
-        Abilities: [],
+        Die: CharacterDie("DK-SHELL-04Die", energyType: "Shell", (0, 1, 2), (0, 1, 3), (1, 1, 3)),
+        DieLimit: 4, Affiliations: [], Keywords: ["On Field"],
+        RawText: "On Field: gain 1 life.",
+        Abilities: [new TriggeredAbility(TriggerKind.DieFielded, new LifeChange(new Fixed(1)))],
         Continuous: []);
 
     public static readonly CardDef Opossum = new(

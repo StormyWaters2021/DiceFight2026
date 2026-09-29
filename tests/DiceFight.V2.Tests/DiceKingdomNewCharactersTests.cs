@@ -278,7 +278,7 @@ public class DiceKingdomNewCharactersTests
         var queue = new AbilityQueue();
 
         var silverback = ActiveCharacter(state, DiceKingdomConfig.Silverback.Id, "p1"); // 7A (6 base + Wolf's +1)
-        var blocker = ActiveCharacter(state, DiceKingdomConfig.HermitCrab.Id, "p2"); // 3D (+1 Armadillo aura = 4D)
+        var blocker = ActiveCharacter(state, DiceKingdomConfig.HermitCrab.Id, "p2"); // 2D (+1 Armadillo aura = 3D)
 
         TurnEngine.EnterAttackStep(state, queue);
         Drain(state, queue);
@@ -296,8 +296,8 @@ public class DiceKingdomNewCharactersTests
         CombatEngine.AssignCombatDamage(state, queue, assignment, new Dictionary<string, IReadOnlyDictionary<string, int>>());
         Drain(state, queue);
 
-        Assert.Equal(Zone.PrepArea, blocker.Zone); // the single blocker dies (4D < 9A)...
-        Assert.Equal(lifeBefore - 3, state.PlayerTwo.Life); // ...and Overcrush carries the leftover (7 - 4) straight through
+        Assert.Equal(Zone.PrepArea, blocker.Zone); // the single blocker dies (3D < 7A)...
+        Assert.Equal(lifeBefore - 4, state.PlayerTwo.Life); // ...and Overcrush carries the leftover (7 - 3) straight through
     }
 
     [Fact]

@@ -3236,6 +3236,35 @@
 .dk-mobile .dkm-secondary-btn:disabled {
   opacity: 0.5;
 }
+/* Naming a card (Pangolin's lockout) - one full-width row per card. */
+.dk-mobile .dkm-name-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 46vh;
+  overflow-y: auto;
+  margin-bottom: 10px;
+}
+.dk-mobile .dkm-name-card {
+  height: auto;
+  min-height: 44px;
+  padding: 8px 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  text-transform: none;
+}
+.dk-mobile .dkm-name-card small {
+  font-weight: 500;
+  opacity: 0.75;
+}
+.dk-mobile .dkm-name-card.picked {
+  border-color: var(--claw);
+  background: color-mix(in srgb, var(--claw) 18%, transparent);
+  color: var(--dkm-ink);
+}
 .dk-mobile .dkm-primary-btn {
   flex: 1;
   height: 50px;

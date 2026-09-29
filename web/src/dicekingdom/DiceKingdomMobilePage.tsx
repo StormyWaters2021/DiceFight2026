@@ -1586,8 +1586,36 @@ function ChoiceSheet({
             </span>
           )}
         </p>
-        {renderGroup("Theirs", group(false), false)}
-        {renderGroup("Yours", group(true), true)}
+        {choice.intent === "NameCard" ? (
+          // Naming a card, not a die (Pangolin's lockout): one option per
+          // card, by name - every die of it is an equivalent answer, and 32
+          // unlabeled stat tiles made "which one is Silverback" a guess.
+          <div className="dkm-name-card-list">
+            {[...new Map(candidateDice.filter((d) => d.cardId).map((d) => [d.cardId!, d])).values()]
+              .sort((a, b) => (cardsById.get(b.cardId!)?.purchaseCost ?? 0) - (cardsById.get(a.cardId!)?.purchaseCost ?? 0))
+              .map((d) => {
+                const card = cardsById.get(d.cardId!);
+                const copies = candidateDice.filter((x) => x.cardId === d.cardId);
+                const unbought = copies.filter((x) => x.zone === "Unpurchased").length;
+                const isPicked = copies.some((x) => picked.includes(x.id));
+                return (
+                  <button
+                    key={d.cardId}
+                    type="button"
+                    className={`dkm-secondary-btn dkm-name-card${isPicked ? " picked" : ""}`}
+                    onClick={() => setPicked(isPicked ? [] : [d.id])}
+                  >
+                    <b>{card?.name ?? d.cardId}</b> <small>cost {card?.purchaseCost} · {copies.length - unbought} owned, {unbought} unbought</small>
+                  </button>
+                );
+              })}
+          </div>
+        ) : (
+          <>
+            {renderGroup("Theirs", group(false), false)}
+            {renderGroup("Yours", group(true), true)}
+          </>
+        )}
         {otherCandidates.length > 0 && (
           <div className="dkm-tile-row wrap">
             {otherCandidates.map((id) => (

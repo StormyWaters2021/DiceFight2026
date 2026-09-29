@@ -102,6 +102,8 @@ export interface PendingChoice {
   candidateIds: string[];
   minCount: number;
   maxCount: number;
+  /** "NameCard": the pick names a card (Pangolin's lockout), not a die. */
+  intent?: "Unknown" | "Harmful" | "Beneficial" | "NameCard";
 }
 
 export interface GameLogEntry {
