@@ -830,6 +830,25 @@ function ThistleIcon(props: IconProps) {
   );
 }
 
+// Archnemesis - a Venus flytrap: two jaws closing on each other, the
+// "deal damage to each other" of the card.
+function VenusFlytrapIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <g fill="currentColor">
+        <rect x={30} y={36} width={4} height={22} rx={2} />
+        <path d="M32,50 C25,48 20,44 18,39 C24,40 29,43 32,47 Z" />
+        <path d="M31,34 C24,34 16,28 14,18 C22,18 29,24 31,34 Z" />
+        <path d="M33,34 C40,34 48,28 50,18 C42,18 35,24 33,34 Z" />
+      </g>
+      <g stroke={CREAM} strokeWidth={1.6} strokeLinecap="round">
+        <path d="M16,19 L13,15 M20,19 L18,14 M24,21 L23,16" />
+        <path d="M48,19 L51,15 M44,19 L46,14 M40,21 L41,16" />
+      </g>
+    </Svg>
+  );
+}
+
 // Distraction - a bright flower, the lure you can't look away from.
 function FlowerIcon(props: IconProps) {
   return (
@@ -884,6 +903,7 @@ export const CHARACTER_ICONS: Record<string, (p: IconProps) => ReactElement> = {
   "DK-ACT-02": FlowerIcon,
   "DK-ACT-03": SeedlingIcon,
   "DK-ACT-04": MushroomIcon,
+  "DK-ACT-05": VenusFlytrapIcon,
   "DK-CLAW-01": HoneyBadgerIcon,
   "DK-CLAW-02": WolverineIcon,
   "DK-CLAW-03": GrizzlyBearIcon,

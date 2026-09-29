@@ -323,17 +323,21 @@ public class V2ActionsAndGlobalsTests
     {
         var (session, a, b) = StartInMainAs("Wolf", "Armadillo");
         var state = session.State;
+        // Distraction left Armadillo's team for Archnemesis (2026-09-29) but
+        // is still in the catalog - put it back in this game directly (a
+        // Global is card-scoped, so the card being in the game is enough).
+        state.PlayerTwo.TeamCardIds.Add(DiceKingdomConfig.Distraction.Id);
         var attacker1 = Tardigrade(state, "teamA", Zone.FieldZone, 2);
         var attacker2 = Tardigrade(state, "teamA", Zone.FieldZone, 0);
         var wall = Tardigrade(state, "teamB", Zone.FieldZone, 4);
         var shell = Tardigrade(state, "teamB", Zone.ReservePool, 0); // 2 Shell, left over from their turn
         var index = DiceKingdomConfig.Distraction.Abilities.ToList().FindIndex(x => x.Trigger == TriggerKind.Global);
 
-        // No priority stop for Armadillo in Main despite holding Shell:
-        // Distraction's Global moves an attacker, and in Main there are
-        // none, so it would have no result (rule 3.1.10 - Priority.
-        // CanUseAnyGlobal skips it).
+        // Armadillo holds Shell, so Main offers it priority - not for
+        // Distraction (no attackers yet, rule 3.1.10), but for its own
+        // Archnemesis's Global, which has creatures to target.
         a.EnterAttackStep(session.Id);
+        b.Pass(session.Id);
         Assert.Equal(StepIds.SelectAttackers, state.CurrentStepId);
         a.DeclareAttackers(session.Id, new V2DeclareAttackersRequest([new V2AttackerDeclaration(attacker1.Id, 0), new V2AttackerDeclaration(attacker2.Id, 1)]));
         b.DeclareBlockers(session.Id, new V2DeclareBlockersRequest([new V2BlockAssignment(attacker1.Id, wall.Id)]));

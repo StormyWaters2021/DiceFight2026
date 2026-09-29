@@ -49,7 +49,7 @@ The 128 Dice Masters characters in the DPS catalog, under the same formula: mean
 | Swift | 2 | 0/1/2 · 1/2/2 · 1/3/3 | 1.62 | On Attack: draw a die into your Prep Area. |
 | Cowbird | 3 | 1/1/4 · 1/2/5 · 2/3/6 | 1.62 | Awaken: move an opposing die from their Prep Area back to their Bag. |
 | Pangolin | 3 | 1/1/3 · 1/2/4 · 1/3/6 | 1.58 | On Field: name an opposing character; while Pangolin is active, your opponent can't purchase or field it. (Lockout - arguably a stronger band; simulated roughly neutral, so stats left alone, 2026-09-29.) |
-| Hermit Crab | 2 | 0/1/2 · 0/1/3 · 1/1/3 | 1.57 | On Field: gain 1 life. (Was vanilla 1/3 · 1/4 · 1/4, Homash 2.00, until 2026-09-29.) |
+| Hermit Crab | 2 | 0/1/2 · 0/1/3 · 1/1/3 | 1.57 | On Field: target character die must block this turn. (Was vanilla 1/3 · 1/4 · 1/4, Homash 2.00, until 2026-09-29; briefly "gain 1 life" the same day.) |
 | Box Turtle | 3 | 1/0/3 · 1/2/4 · 1/4/6 | 1.58 | On Block: deal 1 damage to a target creature. |
 | Honey Badger | 2 | 0/1/1 · 0/2/2 · 1/2/3 | 1.57 | On Field: deal 1 damage to a target creature. |
 | Barn Owl | 4 | 1/2/5 · 1/3/5 · 2/4/6 | 1.56 | On Field: a weak target creature (3 ATK or less) can't block this turn. |

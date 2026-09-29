@@ -253,7 +253,7 @@ public static class DiceKingdomConfig
                 new TargetFilter(Kind: TargetKind.AnyDie, Ownership: TargetOwnership.Opposing,
                     Zones: [Zone.Unpurchased, Zone.Bag, Zone.UsedPile, Zone.PrepArea, Zone.ReservePool,
                         Zone.FieldZone, Zone.AttackZone, Zone.OutOfPlay],
-                    Tags: new TagQuery(NoneOf: ["sidekick", "Anger Issues", "Distraction", "Resurrection", "Mutation"]),
+                    Tags: new TagQuery(NoneOf: ["sidekick", "Anger Issues", "Distraction", "Resurrection", "Mutation", "Archnemesis"]),
                     Prompt: "name an opposing character - they can't purchase or field it while Pangolin is active."),
                 "locked")),
         ],
@@ -263,19 +263,24 @@ public static class DiceKingdomConfig
             new Lockout(SuppressionKind.CantField, MemoryName: "locked"),
         ]);
 
-    // Took Pangolin's "gain 1 life" (2026-09-29, user call): the only
-    // vanilla 2-drop was Armadillo's most-bought card and never KO'd
-    // anything (1 ATK at every level) - swapping it out for anything, even
-    // a vanilla Hippopotamus, was worth 17-30 points of win rate in the
-    // simulator. DEF lowered by 1 at each level so the ability is paid for
-    // out of its stats: Homash 2.00 -> 1.57, the weak-ability band.
+    // The only vanilla 2-drop was Armadillo's most-bought card and never
+    // KO'd anything (1 ATK at every level) - swapping it out for anything,
+    // even a vanilla Hippopotamus, was worth 17-30 points of win rate in the
+    // simulator (2026-09-29). DEF lowered by 1 at each level so an ability
+    // is paid for out of its stats: Homash 2.00 -> 1.57. Briefly took
+    // Pangolin's "gain 1 life"; now (same day, user call) forces a block,
+    // which is what lets Rhinoceros threaten anything - swung in against a
+    // forced blocker, every point that blocker hits it for comes back at
+    // the opponent (the bot plays that combo - DiceKingdomBot).
     public static readonly CardDef HermitCrab = new(
         Id: "DK-SHELL-04", Name: "Hermit Crab", Subtitle: null, Set: "Dice Kingdom", CardType: CardType.Character,
         PurchaseCost: 2, EnergySymbolIds: ["Shell"],
         Die: CharacterDie("DK-SHELL-04Die", energyType: "Shell", (0, 1, 2), (0, 1, 3), (1, 1, 3)),
         DieLimit: 4, Affiliations: [], Keywords: ["On Field"],
-        RawText: "On Field: gain 1 life.",
-        Abilities: [new TriggeredAbility(TriggerKind.DieFielded, new LifeChange(new Fixed(1)))],
+        RawText: "On Field: target character die must block this turn.",
+        Abilities: [new TriggeredAbility(TriggerKind.DieFielded,
+            new CombatFlag(new TargetFilter(Kind: TargetKind.CharacterDie, Zones: [Zone.FieldZone],
+                Prompt: "choose a creature that must block this turn."), CombatFlagKind.MustBlock))],
         Continuous: []);
 
     public static readonly CardDef Opossum = new(
@@ -629,6 +634,36 @@ public static class DiceKingdomConfig
         ],
         Continuous: []);
 
+    // Armadillo (Shell) since 2026-09-29, replacing Distraction (user call:
+    // its Global - send an attacker back - worked against Armadillo's own
+    // Rhinoceros + forced-block plan). The real Dice Masters Basic Action
+    // (DPS001, whose migration only ever modelled the Global). "Deal damage
+    // to each other" is simultaneous: both dice are bound before any damage,
+    // and StatOf captures ATK at bind time, so a die the first hit KOs still
+    // hits back with the ATK it had. The first step is a tagless GrantTag -
+    // a no-op whose only job is to pick and bind the fighter you control.
+    public static readonly CardDef Archnemesis = new(
+        Id: "DK-ACT-05", Name: "Archnemesis", Subtitle: "Basic Action", Set: "Dice Kingdom", CardType: CardType.BasicAction,
+        PurchaseCost: 4, EnergySymbolIds: [],
+        Die: ActionDie("DK-ACT-05Die", "Shell"),
+        DieLimit: ActionDieLimit, Affiliations: [], Keywords: [],
+        RawText: "Target character die you control and target opposing character die deal damage to each other equal to their A. Global: Pay 1 Shell. Target character die has D equal to its A this turn.",
+        Abilities: [
+            new TriggeredAbility(TriggerKind.DieUsed, new Sequence([
+                new GrantTag(new TargetFilter(Kind: TargetKind.CharacterDie, Ownership: TargetOwnership.Own, BindAs: "mine",
+                    Prompt: "choose YOUR creature to fight with."), []),
+                new DealDamage(new StatOf("mine", StatKind.Attack),
+                    new TargetFilter(Kind: TargetKind.CharacterDie, Ownership: TargetOwnership.Opposing, BindAs: "theirs",
+                        Prompt: "choose the opposing creature it fights.")),
+                new DealDamage(new StatOf("theirs", StatKind.Attack), new TargetFilter(Bound: "mine")),
+            ])),
+            new TriggeredAbility(TriggerKind.Global,
+                new ModifyStat(new TargetFilter(Kind: TargetKind.CharacterDie, BindAs: "t",
+                    Prompt: "choose a creature whose D becomes its A this turn."), SetDefense: new StatOf("t", StatKind.Attack)),
+                EnergyCost: new EnergyCost(1, "Shell")),
+        ],
+        Continuous: []);
+
     // Golden Eagle (Wing). The real card's Global is "once during your
     // turn"; only the once-per-turn half is modelled (a Global usable on
     // the opponent's turn is still once per turn per player).
@@ -666,7 +701,7 @@ public static class DiceKingdomConfig
                 new MoveDie(new TargetFilter(Kind: TargetKind.CharacterDie, Ownership: TargetOwnership.Own, Zones: [Zone.FieldZone],
                     Prompt: "choose one of your creatures to swap OUT (it goes to your Used Pile)."), Zone.UsedPile),
                 new MoveDie(new TargetFilter(Kind: TargetKind.AnyDie, Ownership: TargetOwnership.Own, Zones: [Zone.UsedPile],
-                    Tags: new TagQuery(NoneOf: ["sidekick", "Anger Issues", "Distraction", "Resurrection", "Mutation"]), BindAs: "mutant",
+                    Tags: new TagQuery(NoneOf: ["sidekick", "Anger Issues", "Distraction", "Resurrection", "Mutation", "Archnemesis"]), BindAs: "mutant",
                     Prompt: "choose a creature from your Used Pile to swap IN at level 1."), Zone.FieldZone),
                 new Spin(new TargetFilter(Bound: "mutant"), SetLevel: 1),
             ])),
@@ -688,7 +723,7 @@ public static class DiceKingdomConfig
     public static readonly IReadOnlyDictionary<string, string> ActionByChampion = new Dictionary<string, string>
     {
         ["Wolf"] = AngerIssues.Id,
-        ["Armadillo"] = Distraction.Id,
+        ["Armadillo"] = Archnemesis.Id, // was Distraction until 2026-09-29
         ["GoldenEagle"] = Resurrection.Id,
         ["GreatHornedOwl"] = Mutation.Id,
     };
@@ -699,7 +734,7 @@ public static class DiceKingdomConfig
         Hippopotamus, MuskOx, Pangolin, HermitCrab, Opossum, QueenTermite, Rhinoceros, BoxTurtle,
         Osprey, BarnSwallow, Hummingbird, MountainGoat, MonarchButterfly, HomingPigeon, Greyhound, Phoenix, Swift,
         BarnOwl, Hyena, Anglerfish, Cowbird, Magpie, Basilisk, Elephant, Fox, Cuttlefish,
-        AngerIssues, Distraction, Resurrection, Mutation,
+        AngerIssues, Distraction, Resurrection, Mutation, Archnemesis,
     }.ToDictionary(c => c.Id);
 
     // Which eight Characters a team gets when it picks a Champion. API

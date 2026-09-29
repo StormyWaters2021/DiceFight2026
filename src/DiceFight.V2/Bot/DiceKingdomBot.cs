@@ -197,9 +197,11 @@ public static class DiceKingdomBot
         // Spare Wing energy: Resurrection's Global draws a die into Prep.
         if (CanDraw(state, botId) && GlobalDecision(state, botId, onlyRealPips: true, g => g.Effect is DrawToZone) is { } draw) return draw;
 
-        // Leftover Tardigrades: fielded now or swept to the Used Pile at
-        // the end of Main. A weak body is worth less burn than a real
-        // Character - one point less of budget.
+        // Leftover Tardigrades: a hybrid face (stats + energy) now stays in
+        // the Reserve Pool as energy when Main ends (TurnEngine.
+        // EnterAttackStep), but a body on the board is usually worth more.
+        // A weak body is worth less burn than a real Character - one point
+        // less of budget.
         var leftover = reserve
             .Where(d => d.CardId is null && state.GetCurrentFace(d)?.Character is not null)
             .OrderByDescending(d => DieValue(state, d))
@@ -226,8 +228,8 @@ public static class DiceKingdomBot
     // The die to keep back through the opponent's turn for the persona's
     // Global (BotPersona.HoldForGlobalCardId - Armadillo: Distraction's
     // "send an attacker back"), when they have a big enough attacker to
-    // be worth it. Only a bare energy face (or a Wild) can be kept: any die
-    // showing a creature face is swept to the Used Pile when Main ends.
+    // be worth it. Any face with energy on it survives the end of Main
+    // (hybrid stat+energy faces included - TurnEngine.EnterAttackStep).
     private static DieInstance? HeldForGlobal(GameState state, string botId, BotPersona persona)
     {
         if (persona.HoldForGlobalCardId is not { } cardId || !state.CardCatalog.TryGetValue(cardId, out var card)) return null;
@@ -237,7 +239,7 @@ public static class DiceKingdomBot
         var threat = PotentialAttackers(state, state.OpponentOf(botId)).Any(d => QueryEngine.GetAttack(state, d) >= persona.HoldAgainstAttack);
         if (!threat) return null;
         return state.DiceIn(botId, Zone.ReservePool)
-            .Where(d => state.GetCurrentFace(d)?.Character is null && (BotEnergy.Pays(state, d, type) || BotEnergy.IsWild(state, d)))
+            .Where(d => BotEnergy.Pips(state, d) > 0 && (BotEnergy.Pays(state, d, type) || BotEnergy.IsWild(state, d)))
             .OrderBy(d => BotEnergy.IsWild(state, d)).ThenBy(d => BotEnergy.Pips(state, d))
             .FirstOrDefault();
     }
@@ -300,6 +302,10 @@ public static class DiceKingdomBot
             // Anger Issues-style combat pump: wait for the window.
             case Sequence s when s.Steps.Any(x => x is ModifyStat): return false;
             case ModifyStat: return false;
+            // Archnemesis: a fight (your creature vs theirs, simultaneous) -
+            // only when one of the pairings comes out ahead.
+            case Sequence s when s.Steps.FirstOrDefault() is GrantTag { Tags.Count: 0 }:
+                return BestFight(state, botId) is not null;
             // Distraction: only worth it with an attack coming into blockers.
             case CombatFlag { Flag: CombatFlagKind.CantBlock }:
                 return PotentialAttackers(state, botId).Any() && PotentialBlockers(state, oppId).Any();
@@ -449,6 +455,14 @@ public static class DiceKingdomBot
             + candidates.Where(d => d.CombatFlags.Contains(CombatFlagKind.Unblockable)).Except(spread).Sum(d => QueryEngine.GetAttack(state, d));
         if (unblockableDamage >= oppLife) return Declare(candidates, "All in - lethal.");
 
+        // Hermit Crab's forced block + a retaliator (Rhinoceros): swing the
+        // retaliator ALONE, so the forced blocker has nothing else to block
+        // and every point it hits for comes back at its controller.
+        var forced = blockers.Where(b => b.CombatFlags.Contains(CombatFlagKind.MustBlock)).ToList();
+        var retaliator = candidates.Where(d => IsRetaliator(state, d)).OrderByDescending(d => QueryEngine.GetDefense(state, d)).FirstOrDefault();
+        if (forced.Count > 0 && retaliator is not null && forced.Max(b => QueryEngine.GetAttack(state, b)) >= 1)
+            return Declare([retaliator], "Rhinoceros into a forced blocker.");
+
         // Crack-back: whatever stays home has to keep their next swing
         // below our life (home dice block their biggest attackers).
         var theirAttack = PotentialAttackers(state, oppId).Select(d => QueryEngine.GetAttack(state, d)).OrderByDescending(a => a).ToList();
@@ -563,6 +577,18 @@ public static class DiceKingdomBot
             incoming -= prevented;
         }
 
+        // Forced blockers (Hermit Crab's "must block") have to be declared
+        // if there's anything to block - into whichever lane hurts least.
+        if (lanes.Count > 0)
+        {
+            foreach (var b in available.Where(d => d.CombatFlags.Contains(CombatFlagKind.MustBlock)).ToList())
+            {
+                var lane = lanes.OrderByDescending(l => BlockScore(state, b, l, DamageWeight())).First();
+                blocks.Add((lane.Attackers[0].Id, b.Id));
+                available.Remove(b);
+            }
+        }
+
         return new(BotActionKind.DeclareBlockers, blocks.Count == 0 ? "No blocks." : $"Block {blocks.Count}.") { Blocks = blocks };
     }
 
@@ -608,6 +634,8 @@ public static class DiceKingdomBot
         if (pump is not null && attacking.Count > 0)
             return new(BotActionKind.UseAction, $"Use {CardName(state, pump)}.") { DieId = pump.Id };
 
+        if (SetDefenseGlobal(state, botId) is { } setDef) return setDef;
+
         // +ATK Globals on an unblocked attacker are straight extra damage.
         if (unblocked.Count > 0 && GlobalDecision(state, botId, onlyRealPips: false, g => g.Effect is ModifyStat { AtkDelta: > 0 }) is { } g)
             return g;
@@ -623,7 +651,46 @@ public static class DiceKingdomBot
         if (biggest >= 2 && GlobalDecision(state, botId, onlyRealPips: false,
                 g => g.Effect is MoveDie { Target.AttackersOnly: true }) is { } send)
             return send;
+        if (SetDefenseGlobal(state, botId) is { } setDef) return setDef;
         return new(BotActionKind.Pass, "Pass.");
+    }
+
+    // Archnemesis's Global ("target creature's D becomes its A this turn"),
+    // in combat, when it swings a die's D by 2+ the right way: up for one
+    // of ours (a high-ATK die that would otherwise die), down for one of
+    // theirs (a wall our damage can then get through).
+    private static BotDecision? SetDefenseGlobal(GameState state, string botId)
+    {
+        var best = state.Dice.Where(d => d.Zone == Zone.AttackZone).Select(d => SetDefenseGain(state, botId, d)).DefaultIfEmpty(0).Max();
+        return best >= 2 ? GlobalDecision(state, botId, onlyRealPips: false, g => g.Effect is ModifyStat { SetDefense: not null }) : null;
+    }
+
+    private static double SetDefenseGain(GameState state, string botId, DieInstance die)
+    {
+        if (state.GetCurrentFace(die)?.Character is null) return -1;
+        var change = QueryEngine.GetAttack(state, die) - QueryEngine.GetDefense(state, die);
+        return die.ControllerId == botId ? change : -change;
+    }
+
+    // Archnemesis's fight: the (yours, theirs) pairing with the best
+    // outcome - their die's value if yours KOs it, minus yours if theirs
+    // KOs it back (simultaneous). Null when no pairing comes out ahead.
+    private static (DieInstance Mine, DieInstance Theirs)? BestFight(GameState state, string botId)
+    {
+        static bool InPlay(GameState s, DieInstance d) => d.Zone is Zone.FieldZone or Zone.AttackZone && s.GetCurrentFace(d)?.Character is not null;
+        var mine = state.Dice.Where(d => d.ControllerId == botId && InPlay(state, d)).ToList();
+        var theirs = state.Dice.Where(d => d.ControllerId == state.OpponentOf(botId) && InPlay(state, d)).ToList();
+        (DieInstance, DieInstance)? best = null;
+        var bestScore = 0.5;
+        foreach (var a in mine)
+            foreach (var b in theirs)
+            {
+                var kills = QueryEngine.GetAttack(state, a) >= QueryEngine.GetDefense(state, b) - b.Damage;
+                var dies = QueryEngine.GetAttack(state, b) >= QueryEngine.GetDefense(state, a) - a.Damage;
+                var score = (kills ? DieValue(state, b) : 0) - (dies ? DieValue(state, a) : 0);
+                if (score > bestScore) { bestScore = score; best = (a, b); }
+            }
+        return best;
     }
 
     private static IEnumerable<DieInstance> UnblockedAttackers(GameState state)
@@ -658,6 +725,23 @@ public static class DiceKingdomBot
             if (state.CurrentStepId == StepIds.ActionGlobalWindow && UnblockedAttackers(state).Any(a => a.Id == id))
                 value += 2 * QueryEngine.GetAttack(state, die);
             return pending.Intent == ChoiceIntent.Harmful ? (own ? -value : value) : (own ? value : -value);
+        }
+
+        // Picks the intent alone can't judge (PendingChoice.Effect).
+        switch (pending.Effect)
+        {
+            case GrantTag { Tags.Count: 0 } when BestFight(state, botId) is { } fight && pending.CandidateIds.Contains(fight.Mine.Id):
+                return new(BotActionKind.ResolvePendingChoice, "Archnemesis: my fighter.") { DieIds = [fight.Mine.Id] };
+            case DealDamage { Amount: StatOf } when BestFight(state, botId) is { } fight && pending.CandidateIds.Contains(fight.Theirs.Id):
+                return new(BotActionKind.ResolvePendingChoice, "Archnemesis: their fighter.") { DieIds = [fight.Theirs.Id] };
+            case ModifyStat { SetDefense: not null }:
+                var pick = pending.CandidateIds.Where(id => !state.IsPlayerId(id))
+                    .OrderByDescending(id => SetDefenseGain(state, botId, state.Dice.First(d => d.Id == id))
+                        + (state.Dice.First(d => d.Id == id).Zone == Zone.AttackZone ? 1 : 0))
+                    .FirstOrDefault();
+                if (pick is not null)
+                    return new(BotActionKind.ResolvePendingChoice, "D becomes A.") { DieIds = [pick] };
+                break;
         }
 
         var ranked = pending.CandidateIds.Select(id => (Id: id, Score: Score(id))).OrderByDescending(x => x.Score).ToList();

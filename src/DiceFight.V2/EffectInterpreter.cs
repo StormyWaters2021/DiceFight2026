@@ -232,7 +232,7 @@ public static class EffectInterpreter
 
     private static void ExecuteDealDamage(DealDamage n, EffectContext ctx, Action onComplete)
     {
-        ResolveTarget(ctx, n.Target, ProtectionFor(ctx.Trigger), ChoiceIntent.Harmful, targets =>
+        ResolveTarget(ctx, n.Target, ProtectionFor(ctx.Trigger), ChoiceIntent.Harmful, n, targets =>
         {
             if (targets.Count == 0) { onComplete(); return; } // rule 3.1.10
 
@@ -605,7 +605,7 @@ public static class EffectInterpreter
 
     private static void ExecuteModifyStat(ModifyStat n, EffectContext ctx, Action onComplete)
     {
-        ResolveTarget(ctx, n.Target, ProtectionFor(ctx.Trigger), (n.AtkDelta ?? 0) + (n.DefDelta ?? 0) > 0 ? ChoiceIntent.Beneficial : (n.AtkDelta ?? 0) + (n.DefDelta ?? 0) < 0 ? ChoiceIntent.Harmful : ChoiceIntent.Unknown, ids =>
+        ResolveTarget(ctx, n.Target, ProtectionFor(ctx.Trigger), (n.AtkDelta ?? 0) + (n.DefDelta ?? 0) > 0 ? ChoiceIntent.Beneficial : (n.AtkDelta ?? 0) + (n.DefDelta ?? 0) < 0 ? ChoiceIntent.Harmful : ChoiceIntent.Unknown, n, ids =>
         {
             var grantedDuring = n.Duration == Duration.UntilYourNextTurn ? ctx.State.ActivePlayerId : null;
             var source = ctx.Bindings.GetValueOrDefault("self", "ability");
@@ -643,7 +643,7 @@ public static class EffectInterpreter
 
     private static void ExecuteGrantTag(GrantTag n, EffectContext ctx, Action onComplete)
     {
-        ResolveTarget(ctx, n.Target, ProtectionFor(ctx.Trigger), ChoiceIntent.Beneficial, ids =>
+        ResolveTarget(ctx, n.Target, ProtectionFor(ctx.Trigger), ChoiceIntent.Beneficial, n, ids =>
         {
             var grantedDuring = n.Duration == Duration.UntilYourNextTurn ? ctx.State.ActivePlayerId : null;
             foreach (var id in ids)
@@ -885,7 +885,10 @@ public static class EffectInterpreter
         return Rank(n.ToZone) > from ? ChoiceIntent.Beneficial : Rank(n.ToZone) < from ? ChoiceIntent.Harmful : ChoiceIntent.Unknown;
     }
 
-    private static void ResolveTarget(EffectContext ctx, TargetFilter filter, ProtectionFrom? protection, ChoiceIntent intent, Action<IReadOnlyList<string>> onResolved)
+    private static void ResolveTarget(EffectContext ctx, TargetFilter filter, ProtectionFrom? protection, ChoiceIntent intent, Action<IReadOnlyList<string>> onResolved) =>
+        ResolveTarget(ctx, filter, protection, intent, null, onResolved);
+
+    private static void ResolveTarget(EffectContext ctx, TargetFilter filter, ProtectionFrom? protection, ChoiceIntent intent, EffectNode? forEffect, Action<IReadOnlyList<string>> onResolved)
     {
         var candidates = TargetResolver.Query(ctx.State, ctx.ControllerId, filter, ctx.Bindings, protection, snapshot: ctx.Snapshot);
 
@@ -921,6 +924,7 @@ public static class EffectInterpreter
             MinCount = filter.Optional ? 0 : maxCount,
             MaxCount = maxCount,
             Intent = intent,
+            Effect = forEffect,
             Resolve = chosen =>
             {
                 BindIfNeeded(ctx, filter, chosen);

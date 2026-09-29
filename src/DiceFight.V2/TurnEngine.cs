@@ -546,9 +546,13 @@ public static class TurnEngine
         // and Draw, and unused Action dice go at Clean Up instead.
         state.MoveToStep(StepIds.MainEnd);
         state.VirtualEnergy.Remove(state.ActivePlayerId); // lasts only through Main (ClearAndDraw)
+        // A face carrying energy stays, even if it also carries stats
+        // (Dice Kingdom's hybrid Tardigrade faces - user call, 2026-09-29):
+        // it's still energy, spendable on a Global during the opponent's
+        // turn. Only a stats-only face is swept.
         foreach (var die in state.DiceIn(state.ActivePlayerId, Zone.ReservePool).ToList())
         {
-            if (state.GetCurrentFace(die)?.Character is null) continue;
+            if (state.GetCurrentFace(die) is not { Character: not null } face || face.SymbolCount > 0) continue;
             die.Zone = Zone.UsedPile;
             die.CurrentFaceIndex = null;
         }

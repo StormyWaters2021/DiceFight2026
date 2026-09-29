@@ -25,6 +25,10 @@ public sealed class PendingChoice
     // target" by candidate ids alone. Set where each effect resolves its
     // target (EffectInterpreter); Unknown leaves the bot to guess.
     public ChoiceIntent Intent { get; init; } = ChoiceIntent.Unknown;
+    // The effect waiting on this pick, when the intent alone can't say
+    // whether it helps or hurts - a "set D to A" (Archnemesis's Global) is
+    // good or bad depending on the die's own stats. Bot use only.
+    public Model.Effects.EffectNode? Effect { get; init; }
 }
 
 // NameCard: the pick names a CARD, not a die (RememberCard - Blob/Drax-

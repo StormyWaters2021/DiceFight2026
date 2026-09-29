@@ -3567,3 +3567,46 @@ near-unkillable (up to 3/9) blocker that punishes every attack may make
 stalemates structural - e.g. reflect only when blocking, a cap on
 reflected damage, or lower DEF. `DiceKingdomBotTests`' pairing test now
 only requires 1 of 5 seeds to finish (Armadillo vs Owl walls up in some).
+
+### Energy faces survive Main; Hermit Crab forces a block; Archnemesis replaces Distraction (2026-09-29)
+
+User calls, all engine-level:
+- **End-of-Main sweep keeps any face with energy.** Sweeping every
+  creature-faced die was a side effect of Dice Kingdom's hybrid
+  stat+energy Tardigrade faces: such a die is still energy (spendable on a
+  Global during the opponent's turn). Only a stats-only face is swept now
+  (`TurnEngine.EnterAttackStep`).
+- **Hermit Crab:** "On Field: target character die must block this turn"
+  (replacing the same-day "gain 1 life"; stats unchanged, Homash 1.57).
+  The engine's MustBlock check is now "if able" - it no longer rejects an
+  empty block declaration when nothing is attacking. Bot: forced blockers
+  are placed in the least-bad lane; with a forced blocker on their side
+  and a retaliator on ours, Rhinoceros swings alone, so the forced block
+  has to land on it.
+- **Archnemesis replaces Distraction** as Armadillo's Basic Action (user:
+  Distraction's Global - send an attacker back - worked against the
+  Rhinoceros plan). Distraction stays in the catalog, on no team. The real
+  card, finally built in full (DPS001 only ever modelled its Global): the
+  action binds both fighters first, then deals each one's bind-time ATK to
+  the other (simultaneous - a die KO'd by the first hit still hits back);
+  Global: 1 Shell, a creature's D becomes its A this turn. Web icon: a
+  Venus flytrap (DK-ACT-05). `PendingChoice.Effect` lets the bot judge
+  picks the intent can't (a "set D to A" helps or hurts depending on the
+  die); it uses the fight only when a pairing comes out ahead and the
+  Global when it moves a combatant's D 2+ the right way. The Armadillo
+  persona no longer holds Shell (nothing to hold it for).
+
+Armadillo, 1,200 games, powers off:
+
+| | total win % | by turn-cap tiebreak | outright | turn-cap games |
+|---|---|---|---|---|
+| lifegain Crab + Distraction, persona (previous entry) | 54.8 | 27.7 | 27.1 | 272 |
+| must-block Crab + Archnemesis, no persona | 25.7 | 3.0 | 22.7 | 62 |
+| must-block Crab + Archnemesis, persona | 58.3 | 7.7 | **50.6** | 91 |
+
+With the persona Rhinoceros lands in ~76% of Armadillo's games and wins
+~75% of them - and this time mostly outright: the forced block turns the
+stalemate into a way to hit the opponent. Other Champions: Wolf 38.8,
+Owl 43.3, Eagle 58.2. Without the persona, Armadillo is back at ~26% -
+the roster now depends on playing toward Rhinoceros.
+Tests: `ArmadilloRosterTests` (sweep, forced block if able, simultaneous fight).

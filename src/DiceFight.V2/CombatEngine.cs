@@ -85,8 +85,14 @@ public static class CombatEngine
         RequireStep(state, StepIds.AssignBlockers);
         var inactiveId = state.OpponentOf(state.ActivePlayerId);
 
+        // "Must block" means must block IF ABLE (Hermit Crab, 2026-09-29):
+        // with no blockable attacker there is nothing to block, and the
+        // empty declaration has to stay legal.
+        var anyBlockable = state.DiceIn(state.ActivePlayerId, Zone.AttackZone)
+            .Any(a => !a.CombatFlags.Contains(CombatFlagKind.Unblockable));
         var forcedButOmitted = state.DiceIn(inactiveId, Zone.FieldZone)
-            .Where(d => d.CombatFlags.Contains(CombatFlagKind.MustBlock) && !blockerDieIds.Contains(d.Id))
+            .Where(d => anyBlockable && d.CombatFlags.Contains(CombatFlagKind.MustBlock) && !blockerDieIds.Contains(d.Id))
+            .Where(d => state.GetCurrentFace(d)?.Character is not null && !d.CombatFlags.Contains(CombatFlagKind.CantBlock))
             .ToList();
         if (forcedButOmitted.Count > 0)
             throw new InvalidOperationException($"{string.Join(", ", forcedButOmitted.Select(d => d.Id))} must block this turn.");

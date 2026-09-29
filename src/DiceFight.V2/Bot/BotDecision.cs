@@ -62,13 +62,14 @@ public sealed record BotPersona(
 {
     public static readonly BotPersona Default = new();
 
-    // Armadillo (2026-09-29, user call): race to Rhinoceros, and keep a
-    // Shell back for Distraction's Global against a big attacker.
+    // Armadillo (2026-09-29, user call): race to Rhinoceros. It also kept
+    // a Shell back for Distraction's Global until Archnemesis replaced
+    // Distraction the same day (Archnemesis's Global - D becomes A - does
+    // little for Armadillo's own low-ATK dice, so nothing is held now).
     public static readonly BotPersona Armadillo = Default with
     {
         RushCardId = DiceKingdomConfig.Rhinoceros.Id,
         RushBonus = 5,
-        HoldForGlobalCardId = DiceKingdomConfig.Distraction.Id,
     };
 
     public static BotPersona ForChampion(string? championId) => championId switch
