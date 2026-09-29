@@ -732,7 +732,7 @@ public static class EffectInterpreter
 
     private static void ExecuteRememberCard(RememberCard n, EffectContext ctx, Action onComplete)
     {
-        ResolveTarget(ctx, n.Target, ProtectionFor(ctx.Trigger), ids =>
+        ResolveTarget(ctx, n.Target, ProtectionFor(ctx.Trigger), ChoiceIntent.NameCard, ids =>
         {
             foreach (var id in ids)
             {

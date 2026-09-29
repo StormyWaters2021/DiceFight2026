@@ -3481,3 +3481,41 @@ removal is Hummingbird (off-type Wing), and two of its eight slots are
 +DEF auras, which only buy survival in a game where blocked damage
 clears every turn anyway. (Opossum is 3-cost vs Crab's 2, so part of
 that jump is cost.)
+
+### Lockout Pangolin prototype, and the real Armadillo problem (2026-09-29)
+
+User direction: Deadly's big swing is probably partly the bot (a real
+player lets a weak Deadly die through or chump-blocks with a doomed
+Tardigrade); Hummingbird stays off-type (strong for a 4-drop); try a
+same-type Blob/Drax-style lockout for a defense-oriented team.
+
+Prototyped simulator-only (`Prototypes` in tools/Simulator, reached via
+SIM_SWAP - NOT in the live catalog): Pangolin's slot/die/stats with "On
+Field: name an opposing character; while Pangolin is active your
+opponent can't field [or purchase] it" (existing `RememberCard` +
+`Lockout` vocabulary). Engine/bot support added: `ChoiceIntent.NameCard`
+(RememberCard's choice names a card, not a die), and the bot scores it
+by the copies the opponent already owns and has circulating - weighting
+by cost alone named unbought finishers (Basilisk/Silverback/Phoenix)
+almost every time, which dropped Armadillo to 19.8%.
+
+Armadillo win %, 1,200 games each, powers off:
+
+| Change | Armadillo |
+|---|---|
+| baseline | 24.3 |
+| Pangolin -> lockout (can't field), naming workhorses | 23.0 |
+| Pangolin -> lockout (can't field or buy) | 22.2 |
+| Pangolin -> Box Turtle (On Block: 1 dmg) | 24.2 |
+| Hermit Crab -> Box Turtle | 41.7 |
+| Hermit Crab -> Opossum (Deadly) | 48.5 |
+| Hermit Crab -> Hippopotamus (vanilla 4-cost) | 55.0 |
+
+The lockout is roughly neutral: with 8 Characters plus Tardigrades per
+team, shutting off one card leaves plenty to field (and a locked die
+still pays as energy). The ability swaps in Pangolin's slot do nothing;
+every Hermit Crab replacement - even a vanilla one - is a big gain. The
+problem is Hermit Crab itself: the only vanilla 2-drop, never above 1
+ATK, and the most-bought, most-fielded card on the team. Other teams'
+2-drops (Honey Badger, Swift, Cuttlefish) all do something. (Caveat:
+the bot buys 2-drops heavily, which amplifies whatever the 2-drop is.)

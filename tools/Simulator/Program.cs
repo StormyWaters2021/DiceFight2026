@@ -124,6 +124,8 @@ static (string WinnerChampionIdOrSentinel, int Turns) PlayOneGame(
         var decision = DiceKingdomBot.Decide(state, owner, skip)
             ?? throw new InvalidOperationException($"Bot had no decision for {owner} at step {state.CurrentStepId}.");
         var lifeBefore = (state.PlayerOne.Life, state.PlayerTwo.Life);
+        if (state.PendingChoice?.Intent == ChoiceIntent.NameCard && decision.DieIds.Count > 0)
+            Stats.Named(state, owner, decision.DieIds[0]);
         try
         {
             driver.Apply(owner, decision);
@@ -199,10 +201,51 @@ static class Catalog
     private static readonly Lazy<IReadOnlyDictionary<string, CardDef>> Built = new(() =>
     {
         var strip = (Environment.GetEnvironmentVariable("SIM_NO_GLOBALS") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries).ToHashSet();
-        return DiceKingdomConfig.Catalog.ToDictionary(kv => kv.Key, kv => strip.Contains(kv.Key)
+        var cards = DiceKingdomConfig.Catalog.ToDictionary(kv => kv.Key, kv => strip.Contains(kv.Key)
             ? kv.Value with { Abilities = kv.Value.Abilities.Where(a => a.Trigger != TriggerKind.Global).ToList() }
             : kv.Value);
+        foreach (var proto in Prototypes.All) cards[proto.Id] = proto;
+        return cards;
     });
+}
+
+// Candidate cards under evaluation - simulator-only, NOT in the live
+// catalog or any real roster; reach them with SIM_SWAP. Promote one into
+// DiceKingdomConfig only once the user has seen the numbers.
+static class Prototypes
+{
+    // Pangolin's slot (3-cost Shell, same die/stats) with a Blob/Drax-style
+    // lockout instead of "gain 1 life" (2026-09-28): Armadillo gets
+    // same-type interaction that fits a defensive team without adding
+    // another damage ping. Low stats on purpose - KO'ing it ends the
+    // lockout, and re-fielding it names a new card.
+    static CardDef LockoutPangolin(string id, string text, params SuppressionKind[] kinds) =>
+        DiceKingdomConfig.Pangolin with
+        {
+            Id = id,
+            RawText = text,
+            Abilities =
+            [
+                new TriggeredAbility(TriggerKind.DieFielded, new RememberCard(
+                    new TargetFilter(Kind: TargetKind.AnyDie, Ownership: TargetOwnership.Opposing,
+                        Zones: [Zone.Unpurchased, Zone.Bag, Zone.UsedPile, Zone.PrepArea, Zone.ReservePool,
+                            Zone.FieldZone, Zone.AttackZone, Zone.OutOfPlay],
+                        Tags: new TagQuery(NoneOf: ["sidekick", "Anger Issues", "Distraction", "Resurrection", "Mutation"]),
+                        Prompt: "name an opposing character."),
+                    "locked")),
+            ],
+            Continuous = [.. kinds.Select(k => (ContinuousDef)new Lockout(k, MemoryName: "locked"))],
+        };
+
+    public static readonly CardDef PangolinNoField = LockoutPangolin("PROTO-PANGOLIN-FIELD",
+        "On Field: name an opposing character. While Pangolin is active, your opponent can't field it.",
+        SuppressionKind.CantField);
+
+    public static readonly CardDef PangolinNoFieldNoBuy = LockoutPangolin("PROTO-PANGOLIN-FIELDBUY",
+        "On Field: name an opposing character. While Pangolin is active, your opponent can't field or purchase it.",
+        SuppressionKind.CantField, SuppressionKind.CantPurchase);
+
+    public static readonly CardDef[] All = [PangolinNoField, PangolinNoFieldNoBuy];
 }
 
 static class Stats
@@ -224,12 +267,15 @@ static class Stats
     public static void Reset()
     {
         Buys.Clear(); Fields.Clear(); GamesFielded.Clear(); WinsWhenFielded.Clear(); DamageDealt.Clear();
-        Uses.Clear(); Games.Clear(); Wins.Clear(); Rerolls.Clear();
+        Uses.Clear(); Games.Clear(); Wins.Clear(); Rerolls.Clear(); NamedCards.Clear();
         _seatOneWins = _decided = _capHits = _deckOutDeaths = 0;
     }
 
     public static void BeginGame(string one, string two) { _champ = [one, two]; _fieldedThisGame.Clear(); }
     public static void CapHit() => _capHits++;
+    static readonly Dictionary<(string Champ, string Card), int> NamedCards = [];
+    public static void Named(GameState s, string pid, string dieId) =>
+        Inc(NamedCards, (C(pid), s.CardCatalog[s.Dice.First(d => d.Id == dieId).CardId!].Name));
 
     public static void Record(GameState s, string pid, BotDecision d, (int P1, int P2) lifeBefore)
     {
@@ -297,6 +343,10 @@ static class Stats
             var totalDmg = Math.Max(1, DamageDealt.Where(k => k.Key.Champ == champ).Sum(k => k.Value));
             foreach (var kv in DamageDealt.Where(k => k.Key.Champ == champ).OrderByDescending(k => k.Value))
                 Console.WriteLine($"  dmg via {kv.Key.Src}: {(double)kv.Value / games:F2}/game ({100.0 * kv.Value / totalDmg:F0}%)");
+            var named = NamedCards.Where(k => k.Key.Champ == champ).OrderByDescending(k => k.Value).ToList();
+            if (named.Count > 0)
+                Console.WriteLine($"  lockout named ({(double)named.Sum(k => k.Value) / games:F2}/game): " +
+                    string.Join(", ", named.Take(6).Select(k => $"{k.Key.Card} {k.Value}")));
             foreach (var kv in Uses.Where(k => k.Key.Champ == champ).OrderByDescending(k => k.Value))
                 Console.WriteLine($"  {kv.Key.What}: {(double)kv.Value / games:F2}/game");
             Console.WriteLine($"  {"card",-18}{"buys/g",8}{"fields/g",10}{"%games fielded",16}{"win% when fielded",20}");

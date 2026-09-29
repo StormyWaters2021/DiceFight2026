@@ -574,6 +574,8 @@ public static class DiceKingdomBot
             }
             var die = state.Dice.First(d => d.Id == id);
             var own = die.ControllerId == botId;
+            if (pending.Intent == ChoiceIntent.NameCard)
+                return own || die.CardId is null ? -10 : CardThreat(state, die.ControllerId, die.CardId);
             var value = ChoiceValue(state, die);
             // In the window, what matters most is who's hitting face.
             if (state.CurrentStepId == StepIds.ActionGlobalWindow && UnblockedAttackers(state).Any(a => a.Id == id))
@@ -585,6 +587,22 @@ public static class DiceKingdomBot
         var picks = ranked.Take(pending.MinCount).Select(x => x.Id).ToList();
         picks.AddRange(ranked.Skip(pending.MinCount).Take(pending.MaxCount - pending.MinCount).Where(x => x.Score > 0).Select(x => x.Id));
         return new(BotActionKind.ResolvePendingChoice, $"Answer: {pending.Description}") { DieIds = picks };
+    }
+
+    // How much locking `ownerId` out of a card (Blob/Drax-style, the
+    // NameCard choice) would cost them. Mostly the copies they already OWN
+    // that are coming back around to be fielded - their workhorse, what's
+    // actually hurting you - with still-unbought copies a minor, maybe-
+    // someday factor. Weighting by purchase cost alone named an unbought
+    // finisher nearly every time, and finishers land in ~15% of games, so
+    // that lockout almost never mattered (simulator, 2026-09-28).
+    private static double CardThreat(GameState state, string ownerId, string cardId)
+    {
+        var dice = state.Dice.Where(d => d.OwnerId == ownerId && d.CardId == cardId).ToList();
+        var circulating = dice.Count(d => d.Zone is Zone.Bag or Zone.UsedPile or Zone.PrepArea or Zone.ReservePool or Zone.OutOfPlay);
+        var unbought = dice.Count(d => d.Zone == Zone.Unpurchased);
+        var cost = state.CardCatalog[cardId].PurchaseCost;
+        return circulating * (cost + 2) + unbought * 0.3 * cost + 0.1;
     }
 
     // A die in play is worth its stats; one out of play (Used Pile, Bag,

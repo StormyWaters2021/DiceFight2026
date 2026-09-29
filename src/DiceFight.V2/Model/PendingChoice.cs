@@ -27,4 +27,6 @@ public sealed class PendingChoice
     public ChoiceIntent Intent { get; init; } = ChoiceIntent.Unknown;
 }
 
-public enum ChoiceIntent { Unknown, Harmful, Beneficial }
+// NameCard: the pick names a CARD, not a die (RememberCard - Blob/Drax-
+// style lockouts): what matters is the card, not which of its dice.
+public enum ChoiceIntent { Unknown, Harmful, Beneficial, NameCard }
