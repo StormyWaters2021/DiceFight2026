@@ -136,6 +136,7 @@ public static class TurnEngine
             state.LogEvent(state.ActivePlayerId,
                 $"{state.NameOf(state.ActivePlayerId)} can't draw {shortfall} {(shortfall == 1 ? "die" : "dice")}: " +
                 $"takes {shortfall} damage and gains {shortfall} Virtual energy.");
+            state.CheckGameOver();
         }
 
         state.IsFirstTurn = false;

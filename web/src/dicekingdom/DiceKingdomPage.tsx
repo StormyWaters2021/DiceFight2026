@@ -2,7 +2,8 @@ import { startTransition, useEffect, useRef, useState } from "react";
 import "./dicekingdom.css";
 import { api, apiAs } from "./api";
 import { CHAMPION_ICONS, CHARACTER_ICONS, EnergyBadge, HelpIcon, TardigradeIcon, TardigradePhotoIcon } from "./icons";
-import { inviteLink, rememberSeats } from "./seats";
+import { forgetSeats, inviteLink, rememberSeats } from "./seats";
+import { GameOverOverlay } from "./GameOverOverlay";
 import { OPPONENT_PICKS, OpponentPicksOption, PickYourChampion, WaitingForOpponent, resolveInvite } from "./lobby";
 import { CombatLane } from "./CombatLane";
 import { DieCube, type CubeSpin } from "./DieCube";
@@ -1836,6 +1837,14 @@ export function DiceKingdomPage() {
 
   return (
     <div className="dicekingdom">
+      <GameOverOverlay
+        game={game}
+        you={vsComputer ? game.playerOne.id : you}
+        onNewGame={() => {
+          forgetSeats();
+          setGame(null);
+        }}
+      />
       {/* EnergyBadge's outline (2026-09-09, replacing a 4-direction
           drop-shadow stack that read as "muddy" rather than crisp) -
           feMorphology dilates the icon's own alpha silhouette (including

@@ -64,8 +64,15 @@ public static class EffectInterpreter
     // AnswerPendingChoice resumes the interrupted ability, and the
     // caller is expected to call DrainQueue again afterward to pick up
     // anything left in the queue.
-    public static void DrainQueue(GameState state, AbilityQueue queue, IDiceRoller roller, Random random) =>
-        queue.Drain(qa => ResolveQueued(qa, state, queue, roller, random), () => state.PendingChoice is not null);
+    // Rule 2.9.1: once the game is over, nothing further resolves - not even
+    // an ability queued before it ended (combat damage that ends the game
+    // can queue a Rhinoceros reflect first). Drain's own stop check runs
+    // only AFTER each ability, hence the up-front check too.
+    public static void DrainQueue(GameState state, AbilityQueue queue, IDiceRoller roller, Random random)
+    {
+        if (state.IsGameOver) return;
+        queue.Drain(qa => ResolveQueued(qa, state, queue, roller, random), () => state.PendingChoice is not null || state.IsGameOver);
+    }
 
     private static void ResolveQueued(QueuedAbility ability, GameState state, AbilityQueue queue, IDiceRoller roller, Random random)
     {
@@ -306,7 +313,7 @@ public static class EffectInterpreter
     public static DieInstance? MarkDamage(GameState state, AbilityQueue queue, DamageSource source, string id, int amount)
     {
         if (amount <= 0) return null;
-        if (state.IsPlayerId(id)) { state.GetPlayer(id).Life -= amount; return null; }
+        if (state.IsPlayerId(id)) { state.GetPlayer(id).Life -= amount; state.CheckGameOver(); return null; }
 
         var die = FindDie(state, id);
         var interceptors = state.DamageInterceptors.Where(m => m.AppliesTo(state, die, source)).ToList();
@@ -526,6 +533,7 @@ public static class EffectInterpreter
                     MoveToZone(ctx.State, die, moveTo);
                     if (n.DamagePerMoved > 0)
                         ctx.State.GetPlayer(ctx.State.OpponentOf(ctx.ControllerId)).Life -= n.DamagePerMoved;
+                        ctx.State.CheckGameOver();
                 }
             }
             onComplete();

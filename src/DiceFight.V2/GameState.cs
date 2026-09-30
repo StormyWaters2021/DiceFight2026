@@ -209,6 +209,27 @@ public sealed class GameState
     // until the end of that Main Step (TurnEngine.ClearAndDraw grants it,
     // EnterAttackStep expires it, SpendEnergy spends it automatically).
     public Dictionary<string, int> VirtualEnergy { get; } = [];
+
+    // Rule 2.9 - "As soon as a player's Life total reaches 0 or below the
+    // game ends immediately and the player with Life remaining wins"; both
+    // at once (2.9.3) is a tie (IsGameOver with a null WinnerId). Every
+    // life change calls CheckGameOver; once over, the ability queue stops
+    // draining (2.9.1: abilities that would follow "would not occur") and
+    // no action is accepted. Missing until 2026-09-30 - a playtest game
+    // ran on at -5 life.
+    public bool IsGameOver { get; private set; }
+    public string? WinnerId { get; private set; }
+
+    public void CheckGameOver()
+    {
+        if (IsGameOver) return;
+        var oneOut = PlayerOne.Life <= 0;
+        var twoOut = PlayerTwo.Life <= 0;
+        if (!oneOut && !twoOut) return;
+        IsGameOver = true;
+        WinnerId = oneOut && twoOut ? null : oneOut ? PlayerTwo.Id : PlayerOne.Id;
+        LogEvent(WinnerId, WinnerId is null ? "Both players are out of Life - the game is a tie." : $"{NameOf(WinnerId)} wins!");
+    }
     public int VirtualEnergyOf(string playerId) => VirtualEnergy.GetValueOrDefault(playerId);
 
     // Priority (rules 2.6.6 / 2.7.3.4) - see Priority.cs. Who may act in

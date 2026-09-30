@@ -211,7 +211,11 @@ public sealed record V2GameStateDto(
     // player (they could still use a Global - Priority.CanUseAnyGlobal), or
     // close the window? The client labels the button "Pass Priority" vs
     // "Resolve Damage" by it (2026-09-30).
-    bool PassGivesPriority = false)
+    bool PassGivesPriority = false,
+    // Rule 2.9: the game is over once a player's Life reaches 0 - WinnerId
+    // null with GameOver true is a tie.
+    bool GameOver = false,
+    string? WinnerId = null)
 {
     public static V2GameStateDto From(string gameId, GameState state, string? yourPlayerId = null, int version = 0) => new(
         gameId, state.ActivePlayerId, state.CurrentStep.ToString(), state.CurrentStepId,
@@ -227,7 +231,9 @@ public sealed record V2GameStateDto(
                 .Where(state.CardCatalog.ContainsKey)
                 .ToDictionary(id => id, id => QueryEngine.GetPurchaseCost(state, state.CardCatalog[id], yourPlayerId)),
         Priority.IsWindow(state) && state.PriorityPlayerId == state.ActivePlayerId
-            && Priority.CanUseAnyGlobal(state, state.OpponentOf(state.ActivePlayerId)));
+            && Priority.CanUseAnyGlobal(state, state.OpponentOf(state.ActivePlayerId)),
+        state.IsGameOver,
+        state.WinnerId);
 }
 
 // ---- Request bodies ----

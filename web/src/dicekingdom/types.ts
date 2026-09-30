@@ -142,6 +142,9 @@ export interface GameState {
   /** The Active player's pass would hand priority to the other player (they
    *  could still use a Global) rather than close the window. */
   passGivesPriority?: boolean;
+  /** Rule 2.9: someone's Life reached 0. winnerId null with gameOver = a tie. */
+  gameOver?: boolean;
+  winnerId?: string | null;
 }
 
 export interface Seat {

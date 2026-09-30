@@ -365,6 +365,9 @@ public sealed class V2GamesController(V2GameStore store) : ControllerBase
         var playerId = session.PlayerIdFor(string.IsNullOrEmpty(token) ? null : token);
         if (playerId is null)
             throw new SeatRequiredException($"A valid {SeatTokenHeader} is required to act in this game.");
+        // Rule 2.9 - nothing more happens once someone is out of Life.
+        if (HttpMethods.IsPost(Request.Method) && session.State.IsGameOver)
+            throw new InvalidOperationException("The game is over.");
         _seatPlayerId = playerId;
         _session = session;
         return (session, playerId);

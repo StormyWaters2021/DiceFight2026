@@ -3670,3 +3670,27 @@ came up - `~/.devtools/playwright/block-panel-check.js` and friends):
   corner with the energy marker, so it's a badge outside the face.)
 Noted, not changed: the desktop page's side panels still say "no Basic
 Actions / no Globals yet" - desktop never got the Globals UI mobile has.
+
+## The game ends: rule 2.9 win condition (2026-09-30)
+
+A playtest screenshot showed Wolf at -5 life with the game still going -
+there was no win condition at all (deliberately deferred back in early
+September as not mattering for short casual games; now games run to the
+end). Rule 2.9.1: "As soon as a player's Life total reaches 0 or below the
+game ends immediately and the player with Life remaining wins. Even when
+an ability causing one player to reach 0 Life trigger other abilities...
+those other abilities would not occur"; 2.9.3: both at once is a tie.
+- `GameState.IsGameOver`/`WinnerId`, set by `CheckGameOver()`, called
+  after every life change: unblocked combat hits (once, after all lanes -
+  they're simultaneous), Overcrush, ability damage to a player, Reroll's
+  damage-per-moved, deck-out burn. Logs "<name> wins!" (or the tie).
+- Once over, `EffectInterpreter.DrainQueue` resolves nothing more (so a
+  Rhinoceros reflect queued by the same combat never happens), the API
+  refuses every POST ("The game is over."), the bot decides nothing, and
+  BotDriver refuses to apply.
+- DTO `gameOver`/`winnerId`; both pages show a Game Over overlay (winner -
+  "You win!" from your own seat - both Life totals, "New game" back to the
+  setup screen) over the dimmed board; mobile's action button reads "Game
+  over". Checked with games played to the end through the API on both pages.
+Tests: `GameOverTests` (lethal combat stops a queued reflect, deck-out can
+end it, nothing plays on after).

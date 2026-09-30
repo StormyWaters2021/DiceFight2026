@@ -46,6 +46,7 @@ public static class DiceKingdomBot
     // it isn't this player's decision.
     public static BotDecision? Decide(GameState state, string botId, IReadOnlySet<string>? skip = null, BotPersona? persona = null)
     {
+        if (state.IsGameOver) return null;
         skip ??= new HashSet<string>();
         persona ??= BotPersona.ForChampion(state.GetPlayer(botId).ChampionId);
         var active = state.ActivePlayerId;

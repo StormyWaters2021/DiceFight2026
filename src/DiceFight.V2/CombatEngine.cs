@@ -371,6 +371,11 @@ public static class CombatEngine
             fights.Add(fight);
         }
 
+        // Unblocked hits all land at once (combat damage is simultaneous), so
+        // the game-over check (rule 2.9) comes after every lane's hit - and
+        // after their log lines, so "X wins!" reads last.
+        state.CheckGameOver();
+
         // Keyword Fast - "Characters with Fast deal combat damage before
         // other Character dice in the Attack Step. All Character dice
         // with Fast deal damage at the same time." Two full waves rather
@@ -406,6 +411,7 @@ public static class CombatEngine
             if (leftover <= 0) continue;
             inactivePlayer.Life -= leftover;
             state.LogEvent(state.ActivePlayerId, $"Overcrush: {leftover} excess damage carries through to {inactivePlayer.Name}.");
+            state.CheckGameOver();
         }
 
         // Rule 2.7.6.6 - "Return remaining dice in the Attack Zone to the

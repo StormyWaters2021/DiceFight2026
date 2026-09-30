@@ -11,7 +11,8 @@ import {
   TardigradeIcon,
   type PhaseKey,
 } from "./icons";
-import { inviteLink, rememberSeats } from "./seats";
+import { forgetSeats, inviteLink, rememberSeats } from "./seats";
+import { GameOverOverlay } from "./GameOverOverlay";
 import { OPPONENT_PICKS, OpponentPicksOption, PickYourChampion, WaitingForOpponent, resolveInvite } from "./lobby";
 import { DieCube, type CubeSpin } from "./DieCube";
 import { facesFor } from "./dieFaces";
@@ -2700,7 +2701,10 @@ export function DiceKingdomMobilePage() {
   let secondaryLabel: string | undefined;
   let secondaryRun: (() => void) | null = null;
 
-  if (myChoice) {
+  if (game.gameOver) {
+    primaryLabel = "Game over";
+    primaryDisabled = true;
+  } else if (myChoice) {
     const ready = choicePicked.length >= myChoice.minCount && choicePicked.length <= choiceMax;
     primaryLabel =
       choicePicked.length === 0 && myChoice.minCount === 0
@@ -2811,6 +2815,14 @@ export function DiceKingdomMobilePage() {
   return (
     <div ref={rootRef} className={`dicekingdom dk-mobile dkm-root${targeting ? " dkm-targeting" : ""}`}>
       <EnergyBadgeOutlineDefs />
+      <GameOverOverlay
+        game={game}
+        you={vsComputer ? game.playerOne.id : you}
+        onNewGame={() => {
+          forgetSeats();
+          setGame(null);
+        }}
+      />
       <div className="dkm-header">
         <PhaseRail current={phase} onTap={() => {}} />
         <StepLine title={chainSteps[chainIndex]?.label ?? phaseLabel} index={chainIndex} total={chainSteps.length} onToggle={() => setStepsOpen((v) => !v)} />

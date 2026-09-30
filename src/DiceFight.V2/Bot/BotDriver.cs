@@ -29,6 +29,7 @@ public sealed class BotDriver(GameState state, Random random)
 
     public void Apply(string playerId, BotDecision decision)
     {
+        if (state.IsGameOver) throw new InvalidOperationException("The game is over.");
         var queue = new AbilityQueue();
         switch (decision.Kind)
         {
