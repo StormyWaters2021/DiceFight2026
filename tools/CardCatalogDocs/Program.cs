@@ -16,7 +16,8 @@ using DiceFight.V2.Model;
 //
 //   dotnet run --project tools/CardCatalogDocs [output-path]
 //
-// output-path defaults to tools/CardCatalogDocs/dice-kingdom-cards.html.
+// output-path defaults to tools/CardCatalogDocs/dice-kingdom-cards.html;
+// a GitHub-readable .md copy is written beside it.
 
 var outPath = args.Length > 0 ? Path.GetFullPath(args[0]) : Path.Combine(FindRepoRoot(), "tools", "CardCatalogDocs", "dice-kingdom-cards.html");
 
@@ -106,6 +107,67 @@ html.AppendLine("</body></html>");
 Directory.CreateDirectory(Path.GetDirectoryName(outPath)!);
 File.WriteAllText(outPath, html.ToString());
 Console.WriteLine($"Wrote {catalog.Count} cards across {config.Champions.Count} Champions to {outPath}");
+
+// The same reference as Markdown beside the HTML, so it reads on GitHub
+// (which shows .html files as source). Added 2026-09-30.
+var mdPath = Path.ChangeExtension(outPath, ".md");
+File.WriteAllText(mdPath, BuildMarkdown());
+Console.WriteLine($"Wrote {mdPath}");
+
+string BuildMarkdown()
+{
+    var md = new StringBuilder();
+    md.AppendLine("# Dice Kingdom — Card Reference");
+    md.AppendLine();
+    md.AppendLine($"_Generated {DateTime.UtcNow:yyyy-MM-dd} from `src/DiceFight.V2/Data/DiceKingdomConfig.cs` by `tools/CardCatalogDocs` — " +
+        "every field is read straight from the live CardDef/ChampionDef records. Re-run the tool after any card change; don't hand-edit this file._");
+    foreach (var champion in config.Champions)
+    {
+        md.AppendLine();
+        md.AppendLine($"## {champion.Name} ({champion.EnergySymbolId})");
+        md.AppendLine();
+        md.AppendLine($"_Passive: {Md(DescribePassive(champion))}_");
+        foreach (var pool in champion.TardigradePool)
+        {
+            md.AppendLine();
+            md.AppendLine($"### Tardigrade die ×{pool.Count} (starts in the Bag; free to field)");
+            md.AppendLine();
+            md.AppendLine("| Face | Count |");
+            md.AppendLine("|---|:-:|");
+            foreach (var (face, count) in GroupFaces(pool.Die))
+                md.AppendLine($"| {face} | {count} |");
+        }
+        md.AppendLine();
+        md.AppendLine("### Characters");
+        md.AppendLine();
+        md.AppendLine("| Name | Cost | Die Limit | Keywords | Stats (fielding / ATK / DEF per level) | Energy faces | Ability text |");
+        md.AppendLine("|---|:-:|:-:|---|---|---|---|");
+        foreach (var cardId in DiceKingdomConfig.CharactersByChampion[champion.Id])
+        {
+            var card = catalog[cardId];
+            var name = card.Subtitle is { } sub ? $"{Md(card.Name)} _({Md(sub)})_" : Md(card.Name);
+            var energy = string.Join("<br>", card.Die.Faces.Where(f => f.Kind == FaceKind.EnergyFace).Select(DescribeEnergy));
+            md.AppendLine($"| {name} | {card.PurchaseCost} | {card.DieLimit} | {string.Join(", ", card.Keywords.Select(Md))} | {DescribeLevels(card)} | {energy} | {Md(card.RawText)} |");
+        }
+    }
+    md.AppendLine();
+    md.AppendLine("## Champion Basic Actions (Global abilities, one per Champion)");
+    md.AppendLine();
+    md.AppendLine("| Champion | Name | Cost | Die Limit | Die faces | Ability text |");
+    md.AppendLine("|---|---|:-:|:-:|---|---|");
+    foreach (var (championId, cardId) in DiceKingdomConfig.ActionByChampion)
+    {
+        var card = catalog[cardId];
+        var faces = string.Join("<br>", GroupFaces(card.Die).Select(g => g.Count > 1 ? $"{g.Face} ×{g.Count}" : g.Face));
+        md.AppendLine($"| {Md(config.Champions.First(c => c.Id == championId).Name)} | {Md(card.Name)} | {card.PurchaseCost} | {card.DieLimit} | {faces} | {Md(card.RawText)} |");
+    }
+    md.AppendLine();
+    md.AppendLine("Either player may buy either Basic Action; each die's energy faces show its Champion's type.");
+    return md.ToString();
+}
+
+// Text for a Markdown table cell: pipes escaped, line breaks as <br>.
+static string Md(string s) => s.Replace("|", "\\|").Replace("\r\n", "<br>").Replace("\n", "<br>");
 
 void AppendCardRow(StringBuilder sb, CardDef card)
 {
