@@ -82,6 +82,8 @@ export interface Die {
   isActionFace?: boolean;
   /** Fielding cost right now, discounts included; null without a creature face. */
   fieldingCost?: number | null;
+  /** Forced to block this turn (Hermit Crab). */
+  mustBlock?: boolean;
 }
 
 export interface PlayerState {

@@ -3656,3 +3656,30 @@
 .dicekingdom .dk-lobby-cancel {
   opacity: 0.75;
 }
+
+/* Forced to block this turn (Hermit Crab) - a badge on the die. */
+.dk-mobile .dkm-tile {
+  position: relative;
+}
+.dk-mobile .dkm-must-block {
+  position: absolute;
+  left: 50%;
+  bottom: -7px;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font: 700 8px/1 "Work Sans", var(--sans);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 3px 5px;
+  border-radius: 6px;
+  background: var(--claw);
+  color: #1a1006;
+  pointer-events: none;
+}
+.dicekingdom .dk-must-block {
+  color: var(--claw);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+}

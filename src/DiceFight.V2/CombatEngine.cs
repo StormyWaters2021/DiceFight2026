@@ -95,7 +95,13 @@ public static class CombatEngine
             .Where(d => state.GetCurrentFace(d)?.Character is not null && !d.CombatFlags.Contains(CombatFlagKind.CantBlock))
             .ToList();
         if (forcedButOmitted.Count > 0)
-            throw new InvalidOperationException($"{string.Join(", ", forcedButOmitted.Select(d => d.Id))} must block this turn.");
+        {
+            // Card names, not internal ids (2026-09-30 - "teamA-TardigradeClaw-1
+            // must block this turn" is what a player used to see).
+            var names = forcedButOmitted.Select(d => d.CardId is { } c ? state.CardCatalog[c].Name : "Tardigrade").ToList();
+            throw new InvalidOperationException(
+                $"Your {string.Join(" and ", names)} must block this turn - assign {(names.Count == 1 ? "it" : "them")} to an attacker.");
+        }
 
         ValidateUnblockable(state, assignment);
         ValidateMinBlockers(state, assignment);

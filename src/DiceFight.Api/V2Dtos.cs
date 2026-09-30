@@ -98,7 +98,11 @@ public sealed record V2DieDto(
     // other modifier included (QueryEngine.GetFieldingCost) - the client
     // used to read the printed cost, so a discount made "pay 1" charge 0
     // with nothing on screen saying why (direct feedback, 2026-09-27).
-    int? FieldingCost = null)
+    int? FieldingCost = null,
+    // Forced to block this turn (Hermit Crab) - the client marks it and
+    // won't confirm blocks without it (2026-09-30: the server's own
+    // rejection used to be the only sign, and it named an internal die id).
+    bool MustBlock = false)
 {
     private static readonly HashSet<DiceFight.V2.Model.Zone> InPlayZones =
         [DiceFight.V2.Model.Zone.FieldZone, DiceFight.V2.Model.Zone.AttackZone];
@@ -124,7 +128,8 @@ public sealed record V2DieDto(
             die.Damage,
             die.AttackOrder,
             face?.Kind == FaceKind.ActionFace,
-            hasCharacterFace ? QueryEngine.GetFieldingCost(state, die) : null);
+            hasCharacterFace ? QueryEngine.GetFieldingCost(state, die) : null,
+            die.CombatFlags.Contains(CombatFlagKind.MustBlock));
     }
 }
 

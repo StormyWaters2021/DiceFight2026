@@ -376,6 +376,8 @@ function DieTile({
               }
             />
             {label && <div className="lbl">{label}</div>}
+            {/* Forced to block this turn (Hermit Crab), 2026-09-30. */}
+            {die.mustBlock && zone === "FieldZone" && <div className="lbl dk-must-block">Must block</div>}
           </>
         )}
       </button>

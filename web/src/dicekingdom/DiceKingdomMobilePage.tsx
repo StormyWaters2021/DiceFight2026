@@ -486,6 +486,9 @@ function DTile({
         turnOffset={turnOffset}
         energyCorner={die.energySymbolId && die.energyAmount > 0 ? { type: die.energySymbolId, amount: die.energyAmount } : undefined}
       />
+      {/* Forced to block this turn (Hermit Crab) - 2026-09-30: the server's
+          own rejection used to be the only sign, naming an internal id. */}
+      {die.mustBlock && die.zone === "FieldZone" && <span className="dkm-must-block">Must block</span>}
     </button>
   );
 }
@@ -2523,14 +2526,36 @@ export function DiceKingdomMobilePage() {
       const already = selectedDie.id in pendingAttackers;
       inspectActions.push({
         label: already ? "Pull back" : `Declare into lane ${laneSel + 1}`,
-        run: () => toggleAttacker(selectedDie.id),
+        // Deselect after, same as tapping the lane - leaving it selected
+        // flipped this same button to "Pull back" under your finger, so
+        // it read as not having worked (direct feedback, 2026-09-30).
+        run: () => {
+          toggleAttacker(selectedDie.id);
+          setSelectedId(null);
+        },
       });
     }
     if (selectedDie.zone === "FieldZone" && selectedDie.controllerId === you && step === "assign-blockers" && !isYourTurn) {
-      inspectActions.push({
-        label: `Tap an attacker to block into lane ${laneSel + 1}`,
-        run: () => {},
-      });
+      // Real buttons (direct feedback, 2026-09-30 - this used to be a
+      // do-nothing "tap an attacker" label, with no way to pull a
+      // blocker back from here): pull back if it's blocking, otherwise
+      // one "Block lane N" per lane with an attacker in it.
+      const blocking = Object.values(blockAssignments).some((ids) => ids.includes(selectedDie.id));
+      if (blocking) {
+        inspectActions.push({
+          label: "Pull back",
+          run: () => {
+            removeBlocker(selectedDie.id);
+            setSelectedId(null);
+          },
+        });
+      } else {
+        const lanes = new Map<number, string>();
+        for (const a of game.dice.filter((d) => d.zone === "AttackZone" && d.controllerId === game.activePlayerId && d.lane !== null))
+          if (!lanes.has(a.lane!)) lanes.set(a.lane!, a.id);
+        for (const [lane, attackerId] of [...lanes.entries()].sort(([x], [y]) => x - y))
+          inspectActions.push({ label: `Block lane ${lane + 1}`, run: () => addBlocker(attackerId, selectedDie.id) });
+      }
     }
   }
 
@@ -2714,6 +2739,17 @@ export function DiceKingdomMobilePage() {
     } else {
       primaryLabel = "Blockers set";
       primaryRun = () => run(() => api.declareBlockers(game.gameId, blockAssignmentsToApi(blockAssignments)));
+      // A forced blocker (Hermit Crab) has to be assigned first - say which,
+      // instead of letting the server reject the whole declaration.
+      const assigned = new Set(Object.values(blockAssignments).flat());
+      const unassignedForced = game.dice.filter(
+        (d) => d.controllerId === you && d.zone === "FieldZone" && d.mustBlock && !assigned.has(d.id),
+      );
+      const anyAttacker = game.dice.some((d) => d.zone === "AttackZone" && d.controllerId === game.activePlayerId);
+      if (anyAttacker && unassignedForced.length > 0) {
+        primaryDisabled = true;
+        primaryNote = `${unassignedForced.map((d) => nameOf(d, cardsById)).join(" and ")} must block - assign ${unassignedForced.length === 1 ? "it" : "them"} to a lane`;
+      }
     }
   } else if (step === "action-global-window") {
     primaryLabel = "Resolve Damage";
