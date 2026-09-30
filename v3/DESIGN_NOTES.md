@@ -3643,3 +3643,30 @@ otherwise unmount the tray mid-tumble) - the same trick `runWithReveal`
 already used for your own reroll; the computer's moves go through it too.
 Checked with two browsers: the watcher's tray tumbles 3 dice on the roll
 and the rerolled die on the reroll, then moves on to Buy & field.
+
+## Playtest UI fixes: forced blocks, panel buttons, reflect, priority, damage (2026-09-30)
+
+All from direct feedback, each checked in headless Chromium against real
+game states (driven through the API by the shared bot until the situation
+came up - `~/.devtools/playwright/block-panel-check.js` and friends):
+- **Must block:** the engine's rejection named an internal die id
+  ("teamA-TardigradeClaw-1 must block this turn"). Now it names the card,
+  dice carry a `mustBlock` flag, both pages badge the die, and mobile's
+  "Blockers set" is disabled with the reason until it's assigned.
+- **Bottom-panel buttons (mobile):** a blocker's panel action was a
+  do-nothing "tap an attacker" label - now "Block lane N" per attacked
+  lane, or "Pull back" once assigned. "Declare into lane" now deselects
+  after declaring (it used to flip into "Pull back" under your finger, so
+  it read as not working), same as tapping the lane.
+- **Rhinoceros's reflect** gets its own "↩ N reflect" lane chip and a
+  breakdown line naming who takes it, apart from "N to face" (card DTO:
+  `reflectsDamage`, read off the ability).
+- **"Pass Priority" vs "Resolve Damage":** the state DTO's
+  `passGivesPriority` (Priority.CanUseAnyGlobal for the other player) picks
+  the Active player's label in the attack window, on both pages.
+- **Damage marked on a die** (Honey Badger's ping, a survived block) had no
+  visual; both pages now show a red "−N" badge that pops when it lands and
+  clears at Clean Up. (The cube's own damage slot shares the lower-left
+  corner with the energy marker, so it's a badge outside the face.)
+Noted, not changed: the desktop page's side panels still say "no Basic
+Actions / no Globals yet" - desktop never got the Globals UI mobile has.

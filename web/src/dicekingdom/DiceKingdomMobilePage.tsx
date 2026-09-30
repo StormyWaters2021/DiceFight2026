@@ -501,6 +501,14 @@ function DTile({
       {/* Forced to block this turn (Hermit Crab) - 2026-09-30: the server's
           own rejection used to be the only sign, naming an internal id. */}
       {die.mustBlock && die.zone === "FieldZone" && <span className="dkm-must-block">Must block</span>}
+      {/* Damage marked on a die in play (Honey Badger's ping, a survived
+          block...) - direct feedback 2026-09-30: nothing showed it. Keyed
+          by the amount so a fresh hit pops again; clears at Clean Up. */}
+      {(die.damage ?? 0) > 0 && (die.zone === "FieldZone" || die.zone === "AttackZone") && (
+        <span key={die.damage} className="dk-damage-badge" title={`${die.damage} damage marked - clears at the end of the turn`}>
+          −{die.damage}
+        </span>
+      )}
     </button>
   );
 }

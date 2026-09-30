@@ -378,6 +378,13 @@ function DieTile({
             {label && <div className="lbl">{label}</div>}
             {/* Forced to block this turn (Hermit Crab), 2026-09-30. */}
             {die.mustBlock && zone === "FieldZone" && <div className="lbl dk-must-block">Must block</div>}
+            {/* Damage marked on a die in play - see the mobile page's
+                identical badge (2026-09-30). */}
+            {(die.damage ?? 0) > 0 && (zone === "FieldZone" || zone === "AttackZone") && (
+              <span key={die.damage} className="dk-damage-badge" title={`${die.damage} damage marked - clears at the end of the turn`}>
+                −{die.damage}
+              </span>
+            )}
           </>
         )}
       </button>
