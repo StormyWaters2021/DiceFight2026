@@ -4,7 +4,9 @@ using DiceFight.V2.Data;
 using DiceFight.V2.Model;
 
 // Renders the real DiceKingdomConfig (Champions, CharactersByChampion,
-// ActionByChampion, Catalog) as one static HTML reference page - every
+// ActionByChampion, Catalog, each Champion's Tardigrade pool) as one
+// static HTML reference page - every die face (energy faces too, since
+// 2026-09-30), every
 // stat and every ability's RawText comes straight from the live CardDef
 // records, not a hand-transcribed copy, so it can't silently drift from
 // what a game actually plays like the way v3/CARD_INSPIRATION.md already
@@ -50,6 +52,8 @@ html.AppendLine("""
   .stats { font-family: ui-monospace, Menlo, monospace; font-size: 0.9em; white-space: nowrap; }
   .keyword { display: inline-block; background: #e8e8f8; border-radius: 4px; padding: 0 0.4em; margin: 1px; font-size: 0.85em; }
   .cost { text-align: center; font-weight: 600; }
+  h3 { margin: 1.4rem 0 0.2rem; font-size: 1.05em; }
+  .note { color: #555; font-size: 0.9em; margin: 0.2rem 0 0; }
 </style>
 """);
 html.AppendLine("</head><body>");
@@ -63,14 +67,25 @@ foreach (var champion in config.Champions)
     html.AppendLine($"<h2>{Enc(champion.Name)} <small>({Enc(champion.EnergySymbolId)})</small></h2>");
     html.AppendLine($"<p class=\"passive\">Passive: {Enc(DescribePassive(champion))}</p>");
 
-    html.AppendLine("<table><thead><tr><th>Name</th><th>Cost</th><th>Die&nbsp;Limit</th><th>Keywords</th><th>Stats (fielding&nbsp;/&nbsp;ATK&nbsp;/&nbsp;DEF per level)</th><th>Ability text</th></tr></thead><tbody>");
+    // The starting dice: not cards, so they only live on the ChampionDef.
+    foreach (var pool in champion.TardigradePool)
+    {
+        html.AppendLine($"<h3>Tardigrade die &times;{pool.Count} <small>(starts in the Bag; free to field)</small></h3>");
+        html.AppendLine("<table><thead><tr><th>Face</th><th>Count</th></tr></thead><tbody>");
+        foreach (var (face, count) in GroupFaces(pool.Die))
+            html.AppendLine($"<tr><td class=\"stats\">{face}</td><td class=\"cost\">{count}</td></tr>");
+        html.AppendLine("</tbody></table>");
+    }
+
+    html.AppendLine("<h3>Characters</h3>");
+    html.AppendLine("<table><thead><tr><th>Name</th><th>Cost</th><th>Die&nbsp;Limit</th><th>Keywords</th><th>Stats (fielding&nbsp;/&nbsp;ATK&nbsp;/&nbsp;DEF per level)</th><th>Energy faces</th><th>Ability text</th></tr></thead><tbody>");
     foreach (var cardId in DiceKingdomConfig.CharactersByChampion[champion.Id])
         AppendCardRow(html, catalog[cardId]);
     html.AppendLine("</tbody></table>");
 }
 
 html.AppendLine("<h2>Champion Basic Actions <small>(Global abilities, one per Champion)</small></h2>");
-html.AppendLine("<table><thead><tr><th>Champion</th><th>Name</th><th>Cost</th><th>Die&nbsp;Limit</th><th>Ability text</th></tr></thead><tbody>");
+html.AppendLine("<table><thead><tr><th>Champion</th><th>Name</th><th>Cost</th><th>Die&nbsp;Limit</th><th>Die faces</th><th>Ability text</th></tr></thead><tbody>");
 foreach (var (championId, cardId) in DiceKingdomConfig.ActionByChampion)
 {
     var card = catalog[cardId];
@@ -79,10 +94,12 @@ foreach (var (championId, cardId) in DiceKingdomConfig.ActionByChampion)
     html.AppendLine($"<td>{Enc(card.Name)}</td>");
     html.AppendLine($"<td class=\"cost\">{card.PurchaseCost}</td>");
     html.AppendLine($"<td class=\"cost\">{card.DieLimit}</td>");
+    html.AppendLine($"<td class=\"stats\">{string.Join("<br>", GroupFaces(card.Die).Select(g => g.Count > 1 ? $"{g.Face} &times;{g.Count}" : g.Face))}</td>");
     html.AppendLine($"<td>{Enc(card.RawText)}</td>");
     html.AppendLine("</tr>");
 }
 html.AppendLine("</tbody></table>");
+html.AppendLine("<p class=\"note\">Either player may buy either Basic Action; each die's energy faces show its Champion's type.</p>");
 
 html.AppendLine("</body></html>");
 
@@ -99,6 +116,7 @@ void AppendCardRow(StringBuilder sb, CardDef card)
     sb.AppendLine($"<td class=\"cost\">{card.DieLimit}</td>");
     sb.AppendLine($"<td>{string.Join(" ", card.Keywords.Select(k => $"<span class=\"keyword\">{Enc(k)}</span>"))}</td>");
     sb.AppendLine($"<td class=\"stats\">{DescribeLevels(card)}</td>");
+    sb.AppendLine($"<td class=\"stats\">{string.Join("<br>", card.Die.Faces.Where(f => f.Kind == FaceKind.EnergyFace).Select(DescribeEnergy))}</td>");
     sb.AppendLine($"<td>{Enc(card.RawText)}</td>");
     sb.AppendLine("</tr>");
 }
@@ -113,6 +131,24 @@ static string DescribeLevels(CardDef card)
     if (levels.Count == 0) return "<em>no character face</em>";
     return string.Join("<br>", levels.Select(c => $"L{c.Level}: {c.FieldingCost}&#9889; / {c.Attack}A / {c.Defense}D"));
 }
+
+// One face, as it reads on the die: a creature face's level and stats (plus
+// any energy printed on the same face - Dice Kingdom's hybrid Tardigrade
+// faces carry both), a bare energy face, or an action face.
+static string DescribeFace(Face f)
+{
+    if (f.Kind == FaceKind.ActionFace) return "Action";
+    var energy = f.Symbols.Count > 0 ? DescribeEnergy(f) : null;
+    if (f.Character is not { } c) return energy ?? "blank";
+    var stats = $"L{c.Level}: {c.FieldingCost}&#9889; / {c.Attack}A / {c.Defense}D";
+    return energy is null ? stats : $"{stats} + {energy}";
+}
+
+static string DescribeEnergy(Face f) => string.Join(" + ", f.Symbols.Select(s => $"{s.Count} {Enc(s.SymbolId)}"));
+
+// Identical faces collapsed with a count, in the die's own face order.
+static List<(string Face, int Count)> GroupFaces(DieDefinition die) =>
+    die.Faces.Select(DescribeFace).GroupBy(s => s).Select(g => (g.Key, g.Count())).ToList();
 
 static string DescribePassive(ChampionDef c) => c.PassiveKind switch
 {

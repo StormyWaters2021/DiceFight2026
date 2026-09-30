@@ -12,19 +12,30 @@
   .stats { font-family: ui-monospace, Menlo, monospace; font-size: 0.9em; white-space: nowrap; }
   .keyword { display: inline-block; background: #e8e8f8; border-radius: 4px; padding: 0 0.4em; margin: 1px; font-size: 0.85em; }
   .cost { text-align: center; font-weight: 600; }
+  h3 { margin: 1.4rem 0 0.2rem; font-size: 1.05em; }
+  .note { color: #555; font-size: 0.9em; margin: 0.2rem 0 0; }
 </style>
 </head><body>
 <h1>Dice Kingdom &mdash; Card Reference</h1>
-<p class="generated">Generated 2026-09-29 from <code>src/DiceFight.V2/Data/DiceKingdomConfig.cs</code> by <code>tools/CardCatalogDocs</code> &mdash; every field below is read straight from the live CardDef/ChampionDef records, not hand-copied. Re-run the tool after any card change; don't hand-edit this file.</p>
+<p class="generated">Generated 2026-09-30 from <code>src/DiceFight.V2/Data/DiceKingdomConfig.cs</code> by <code>tools/CardCatalogDocs</code> &mdash; every field below is read straight from the live CardDef/ChampionDef records, not hand-copied. Re-run the tool after any card change; don't hand-edit this file.</p>
 <h2>Wolf <small>(Claw)</small></h2>
 <p class="passive">Passive: +1 ATK to all your dice</p>
-<table><thead><tr><th>Name</th><th>Cost</th><th>Die&nbsp;Limit</th><th>Keywords</th><th>Stats (fielding&nbsp;/&nbsp;ATK&nbsp;/&nbsp;DEF per level)</th><th>Ability text</th></tr></thead><tbody>
+<h3>Tardigrade die &times;8 <small>(starts in the Bag; free to field)</small></h3>
+<table><thead><tr><th>Face</th><th>Count</th></tr></thead><tbody>
+<tr><td class="stats">L1: 0&#9889; / 0A / 1D + 2 Claw</td><td class="cost">2</td></tr>
+<tr><td class="stats">L2: 0&#9889; / 1A / 1D + 1 Claw</td><td class="cost">2</td></tr>
+<tr><td class="stats">L3: 0&#9889; / 1A / 3D</td><td class="cost">1</td></tr>
+<tr><td class="stats">1 Wild</td><td class="cost">1</td></tr>
+</tbody></table>
+<h3>Characters</h3>
+<table><thead><tr><th>Name</th><th>Cost</th><th>Die&nbsp;Limit</th><th>Keywords</th><th>Stats (fielding&nbsp;/&nbsp;ATK&nbsp;/&nbsp;DEF per level)</th><th>Energy faces</th><th>Ability text</th></tr></thead><tbody>
 <tr>
 <td>Honey Badger</td>
 <td class="cost">2</td>
 <td class="cost">4</td>
 <td><span class="keyword">On Field</span></td>
 <td class="stats">L1: 0&#9889; / 1A / 1D<br>L2: 0&#9889; / 2A / 2D<br>L3: 1&#9889; / 2A / 3D</td>
+<td class="stats">2 Claw<br>2 Claw<br>1 Claw</td>
 <td>On Field: deal 1 damage to a target creature.</td>
 </tr>
 <tr>
@@ -33,6 +44,7 @@
 <td class="cost">4</td>
 <td><span class="keyword">Awaken</span></td>
 <td class="stats">L1: 0&#9889; / 2A / 2D<br>L2: 1&#9889; / 2A / 3D<br>L3: 2&#9889; / 4A / 4D</td>
+<td class="stats">2 Claw<br>2 Claw<br>1 Claw</td>
 <td>Awaken: deal 2 damage to a target creature.</td>
 </tr>
 <tr>
@@ -41,6 +53,7 @@
 <td class="cost">4</td>
 <td><span class="keyword">Fast</span> <span class="keyword">On Attack</span></td>
 <td class="stats">L1: 1&#9889; / 2A / 3D<br>L2: 1&#9889; / 3A / 4D<br>L3: 2&#9889; / 4A / 4D</td>
+<td class="stats">2 Claw<br>2 Claw<br>1 Claw</td>
 <td>Fast. On Attack: deal 1 damage to the opponent directly.</td>
 </tr>
 <tr>
@@ -49,6 +62,7 @@
 <td class="cost">4</td>
 <td><span class="keyword">Overcrush</span></td>
 <td class="stats">L1: 2&#9889; / 6A / 4D<br>L2: 3&#9889; / 7A / 5D<br>L3: 3&#9889; / 9A / 6D</td>
+<td class="stats">2 Claw<br>2 Claw<br>1 Claw</td>
 <td>Overcrush. While active, whenever 2 or more creatures block Silverback, its ATK doubles for that combat.</td>
 </tr>
 <tr>
@@ -57,6 +71,7 @@
 <td class="cost">4</td>
 <td><span class="keyword">On Attack</span></td>
 <td class="stats">L1: 1&#9889; / 1A / 2D<br>L2: 1&#9889; / 2A / 3D<br>L3: 1&#9889; / 4A / 5D</td>
+<td class="stats">2 Wing<br>2 Wing<br>1 Wing</td>
 <td>On Attack: draw a die into your Prep Area.</td>
 </tr>
 <tr>
@@ -65,6 +80,7 @@
 <td class="cost">4</td>
 <td><span class="keyword">Fast</span></td>
 <td class="stats">L1: 1&#9889; / 3A / 4D<br>L2: 1&#9889; / 5A / 5D<br>L3: 2&#9889; / 5A / 5D</td>
+<td class="stats">2 Wing<br>2 Wing<br>1 Wing</td>
 <td>Fast.</td>
 </tr>
 <tr>
@@ -73,6 +89,7 @@
 <td class="cost">4</td>
 <td></td>
 <td class="stats">L1: 1&#9889; / 3A / 5D<br>L2: 1&#9889; / 4A / 6D<br>L3: 2&#9889; / 5A / 7D</td>
+<td class="stats">2 Shell<br>2 Shell<br>1 Shell</td>
 <td>Vanilla - no ability.</td>
 </tr>
 <tr>
@@ -81,18 +98,28 @@
 <td class="cost">4</td>
 <td></td>
 <td class="stats">L1: 1&#9889; / 5A / 7D<br>L2: 2&#9889; / 6A / 9D<br>L3: 3&#9889; / 7A / 10D</td>
+<td class="stats">2 Eye<br>2 Eye<br>1 Eye</td>
 <td>Vanilla - no ability.</td>
 </tr>
 </tbody></table>
 <h2>Armadillo <small>(Shell)</small></h2>
 <p class="passive">Passive: +1 DEF to all your dice</p>
-<table><thead><tr><th>Name</th><th>Cost</th><th>Die&nbsp;Limit</th><th>Keywords</th><th>Stats (fielding&nbsp;/&nbsp;ATK&nbsp;/&nbsp;DEF per level)</th><th>Ability text</th></tr></thead><tbody>
+<h3>Tardigrade die &times;8 <small>(starts in the Bag; free to field)</small></h3>
+<table><thead><tr><th>Face</th><th>Count</th></tr></thead><tbody>
+<tr><td class="stats">L1: 0&#9889; / 0A / 1D + 2 Shell</td><td class="cost">2</td></tr>
+<tr><td class="stats">L2: 0&#9889; / 1A / 1D + 1 Shell</td><td class="cost">2</td></tr>
+<tr><td class="stats">L3: 0&#9889; / 1A / 3D</td><td class="cost">1</td></tr>
+<tr><td class="stats">1 Wild</td><td class="cost">1</td></tr>
+</tbody></table>
+<h3>Characters</h3>
+<table><thead><tr><th>Name</th><th>Cost</th><th>Die&nbsp;Limit</th><th>Keywords</th><th>Stats (fielding&nbsp;/&nbsp;ATK&nbsp;/&nbsp;DEF per level)</th><th>Energy faces</th><th>Ability text</th></tr></thead><tbody>
 <tr>
 <td>Hermit Crab</td>
 <td class="cost">2</td>
 <td class="cost">4</td>
 <td><span class="keyword">On Field</span></td>
 <td class="stats">L1: 0&#9889; / 1A / 2D<br>L2: 0&#9889; / 1A / 3D<br>L3: 1&#9889; / 1A / 3D</td>
+<td class="stats">2 Shell<br>2 Shell<br>1 Shell</td>
 <td>On Field: target character die must block this turn.</td>
 </tr>
 <tr>
@@ -101,6 +128,7 @@
 <td class="cost">4</td>
 <td><span class="keyword">On Field</span></td>
 <td class="stats">L1: 1&#9889; / 1A / 3D<br>L2: 1&#9889; / 2A / 4D<br>L3: 1&#9889; / 3A / 6D</td>
+<td class="stats">2 Shell<br>2 Shell<br>1 Shell</td>
 <td>On Field: name an opposing character. While Pangolin is active, your opponent can&#39;t purchase or field it.</td>
 </tr>
 <tr>
@@ -109,6 +137,7 @@
 <td class="cost">4</td>
 <td></td>
 <td class="stats">L1: 1&#9889; / 2A / 4D<br>L2: 1&#9889; / 3A / 5D<br>L3: 2&#9889; / 3A / 6D</td>
+<td class="stats">2 Shell<br>2 Shell<br>1 Shell</td>
 <td>While active, your creatures get +1 DEF.</td>
 </tr>
 <tr>
@@ -117,6 +146,7 @@
 <td class="cost">4</td>
 <td></td>
 <td class="stats">L1: 1&#9889; / 1A / 5D<br>L2: 2&#9889; / 2A / 7D<br>L3: 2&#9889; / 3A / 9D</td>
+<td class="stats">2 Shell<br>2 Shell<br>1 Shell</td>
 <td>While active, whenever Rhinoceros takes damage, it deals that much damage to the opponent.</td>
 </tr>
 <tr>
@@ -125,6 +155,7 @@
 <td class="cost">4</td>
 <td></td>
 <td class="stats">L1: 1&#9889; / 2A / 5D<br>L2: 2&#9889; / 3A / 6D<br>L3: 2&#9889; / 5A / 8D</td>
+<td class="stats">2 Eye<br>2 Eye<br>1 Eye</td>
 <td>While active, your creatures get +1 DEF.</td>
 </tr>
 <tr>
@@ -133,6 +164,7 @@
 <td class="cost">4</td>
 <td><span class="keyword">Awaken</span></td>
 <td class="stats">L1: 1&#9889; / 1A / 4D<br>L2: 1&#9889; / 2A / 5D<br>L3: 2&#9889; / 3A / 6D</td>
+<td class="stats">2 Eye<br>2 Eye<br>1 Eye</td>
 <td>Awaken: move an opposing die from their Prep Area back to their Bag.</td>
 </tr>
 <tr>
@@ -141,6 +173,7 @@
 <td class="cost">4</td>
 <td></td>
 <td class="stats">L1: 1&#9889; / 3A / 4D<br>L2: 2&#9889; / 5A / 5D<br>L3: 2&#9889; / 7A / 7D</td>
+<td class="stats">2 Claw<br>2 Claw<br>1 Claw</td>
 <td>While active, your creatures get +1 ATK.</td>
 </tr>
 <tr>
@@ -149,18 +182,28 @@
 <td class="cost">4</td>
 <td><span class="keyword">On Field</span></td>
 <td class="stats">L1: 0&#9889; / 1A / 2D<br>L2: 1&#9889; / 2A / 3D<br>L3: 1&#9889; / 3A / 4D</td>
+<td class="stats">2 Wing<br>2 Wing<br>1 Wing</td>
 <td>On Field: KO a target creature.</td>
 </tr>
 </tbody></table>
 <h2>Golden Eagle <small>(Wing)</small></h2>
 <p class="passive">Passive: -1 Fielding cost for your dice</p>
-<table><thead><tr><th>Name</th><th>Cost</th><th>Die&nbsp;Limit</th><th>Keywords</th><th>Stats (fielding&nbsp;/&nbsp;ATK&nbsp;/&nbsp;DEF per level)</th><th>Ability text</th></tr></thead><tbody>
+<h3>Tardigrade die &times;8 <small>(starts in the Bag; free to field)</small></h3>
+<table><thead><tr><th>Face</th><th>Count</th></tr></thead><tbody>
+<tr><td class="stats">L1: 0&#9889; / 0A / 1D + 2 Wing</td><td class="cost">2</td></tr>
+<tr><td class="stats">L2: 0&#9889; / 1A / 1D + 1 Wing</td><td class="cost">2</td></tr>
+<tr><td class="stats">L3: 0&#9889; / 1A / 3D</td><td class="cost">1</td></tr>
+<tr><td class="stats">1 Wild</td><td class="cost">1</td></tr>
+</tbody></table>
+<h3>Characters</h3>
+<table><thead><tr><th>Name</th><th>Cost</th><th>Die&nbsp;Limit</th><th>Keywords</th><th>Stats (fielding&nbsp;/&nbsp;ATK&nbsp;/&nbsp;DEF per level)</th><th>Energy faces</th><th>Ability text</th></tr></thead><tbody>
 <tr>
 <td>Swift</td>
 <td class="cost">2</td>
 <td class="cost">4</td>
 <td><span class="keyword">On Attack</span></td>
 <td class="stats">L1: 0&#9889; / 1A / 2D<br>L2: 1&#9889; / 2A / 2D<br>L3: 1&#9889; / 3A / 3D</td>
+<td class="stats">2 Wing<br>2 Wing<br>1 Wing</td>
 <td>On Attack: draw a die into your Prep Area.</td>
 </tr>
 <tr>
@@ -169,6 +212,7 @@
 <td class="cost">4</td>
 <td><span class="keyword">Awaken</span></td>
 <td class="stats">L1: 0&#9889; / 2A / 2D<br>L2: 1&#9889; / 2A / 3D<br>L3: 2&#9889; / 4A / 5D</td>
+<td class="stats">2 Wing<br>2 Wing<br>1 Wing</td>
 <td>Awaken: draw a die into your Prep Area.</td>
 </tr>
 <tr>
@@ -177,6 +221,7 @@
 <td class="cost">4</td>
 <td><span class="keyword">On Attack</span></td>
 <td class="stats">L1: 1&#9889; / 2A / 3D<br>L2: 1&#9889; / 3A / 4D<br>L3: 2&#9889; / 5A / 5D</td>
+<td class="stats">2 Wing<br>2 Wing<br>1 Wing</td>
 <td>On Attack: move a die from your discard to your Prep Area.</td>
 </tr>
 <tr>
@@ -185,6 +230,7 @@
 <td class="cost">4</td>
 <td><span class="keyword">On Field</span></td>
 <td class="stats">L1: 1&#9889; / 3A / 4D<br>L2: 2&#9889; / 4A / 5D<br>L3: 2&#9889; / 6A / 6D</td>
+<td class="stats">2 Wing<br>2 Wing<br>1 Wing</td>
 <td>On Field: deal 1 damage to the opponent for each energy symbol in your Reserve Pool.</td>
 </tr>
 <tr>
@@ -193,6 +239,7 @@
 <td class="cost">4</td>
 <td><span class="keyword">Overcrush</span></td>
 <td class="stats">L1: 1&#9889; / 4A / 5D<br>L2: 2&#9889; / 5A / 6D<br>L3: 2&#9889; / 6A / 7D</td>
+<td class="stats">2 Claw<br>2 Claw<br>1 Claw</td>
 <td>Overcrush.</td>
 </tr>
 <tr>
@@ -201,6 +248,7 @@
 <td class="cost">4</td>
 <td><span class="keyword">Fast</span> <span class="keyword">On Field</span></td>
 <td class="stats">L1: 1&#9889; / 3A / 3D<br>L2: 2&#9889; / 4A / 5D<br>L3: 3&#9889; / 5A / 6D</td>
+<td class="stats">2 Claw<br>2 Claw<br>1 Claw</td>
 <td>Fast. On Field: deal 3 damage to a target creature.</td>
 </tr>
 <tr>
@@ -209,6 +257,7 @@
 <td class="cost">4</td>
 <td><span class="keyword">On Block</span></td>
 <td class="stats">L1: 1&#9889; / 0A / 3D<br>L2: 1&#9889; / 2A / 4D<br>L3: 1&#9889; / 4A / 6D</td>
+<td class="stats">2 Shell<br>2 Shell<br>1 Shell</td>
 <td>On Block: deal 1 damage to a target creature.</td>
 </tr>
 <tr>
@@ -217,18 +266,28 @@
 <td class="cost">4</td>
 <td><span class="keyword">On Field</span></td>
 <td class="stats">L1: 1&#9889; / 2A / 5D<br>L2: 1&#9889; / 3A / 5D<br>L3: 2&#9889; / 4A / 6D</td>
+<td class="stats">2 Eye<br>2 Eye<br>1 Eye</td>
 <td>On Field: a weak target creature (3 ATK or less) can&#39;t block this turn.</td>
 </tr>
 </tbody></table>
 <h2>Great Horned Owl <small>(Eye)</small></h2>
 <p class="passive">Passive: Foresight - once per turn during your Main Step, reroll one die in your Reserve Pool</p>
-<table><thead><tr><th>Name</th><th>Cost</th><th>Die&nbsp;Limit</th><th>Keywords</th><th>Stats (fielding&nbsp;/&nbsp;ATK&nbsp;/&nbsp;DEF per level)</th><th>Ability text</th></tr></thead><tbody>
+<h3>Tardigrade die &times;8 <small>(starts in the Bag; free to field)</small></h3>
+<table><thead><tr><th>Face</th><th>Count</th></tr></thead><tbody>
+<tr><td class="stats">L1: 0&#9889; / 0A / 1D + 2 Eye</td><td class="cost">2</td></tr>
+<tr><td class="stats">L2: 0&#9889; / 1A / 1D + 1 Eye</td><td class="cost">2</td></tr>
+<tr><td class="stats">L3: 0&#9889; / 1A / 3D</td><td class="cost">1</td></tr>
+<tr><td class="stats">1 Wild</td><td class="cost">1</td></tr>
+</tbody></table>
+<h3>Characters</h3>
+<table><thead><tr><th>Name</th><th>Cost</th><th>Die&nbsp;Limit</th><th>Keywords</th><th>Stats (fielding&nbsp;/&nbsp;ATK&nbsp;/&nbsp;DEF per level)</th><th>Energy faces</th><th>Ability text</th></tr></thead><tbody>
 <tr>
 <td>Cuttlefish</td>
 <td class="cost">2</td>
 <td class="cost">4</td>
 <td><span class="keyword">On Attack</span></td>
 <td class="stats">L1: 0&#9889; / 0A / 3D<br>L2: 1&#9889; / 1A / 3D<br>L3: 1&#9889; / 1A / 4D</td>
+<td class="stats">2 Eye<br>2 Eye<br>1 Eye</td>
 <td>On Attack: spin a target opposing level 1 creature to an energy face.</td>
 </tr>
 <tr>
@@ -237,6 +296,7 @@
 <td class="cost">4</td>
 <td><span class="keyword">On Field</span></td>
 <td class="stats">L1: 1&#9889; / 0A / 3D<br>L2: 1&#9889; / 1A / 4D<br>L3: 1&#9889; / 3A / 6D</td>
+<td class="stats">2 Eye<br>2 Eye<br>1 Eye</td>
 <td>On Field: draw a die into your Prep Area.</td>
 </tr>
 <tr>
@@ -245,6 +305,7 @@
 <td class="cost">4</td>
 <td></td>
 <td class="stats">L1: 1&#9889; / 2A / 4D<br>L2: 1&#9889; / 2A / 5D<br>L3: 2&#9889; / 3A / 6D</td>
+<td class="stats">2 Eye<br>2 Eye<br>1 Eye</td>
 <td>Gets +1 ATK for each weak opposing creature (2 DEF or less).</td>
 </tr>
 <tr>
@@ -253,6 +314,7 @@
 <td class="cost">4</td>
 <td></td>
 <td class="stats">L1: 1&#9889; / 3A / 6D<br>L2: 2&#9889; / 4A / 8D<br>L3: 2&#9889; / 5A / 10D</td>
+<td class="stats">2 Eye<br>2 Eye<br>1 Eye</td>
 <td>While active, at the end of your turn, each of your non-Tardigrade level 2+ creatures deals 2 damage to the opponent.</td>
 </tr>
 <tr>
@@ -261,6 +323,7 @@
 <td class="cost">4</td>
 <td><span class="keyword">Deadly</span></td>
 <td class="stats">L1: 0&#9889; / 0A / 2D<br>L2: 1&#9889; / 1A / 3D<br>L3: 1&#9889; / 2A / 5D</td>
+<td class="stats">2 Shell<br>2 Shell<br>1 Shell</td>
 <td>Deadly.</td>
 </tr>
 <tr>
@@ -269,6 +332,7 @@
 <td class="cost">4</td>
 <td></td>
 <td class="stats">L1: 1&#9889; / 2A / 4D<br>L2: 1&#9889; / 3A / 5D<br>L3: 2&#9889; / 3A / 6D</td>
+<td class="stats">2 Shell<br>2 Shell<br>1 Shell</td>
 <td>While active, your creatures get +1 ATK.</td>
 </tr>
 <tr>
@@ -277,6 +341,7 @@
 <td class="cost">4</td>
 <td><span class="keyword">On Field</span></td>
 <td class="stats">L1: 0&#9889; / 2A / 2D<br>L2: 1&#9889; / 4A / 4D<br>L3: 2&#9889; / 5A / 6D</td>
+<td class="stats">2 Claw<br>2 Claw<br>1 Claw</td>
 <td>On Field: deal 1 damage to the opponent directly.</td>
 </tr>
 <tr>
@@ -285,16 +350,18 @@
 <td class="cost">4</td>
 <td><span class="keyword">On Field</span></td>
 <td class="stats">L1: 1&#9889; / 3A / 3D<br>L2: 1&#9889; / 4A / 5D<br>L3: 2&#9889; / 5A / 6D</td>
+<td class="stats">2 Wing<br>2 Wing<br>1 Wing</td>
 <td>On Field: gain 2 life.</td>
 </tr>
 </tbody></table>
 <h2>Champion Basic Actions <small>(Global abilities, one per Champion)</small></h2>
-<table><thead><tr><th>Champion</th><th>Name</th><th>Cost</th><th>Die&nbsp;Limit</th><th>Ability text</th></tr></thead><tbody>
+<table><thead><tr><th>Champion</th><th>Name</th><th>Cost</th><th>Die&nbsp;Limit</th><th>Die faces</th><th>Ability text</th></tr></thead><tbody>
 <tr>
 <td>Wolf</td>
 <td>Anger Issues</td>
 <td class="cost">4</td>
 <td class="cost">3</td>
+<td class="stats">Action &times;3<br>2 Claw &times;2<br>1 Claw</td>
 <td>Target creature gets +3A and Overcrush this turn. Global: Pay 1 Claw. Target creature gets +1A this turn.</td>
 </tr>
 <tr>
@@ -302,6 +369,7 @@
 <td>Archnemesis</td>
 <td class="cost">4</td>
 <td class="cost">3</td>
+<td class="stats">Action &times;3<br>2 Shell &times;2<br>1 Shell</td>
 <td>Target character die you control and target opposing character die deal damage to each other equal to their A. Global: Pay 1 Shell. Target character die has D equal to its A this turn.</td>
 </tr>
 <tr>
@@ -309,6 +377,7 @@
 <td>Resurrection</td>
 <td class="cost">4</td>
 <td class="cost">3</td>
+<td class="stats">Action &times;3<br>2 Wing &times;2<br>1 Wing</td>
 <td>Choose a die in your Used Pile. Roll it into your Reserve Pool. Global: Pay 1 Wing, once per turn. Draw a die from your bag into your Prep Area.</td>
 </tr>
 <tr>
@@ -316,7 +385,9 @@
 <td>Mutation</td>
 <td class="cost">3</td>
 <td class="cost">3</td>
+<td class="stats">Action &times;3<br>2 Eye &times;2<br>1 Eye</td>
 <td>Swap one of your fielded creatures with a non-Tardigrade creature die in your Used Pile. It comes in at level 1 (no On Field). Global: Pay 1 Eye. Spin one of your creatures down a level to spin another creature up a level.</td>
 </tr>
 </tbody></table>
+<p class="note">Either player may buy either Basic Action; each die's energy faces show its Champion's type.</p>
 </body></html>
