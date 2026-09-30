@@ -17,7 +17,8 @@ using DiceFight.V2.Model;
 //   dotnet run --project tools/CardCatalogDocs [output-path]
 //
 // output-path defaults to tools/CardCatalogDocs/dice-kingdom-cards.html;
-// a GitHub-readable .md copy is written beside it.
+// a GitHub-readable .md copy is written beside it, and the default run
+// also publishes the HTML to the site as web/public/dice-kingdom/cards.html.
 
 var outPath = args.Length > 0 ? Path.GetFullPath(args[0]) : Path.Combine(FindRepoRoot(), "tools", "CardCatalogDocs", "dice-kingdom-cards.html");
 
@@ -113,6 +114,17 @@ Console.WriteLine($"Wrote {catalog.Count} cards across {config.Champions.Count} 
 var mdPath = Path.ChangeExtension(outPath, ".md");
 File.WriteAllText(mdPath, BuildMarkdown());
 Console.WriteLine($"Wrote {mdPath}");
+
+// And the HTML onto the live site at /dice-kingdom/cards.html (web/public
+// is copied into the build as-is). Only for the default run - an explicit
+// output-path is a one-off.
+if (args.Length == 0)
+{
+    var sitePath = Path.Combine(FindRepoRoot(), "web", "public", "dice-kingdom", "cards.html");
+    Directory.CreateDirectory(Path.GetDirectoryName(sitePath)!);
+    File.WriteAllText(sitePath, html.ToString());
+    Console.WriteLine($"Wrote {sitePath}");
+}
 
 string BuildMarkdown()
 {
