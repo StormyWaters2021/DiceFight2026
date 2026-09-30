@@ -139,6 +139,9 @@ export interface GameState {
   priorityPlayerId?: string | null;
   /** What each card in the game costs YOU to buy, discounts included. */
   purchaseCosts?: Record<string, number> | null;
+  /** The Active player's pass would hand priority to the other player (they
+   *  could still use a Global) rather than close the window. */
+  passGivesPriority?: boolean;
 }
 
 export interface Seat {

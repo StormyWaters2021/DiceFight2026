@@ -1709,7 +1709,9 @@ export function DiceKingdomPage() {
           )
         }
       >
-        Resolve Combat
+        {/* Only resolves combat if the other player can't respond - if
+            they could use a Global, it hands them priority first. */}
+        {game.passGivesPriority ? "Pass Priority" : "Resolve Combat"}
       </button>
     ) : !isYourTurn ? (
       <span className="now-bar-note">{vsComputer ? "Computer is thinking…" : "Waiting on the other player…"}</span>

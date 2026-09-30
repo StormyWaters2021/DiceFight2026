@@ -206,7 +206,12 @@ public sealed record V2GameStateDto(
     string? PriorityPlayerId = null,
     // What each card in this game costs YOU to buy (discounts included) -
     // the purchase-side twin of V2DieDto.FieldingCost. Null without a seat.
-    IReadOnlyDictionary<string, int>? PurchaseCosts = null)
+    IReadOnlyDictionary<string, int>? PurchaseCosts = null,
+    // Would the Active player's pass right now hand priority to the other
+    // player (they could still use a Global - Priority.CanUseAnyGlobal), or
+    // close the window? The client labels the button "Pass Priority" vs
+    // "Resolve Damage" by it (2026-09-30).
+    bool PassGivesPriority = false)
 {
     public static V2GameStateDto From(string gameId, GameState state, string? yourPlayerId = null, int version = 0) => new(
         gameId, state.ActivePlayerId, state.CurrentStep.ToString(), state.CurrentStepId,
@@ -220,7 +225,9 @@ public sealed record V2GameStateDto(
         yourPlayerId is null ? null
             : state.PlayerOne.TeamCardIds.Concat(state.PlayerTwo.TeamCardIds).Distinct()
                 .Where(state.CardCatalog.ContainsKey)
-                .ToDictionary(id => id, id => QueryEngine.GetPurchaseCost(state, state.CardCatalog[id], yourPlayerId)));
+                .ToDictionary(id => id, id => QueryEngine.GetPurchaseCost(state, state.CardCatalog[id], yourPlayerId)),
+        Priority.IsWindow(state) && state.PriorityPlayerId == state.ActivePlayerId
+            && Priority.CanUseAnyGlobal(state, state.OpponentOf(state.ActivePlayerId)));
 }
 
 // ---- Request bodies ----

@@ -36,6 +36,22 @@ public class V2ActionsAndGlobalsTests
         return die;
     }
 
+    // The Active player's button reads "Pass Priority" when passing would
+    // hand the other player a chance to use a Global, "Resolve Damage" when
+    // it would just close the window (2026-09-30).
+    [Fact]
+    public void PassGivesPriority_Says_Whether_The_Other_Player_Could_Respond()
+    {
+        var (_, session, teamA, _) = StartInMain();
+        var state = session.State;
+        Tardigrade(state, "teamA", Zone.FieldZone, 2); // a creature for Mutation's Global to spin
+
+        Assert.False(V2SeatedController.Dto(teamA.Get(session.Id)).PassGivesPriority); // Owl has no energy
+
+        Tardigrade(state, "teamB", Zone.ReservePool, 2); // one Eye - pays Mutation's Global
+        Assert.True(V2SeatedController.Dto(teamA.Get(session.Id)).PassGivesPriority);
+    }
+
     [Fact]
     public void Each_Champion_Brings_Three_Of_Its_Own_Basic_Action_Dice()
     {

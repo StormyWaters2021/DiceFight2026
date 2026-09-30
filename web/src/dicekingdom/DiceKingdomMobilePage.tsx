@@ -2775,7 +2775,11 @@ export function DiceKingdomMobilePage() {
       }
     }
   } else if (step === "action-global-window") {
-    primaryLabel = "Resolve Damage";
+    // Passing only resolves damage if the other player can't respond; if
+    // they could use a Global it hands them priority first (Priority.cs) -
+    // "Resolve Damage" was the label either way (direct feedback 2026-09-30).
+    primaryLabel = game.passGivesPriority ? "Pass Priority" : "Resolve Damage";
+    if (game.passGivesPriority) primaryNote = `${oppPlayer.name} may use a Global, then damage resolves`;
     primaryRun = () => run(() => api.assignCombatDamage(game.gameId, game.blocks ?? []));
   } else {
     // return-to-field
