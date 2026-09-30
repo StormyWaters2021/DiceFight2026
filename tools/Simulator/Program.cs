@@ -26,6 +26,8 @@ using DiceFight.V2.Model.Effects;
 //   SIM_PERSONAS=off play every seat with the Default persona instead of
 //                    its Champion's (BotPersona.ForChampion)
 //   SIM_NO_GLOBALS=id,id  strip the Global abilities off these card ids
+//   SIM_BULWARK_DEF=N  what-if: the Tardigrade's Bulwark face (L3, no
+//                    energy - 1/3 live) gets N DEF instead
 //                    (e.g. DK-ACT-03 = Resurrection) - a what-if switch
 //
 // Known limitation: two walled-off boards can stall (blocked damage
@@ -102,6 +104,8 @@ static (string WinnerChampionIdOrSentinel, int Turns) PlayOneGame(
     string championOne, string championTwo, Random rng, bool championPowersEnabled, bool dump)
 {
     var config = championPowersEnabled ? DiceKingdomConfig.Config : StripChampionPowers(DiceKingdomConfig.Config);
+    if (int.TryParse(Environment.GetEnvironmentVariable("SIM_BULWARK_DEF"), out var bulwarkDef))
+        config = WithBulwarkDefense(config, bulwarkDef);
     var state = GameSetup.NewGame(config, Catalog.Cards, BuildPlayer("p1", championOne), BuildPlayer("p2", championTwo));
     var driver = new BotDriver(state, rng);
     Priority.Sync(state);
@@ -177,6 +181,26 @@ static GameConfig StripChampionPowers(GameConfig config) =>
         {
             Amount = 0,
             PassiveKind = c.PassiveKind == ChampionPassiveKind.Foresight ? ChampionPassiveKind.AttackBuff : c.PassiveKind,
+        }).ToList(),
+    };
+
+// The Bulwark is the Tardigrade die's stats-only level-3 face (the one
+// face with a creature and no energy); rebuild each Champion's Tardigrade
+// pool with its DEF replaced.
+static GameConfig WithBulwarkDefense(GameConfig config, int defense) =>
+    config with
+    {
+        Champions = config.Champions.Select(c => c with
+        {
+            TardigradePool = c.TardigradePool.Select(entry => entry with
+            {
+                Die = entry.Die with
+                {
+                    Faces = entry.Die.Faces.Select(f => f.Character is { Level: 3 } ch && f.SymbolCount == 0
+                        ? f with { Character = ch with { Defense = defense } }
+                        : f).ToList(),
+                },
+            }).ToList(),
         }).ToList(),
     };
 

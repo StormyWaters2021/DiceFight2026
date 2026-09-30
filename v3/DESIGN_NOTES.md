@@ -3694,3 +3694,15 @@ those other abilities would not occur"; 2.9.3: both at once is a tie.
   over". Checked with games played to the end through the API on both pages.
 Tests: `GameOverTests` (lethal combat stops a queued reflect, deck-out can
 end it, nothing plays on after).
+
+### What-if: Bulwark Tardigrade at 1/2 instead of 1/3 (2026-09-30)
+
+User question: would a weaker Bulwark (the Tardigrade's stats-only L3
+face) reduce stalemates? New simulator switch `SIM_BULWARK_DEF=N`
+(verified to reach the live dice). 1,200 games each, current roster,
+personas on: turn-cap games 91 (1/3) vs 93 (1/2); every Champion's win
+rate within ~1 point (Wolf 38.8/39.2, Armadillo 58.3/59.2, Owl 43.3/42.5,
+Eagle 58.3/58.8). No effect. The Bulwark is one face in six on a die the
+bot mostly spends as energy; the remaining stalls are the Rhinoceros
+walls (Armadillo wins ~8% of games on the turn-cap tiebreak; Armadillo vs
+Owl averages 36 turns, every other pairing 15-24).
