@@ -11,13 +11,14 @@ import {
   TardigradeIcon,
   type PhaseKey,
 } from "./icons";
-import { claimSeatFromUrl, inviteLink, nameClaimedSeat, rememberSeats } from "./seats";
+import { inviteLink, rememberSeats } from "./seats";
+import { OPPONENT_PICKS, OpponentPicksOption, PickYourChampion, WaitingForOpponent, resolveInvite } from "./lobby";
 import { DieCube, type CubeSpin } from "./DieCube";
 import { facesFor } from "./dieFaces";
 import { useDieFlights, usePhaseHeight } from "./dieFlights";
 import { useDiceRoll, type RollTarget } from "./useDiceRoll";
 import { actionCardsInGame, activeCouldAct, botDecisionCall, decisionOwner, pickEnergy } from "./bot";
-import type { BotDecision, CardDef, Die, GameState, GlobalAbility, PendingChoice, PlayerState, StatModifier } from "./types";
+import type { BotDecision, CardDef, Die, GameState, GlobalAbility, LobbyStatus, PendingChoice, PlayerState, StatModifier } from "./types";
 
 // Dice Kingdom - mobile refresh (2026-09). A GENUINELY SEPARATE front end
 // from ../DiceKingdomPage.tsx, not a responsive breakpoint of it - the
@@ -1748,14 +1749,15 @@ export function DiceKingdomMobilePage() {
     api.getCards().then((cards) => setCardsById(new Map(cards.map((c) => [c.id, c]))));
   }, []);
 
+  // An invite link in the URL: straight into the game, or - if the host
+  // opened it with only their own Champion - a pick first (lobby.tsx).
+  const [waiting, setWaiting] = useState<{ gameId: string; hostChampionId: string } | null>(null);
+  const [invitePick, setInvitePick] = useState<LobbyStatus | null>(null);
   useEffect(() => {
-    const claim = claimSeatFromUrl();
-    if (!claim) return;
-    api
-      .getGame(claim.gameId)
-      .then((joined) => {
-        if (joined.yourPlayerId) nameClaimedSeat(claim.gameId, joined.yourPlayerId);
-        setGame(joined);
+    resolveInvite()
+      .then((r) => {
+        if (r?.kind === "game") setGame(r.game);
+        else if (r?.kind === "pick") setInvitePick(r.lobby);
       })
       .catch((e) => setError(`Could not join that game: ${e instanceof Error ? e.message : String(e)}`));
   }, []);
@@ -2044,6 +2046,20 @@ export function DiceKingdomMobilePage() {
 
   async function startMatch() {
     if (!setupA || !setupB) return;
+    if (setupB === OPPONENT_PICKS) {
+      // Online game with only your own Champion: open it, keep both seats
+      // (yours plays, the other becomes the invite link), and wait.
+      try {
+        const opened = await api.openGame(setupA);
+        rememberSeats(opened.gameId, opened.seats);
+        setWaiting({ gameId: opened.gameId, hostChampionId: opened.hostChampionId });
+        const link = inviteLink(opened.gameId, "/dice-kingdom/mobile");
+        if (link) navigator.clipboard?.writeText(link).catch(() => {});
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e));
+      }
+      return;
+    }
     const next = await run(async () => {
       const created = await api.createGame(setupA, setupB);
       rememberSeats(created.game.gameId, created.seats);
@@ -2075,13 +2091,48 @@ export function DiceKingdomMobilePage() {
   usePhaseHeight(stageShellRef, flightPhase);
   useDieFlights(rootRef, game, flightPhase, game ? (game.yourPlayerId ?? game.playerOne.id) : "");
 
+  if (!game && (waiting || invitePick)) {
+    return (
+      <div ref={rootRef} className="dicekingdom dk-mobile dkm-root">
+        <EnergyBadgeOutlineDefs />
+        <p className="dkm-eyebrow">DiceFight v3 · mobile</p>
+        <h1 className="dkm-title">Dice Kingdom</h1>
+        {error && <p className="dkm-error">{error}</p>}
+        {waiting ? (
+          <WaitingForOpponent
+            gameId={waiting.gameId}
+            hostChampionId={waiting.hostChampionId}
+            link={inviteLink(waiting.gameId, "/dice-kingdom/mobile")}
+            onStarted={(g) => {
+              setWaiting(null);
+              setGame(g);
+            }}
+            onCancel={() => setWaiting(null)}
+          />
+        ) : (
+          <PickYourChampion
+            lobby={invitePick!}
+            champions={CHAMPIONS}
+            onJoined={(g) => {
+              setInvitePick(null);
+              setGame(g);
+            }}
+          />
+        )}
+      </div>
+    );
+  }
+
   if (!game) {
     return (
       <div ref={rootRef} className="dicekingdom dk-mobile dkm-root">
         <EnergyBadgeOutlineDefs />
         <p className="dkm-eyebrow">DiceFight v3 · mobile</p>
         <h1 className="dkm-title">Dice Kingdom</h1>
-        <p className="dkm-dek">Pick a Champion for each seat, then send the invite link from inside the match.</p>
+        <p className="dkm-dek">
+          Pick your Champion. For an online game, choose "Opponent picks" for Player 2 and send the link - they choose
+          their own.
+        </p>
         {error && <p className="dkm-error">{error}</p>}
         {/* Same two-column layout as ../DiceKingdomPage.tsx's own picker
             (direct feedback, 2026-09-14: "makes more sense to have them
@@ -2092,7 +2143,14 @@ export function DiceKingdomMobilePage() {
             remarks on why that class was added here). */}
         <div className="panel">
           <label style={{ display: "flex", alignItems: "center", gap: 8, margin: "0 0 14px", fontSize: 14 }}>
-            <input type="checkbox" checked={vsComputer} onChange={(e) => setVsComputer(e.target.checked)} />
+            <input
+              type="checkbox"
+              checked={vsComputer}
+              onChange={(e) => {
+                setVsComputer(e.target.checked);
+                if (e.target.checked && setupB === OPPONENT_PICKS) setSetupB(null);
+              }}
+            />
             Play vs Computer - a basic rule-based opponent (highest attacker attacks, best affordable
             purchase/block), not a strategic one
           </label>
@@ -2104,6 +2162,9 @@ export function DiceKingdomMobilePage() {
               <div className="champ-pick-column" key={label}>
                 <h3 style={{ margin: "0 0 10px" }}>{label}</h3>
                 <div className="champ-pick">
+                  {setValue === setSetupB && !vsComputer && (
+                    <OpponentPicksOption selected={value === OPPONENT_PICKS} onPick={() => setValue(OPPONENT_PICKS)} />
+                  )}
                   {CHAMPIONS.map((c) => {
                     const Icon = CHAMPION_ICONS[c.id];
                     return (

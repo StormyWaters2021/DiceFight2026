@@ -1,5 +1,5 @@
 import { seatsFor, tokenFor } from "./seats";
-import type { BlockAssignment, BotDecision, CardDef, Champion, CreatedGame, GameState } from "./types";
+import type { BlockAssignment, BotDecision, CardDef, Champion, CreatedGame, GameState, LobbyStatus, OpenedGame } from "./types";
 
 // v2 counterpart to ../api.ts - same relative-BASE_URL/seat-header/
 // request<T> shape, pointed at api/v2/games instead of api/games. A
@@ -48,6 +48,14 @@ function makeClient(tokenOverride?: string | null) {
         tokenOverride,
       ),
     getGame: (id: string) => request<GameState>(`/${id}`, undefined, tokenOverride),
+
+    // Online game with only your own Champion picked - the invited player
+    // picks theirs from the invite link (lobby.tsx).
+    openGame: (championId: string) =>
+      request<OpenedGame>("/open", { method: "POST", body: JSON.stringify({ championId }) }, tokenOverride),
+    getLobby: (id: string) => request<LobbyStatus>(`/${id}/lobby`, undefined, tokenOverride),
+    joinGame: (id: string, championId: string) =>
+      request<GameState>(`/${id}/join`, { method: "POST", body: JSON.stringify({ championId }) }, tokenOverride),
 
     clearAndDraw: (id: string) => request<GameState>(`/${id}/clear-and-draw`, { method: "POST" }, tokenOverride),
     roll: (id: string) => request<GameState>(`/${id}/roll`, { method: "POST" }, tokenOverride),

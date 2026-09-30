@@ -3610,3 +3610,21 @@ stalemate into a way to hit the opponent. Other Champions: Wolf 38.8,
 Owl 43.3, Eagle 58.2. Without the persona, Armadillo is back at ~26% -
 the roster now depends on playing toward Rhinoceros.
 Tests: `ArmadilloRosterTests` (sweep, forced block if able, simultaneous fight).
+
+## Open online games: pick only your own Champion (2026-09-30)
+
+User request: starting an online game took picking BOTH Champions, Start
+Match, then copying the invite link from inside the match. Now Player 2's
+column has an "Opponent picks" option (not shown for vs Computer):
+- Server: `POST /api/v2/games/open {championId}` makes a pending game (a
+  `V2Lobby` in `V2GameStore`) holding the host's Champion and both seat
+  tokens; `GET .../{id}/lobby` says waiting/started (either seat);
+  `POST .../{id}/join {championId}` (invited seat only, once) builds the
+  real game under the SAME id and tokens, so the link stays valid.
+- Web (`lobby.tsx`, shared by both pages): the host gets a waiting screen
+  with the link + Copy button (mobile also copies it on Start), polling
+  until the guest joins; opening an invite to a pending game shows the
+  host's pick and a Champion grid (`resolveInvite` replaces the old
+  claim-then-GET join). Pass-and-play and vs Computer are unchanged.
+Checked with two real browser contexts on both pages: both land in the
+same match. Tests: `V2OpenGameTests`.

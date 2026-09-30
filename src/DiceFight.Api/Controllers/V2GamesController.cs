@@ -39,6 +39,60 @@ public sealed class V2GamesController(V2GameStore store) : ControllerBase
             session.Seats.Select(seat => new SeatDto(seat.PlayerId, seat.Token)).ToList()));
     }
 
+    // Open an online game with only your own Champion picked (2026-09-30,
+    // user request - it used to take picking BOTH, starting, then copying
+    // the invite link from inside the match). Returns both seats: the host
+    // keeps teamA and turns teamB into the invite link. The game itself is
+    // built when the invited player picks (Join).
+    [HttpPost("open")]
+    public ActionResult<V2OpenGameDto> Open([FromBody] OpenV2GameRequest request)
+    {
+        _ = BuildPlayer("teamA", request.ChampionId); // validates the Champion id
+        var lobby = store.OpenLobby(request.ChampionId, "teamA", "teamB");
+        return Ok(new V2OpenGameDto(lobby.Id, lobby.HostChampionId,
+            lobby.Seats.Select(seat => new SeatDto(seat.PlayerId, seat.Token)).ToList()));
+    }
+
+    // Waiting or started? Either seat's token works; the host polls this
+    // while waiting, and the invited player reads the host's pick from it.
+    [HttpGet("{gameId}/lobby")]
+    public ActionResult<V2LobbyDto> Lobby(string gameId)
+    {
+        var token = Request.Headers[SeatTokenHeader].ToString();
+        if (store.GetLobby(gameId) is { } lobby)
+        {
+            var seat = lobby.Seats.FirstOrDefault(s => s.Token == token)
+                ?? throw new SeatRequiredException($"A valid {SeatTokenHeader} is required for this game.");
+            return Ok(new V2LobbyDto(lobby.Id, lobby.HostChampionId, Started: false, seat.PlayerId));
+        }
+        var (session, playerId) = RequireSeat(gameId); // started (or never a lobby) - a normal game
+        return Ok(new V2LobbyDto(session.Id, session.State.PlayerOne.ChampionId ?? "", Started: true, playerId));
+    }
+
+    // The invited player picks their Champion; the real game starts now,
+    // under the lobby's own id and seat tokens.
+    [HttpPost("{gameId}/join")]
+    public ActionResult<V2GameStateDto> Join(string gameId, [FromBody] JoinV2GameRequest request)
+    {
+        var lobby = store.GetLobby(gameId)
+            ?? (store.HasGame(gameId)
+                ? throw new InvalidOperationException("That game has already started.")
+                : throw new KeyNotFoundException($"No V2 game with id '{gameId}'."));
+        var token = Request.Headers[SeatTokenHeader].ToString();
+        var guest = lobby.Seats[1];
+        if (guest.Token != token)
+            throw new SeatRequiredException("Only the invited player can pick the other Champion.");
+
+        var state = GameSetup.NewGame(DiceKingdomConfig.Config, DiceKingdomConfig.Catalog,
+            BuildPlayer(lobby.Seats[0].PlayerId, lobby.HostChampionId), BuildPlayer(guest.PlayerId, request.ChampionId));
+        var session = store.StartLobby(lobby, state);
+        _session = session;
+        _seatPlayerId = guest.PlayerId;
+        session.MarkChanged();
+        Priority.Sync(state);
+        return Ok(V2GameStateDto.From(session.Id, state, guest.PlayerId, session.Version));
+    }
+
     private static Player BuildPlayer(string id, string championId)
     {
         var champion = DiceKingdomConfig.Champions.FirstOrDefault(c => c.Id == championId)

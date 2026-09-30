@@ -267,3 +267,16 @@ public sealed record V2BotDecisionDto(
         d.AttackerLanes.Select(kv => new V2AttackerDeclaration(kv.Key, kv.Value)).ToList(),
         d.Blocks.Select(b => new V2BlockAssignment(b.AttackerId, b.BlockerId)).ToList());
 }
+
+// ---- Open games: host picks only their own Champion (2026-09-30) ----
+
+public sealed record OpenV2GameRequest(string ChampionId);
+public sealed record JoinV2GameRequest(string ChampionId);
+
+// Seats: both, like V2CreatedGameDto - the host keeps theirs and turns
+// the other into the invite link (web seats.ts inviteLink).
+public sealed record V2OpenGameDto(string GameId, string HostChampionId, IReadOnlyList<SeatDto> Seats);
+
+// Started: the invited player has picked and the real game exists (GET
+// .../{id} works from then on). YourPlayerId: which seat the caller holds.
+public sealed record V2LobbyDto(string GameId, string HostChampionId, bool Started, string? YourPlayerId);

@@ -2,7 +2,8 @@ import { startTransition, useEffect, useRef, useState } from "react";
 import "./dicekingdom.css";
 import { api, apiAs } from "./api";
 import { CHAMPION_ICONS, CHARACTER_ICONS, EnergyBadge, HelpIcon, TardigradeIcon, TardigradePhotoIcon } from "./icons";
-import { claimSeatFromUrl, inviteLink, nameClaimedSeat, rememberSeats } from "./seats";
+import { inviteLink, rememberSeats } from "./seats";
+import { OPPONENT_PICKS, OpponentPicksOption, PickYourChampion, WaitingForOpponent, resolveInvite } from "./lobby";
 import { CombatLane } from "./CombatLane";
 import { DieCube, type CubeSpin } from "./DieCube";
 import { facesFor } from "./dieFaces";
@@ -11,7 +12,7 @@ import { MatchLog } from "./MatchLog";
 import { SettingsMenu, ThemeToggle, useTheme } from "./ThemeToggle";
 import { useDiceRoll, type RollTarget } from "./useDiceRoll";
 import { activeCouldAct, botDecisionCall, decisionOwner, rolled } from "./bot";
-import type { BlockAssignment, BotDecision, CardDef, CharacterFace, Die, GameState, PlayerState } from "./types";
+import type { BlockAssignment, BotDecision, CardDef, CharacterFace, Die, GameState, LobbyStatus, PlayerState } from "./types";
 
 const POLL_INTERVAL_MS = 2000;
 // Pause before each computer-opponent move, so a Main Step full of
@@ -585,15 +586,15 @@ export function DiceKingdomPage() {
     api.getCards().then((cards) => setCardsById(new Map(cards.map((c) => [c.id, c]))));
   }, []);
 
-  // Invite-link join, same shape as ../App.tsx's own effect.
+  // Invite-link join: straight into the game, or - if the host opened it
+  // with only their own Champion - a pick first (lobby.tsx).
+  const [waiting, setWaiting] = useState<{ gameId: string; hostChampionId: string } | null>(null);
+  const [invitePick, setInvitePick] = useState<LobbyStatus | null>(null);
   useEffect(() => {
-    const claim = claimSeatFromUrl();
-    if (!claim) return;
-    api
-      .getGame(claim.gameId)
-      .then((joined) => {
-        if (joined.yourPlayerId) nameClaimedSeat(claim.gameId, joined.yourPlayerId);
-        setGame(joined);
+    resolveInvite()
+      .then((r) => {
+        if (r?.kind === "game") setGame(r.game);
+        else if (r?.kind === "pick") setInvitePick(r.lobby);
       })
       .catch((e) => setError(`Could not join that game: ${e instanceof Error ? e.message : String(e)}`));
   }, []);
@@ -915,11 +916,55 @@ export function DiceKingdomPage() {
 
   async function startMatch() {
     if (!setupA || !setupB) return;
+    if (setupB === OPPONENT_PICKS) {
+      // Online game with only your own Champion - see lobby.tsx.
+      try {
+        const opened = await api.openGame(setupA);
+        rememberSeats(opened.gameId, opened.seats);
+        setWaiting({ gameId: opened.gameId, hostChampionId: opened.hostChampionId });
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e));
+      }
+      return;
+    }
     await run(async () => {
       const created = await api.createGame(setupA, setupB);
       rememberSeats(created.game.gameId, created.seats);
       return created.game;
     });
+  }
+
+  if (!game && (waiting || invitePick)) {
+    return (
+      <div className="dicekingdom">
+        <div className="dk-titlebar-right" style={{ float: "right" }}>
+          <ThemeToggle theme={theme} setTheme={setTheme} />
+        </div>
+        <h1>Dice Kingdom</h1>
+        {error && <p className="error">{error}</p>}
+        {waiting ? (
+          <WaitingForOpponent
+            gameId={waiting.gameId}
+            hostChampionId={waiting.hostChampionId}
+            link={inviteLink(waiting.gameId)}
+            onStarted={(g) => {
+              setWaiting(null);
+              setGame(g);
+            }}
+            onCancel={() => setWaiting(null)}
+          />
+        ) : (
+          <PickYourChampion
+            lobby={invitePick!}
+            champions={CHAMPIONS}
+            onJoined={(g) => {
+              setInvitePick(null);
+              setGame(g);
+            }}
+          />
+        )}
+      </div>
+    );
   }
 
   if (!game) {
@@ -933,7 +978,8 @@ export function DiceKingdomPage() {
         </p>
         <h1>Dice Kingdom</h1>
         <p className="dek">
-          Pass-and-play, or send the other seat an invite link once the match starts. Runs on the real rules
+          Pass-and-play, or pick "Opponent picks" for Player 2 to send an invite link and let them choose their own
+          Champion. Runs on the real rules
           engine - a small pool, simple abilities, mostly for reacting to how the system feels.
         </p>
         {error && <p className="error">{error}</p>}
@@ -945,7 +991,14 @@ export function DiceKingdomPage() {
               setup state they wrote to, so this also collapses the
               previous copy-pasted pair into one map over the two. */}
           <label style={{ display: "flex", alignItems: "center", gap: 8, margin: "0 0 14px", fontSize: 14 }}>
-            <input type="checkbox" checked={vsComputer} onChange={(e) => setVsComputer(e.target.checked)} />
+            <input
+              type="checkbox"
+              checked={vsComputer}
+              onChange={(e) => {
+                setVsComputer(e.target.checked);
+                if (e.target.checked && setupB === OPPONENT_PICKS) setSetupB(null);
+              }}
+            />
             Play vs Computer - a basic rule-based opponent (highest attacker attacks, best affordable
             purchase/block), not a strategic one
           </label>
@@ -957,6 +1010,9 @@ export function DiceKingdomPage() {
               <div className="champ-pick-column" key={label}>
                 <h3 style={{ margin: "0 0 10px" }}>{label}</h3>
                 <div className="champ-pick">
+                  {setValue === setSetupB && !vsComputer && (
+                    <OpponentPicksOption selected={value === OPPONENT_PICKS} onPick={() => setValue(OPPONENT_PICKS)} />
+                  )}
                   {CHAMPIONS.map((c) => {
                     const Icon = CHAMPION_ICONS[c.id];
                     return (

@@ -3620,3 +3620,39 @@
   opacity: 0.55;
   font-weight: 400;
 }
+
+/* Open online games (lobby.tsx) - "Opponent picks", the host's waiting
+   screen and the invite link row. Shared by both Dice Kingdom pages. */
+.dicekingdom .dk-opponent-picks {
+  border-style: dashed;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  text-align: center;
+}
+.dicekingdom .dk-opponent-picks small {
+  opacity: 0.7;
+  font-size: 11px;
+}
+.dicekingdom .dk-lobby-link {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.dicekingdom .dk-lobby-link input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 13px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border, #8884);
+  background: transparent;
+  color: inherit;
+}
+.dicekingdom .dk-lobby-cancel {
+  opacity: 0.75;
+}

@@ -147,6 +147,21 @@ export interface CreatedGame {
   seats: Seat[];
 }
 
+/** An online game opened with only the host's Champion (V2OpenGameDto). */
+export interface OpenedGame {
+  gameId: string;
+  hostChampionId: string;
+  seats: Seat[];
+}
+
+/** Waiting for the invited player to pick, or started (V2LobbyDto). */
+export interface LobbyStatus {
+  gameId: string;
+  hostChampionId: string;
+  started: boolean;
+  yourPlayerId: string | null;
+}
+
 export interface BlockAssignment {
   attackerDieId: string;
   blockerDieId: string;
