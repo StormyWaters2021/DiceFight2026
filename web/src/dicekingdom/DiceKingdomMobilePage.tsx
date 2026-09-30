@@ -1771,7 +1771,18 @@ export function DiceKingdomMobilePage() {
       if (busyRef.current) return;
       try {
         const latest = await api.getGame(gameId);
-        if (!cancelled && latest.version !== gameVersion) setGame(latest);
+        if (cancelled || latest.version === gameVersion) return;
+        // The other player's move: animate their roll/reroll (adoptRemote),
+        // busy while a reroll's tumble is held on screen so this poll
+        // can't cut the hold short.
+        busyRef.current = true;
+        setBusy(true);
+        try {
+          await adoptRemote(gameRef.current, latest);
+        } finally {
+          busyRef.current = false;
+          setBusy(false);
+        }
       } catch {
         // quiet - next poll either works or doesn't matter yet
       }
@@ -1781,6 +1792,43 @@ export function DiceKingdomMobilePage() {
       window.clearInterval(timer);
     };
   }, [gameId, gameVersion]);
+
+  // Dice the ACTIVE player just rolled or rerolled, between two states that
+  // arrived from elsewhere (a poll, or the computer's own move): newly
+  // rolled into their Reserve Pool, or a face change there during Roll &
+  // Reroll. Those tumble like your own; anything else just spins.
+  function remoteRolledIds(previous: GameState, next: GameState): string[] {
+    const before = new Map(previous.dice.map((d) => [d.id, d]));
+    const rolling = previous.currentStepId === "roll-and-reroll";
+    return next.dice
+      .filter((d) => {
+        const was = before.get(d.id);
+        if (!was || d.zone !== "ReservePool" || !rolled(d) || d.controllerId !== next.activePlayerId) return false;
+        if (!rolled(was)) return true;
+        return rolling && (was.level !== d.level || was.energySymbolId !== d.energySymbolId || was.energyAmount !== d.energyAmount);
+      })
+      .map((d) => d.id);
+  }
+
+  // Adopts a state the OTHER player produced (user request, 2026-09-30:
+  // "when watching your opponent roll and re-roll, it'd be nice to see the
+  // animations instead of the dice just changing"). A reroll also ends
+  // their Roll & Reroll step, which would unmount the tray mid-tumble - so,
+  // exactly like runWithReveal does for your own reroll, the old step is
+  // held on screen (with the new dice) until the tumble has been seen.
+  async function adoptRemote(previous: GameState | null, next: GameState) {
+    const rolledIds = previous ? remoteRolledIds(previous, next) : [];
+    const leavesRoll = !!previous && previous.currentStepId === "roll-and-reroll" && next.currentStepId !== "roll-and-reroll";
+    if (!previous || rolledIds.length === 0 || !leavesRoll) {
+      startTransition(() => setGame(next));
+      if (previous) requestAnimationFrame(() => animateRolledDice(previous, next, rolledIds));
+      return;
+    }
+    startTransition(() => setGame({ ...next, currentStep: previous.currentStep, currentStepId: previous.currentStepId }));
+    requestAnimationFrame(() => animateRolledDice(previous, next, rolledIds));
+    await new Promise((resolve) => setTimeout(resolve, TUMBLE_REVEAL_HOLD_MS));
+    setGame(next);
+  }
 
   function animateRolledDice(previous: GameState, next: GameState, rolledDieIds?: string[]) {
     const before = new Map(previous.dice.map((d) => [d.id, d]));
@@ -1969,8 +2017,7 @@ export function DiceKingdomMobilePage() {
       const previous = game;
       const raw = await fn();
       const next = { ...raw, yourPlayerId: raw.playerOne.id };
-      startTransition(() => setGame(next));
-      if (previous) requestAnimationFrame(() => animateRolledDice(previous, next));
+      await adoptRemote(previous, next); // the computer's roll tumbles like a human opponent's
       return next;
     } catch (e) {
       console.warn("[bot] action failed, skipping:", e);

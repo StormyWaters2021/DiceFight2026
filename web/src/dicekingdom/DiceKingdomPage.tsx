@@ -609,7 +609,13 @@ export function DiceKingdomPage() {
       if (busyRef.current) return;
       try {
         const latest = await api.getGame(gameId);
-        if (!cancelled && latest.version !== gameVersion) setGame(latest);
+        if (!cancelled && latest.version !== gameVersion) {
+          // The other player's move - tumble their roll/reroll rather than
+          // just swapping the faces (user request, 2026-09-30).
+          const previous = gameRef.current;
+          setGame(latest);
+          if (previous) requestAnimationFrame(() => animateRolledDice(previous, latest, remoteRolledIds(previous, latest)));
+        }
       } catch {
         // quiet - the next poll in two seconds either works or it doesn't matter yet
       }
@@ -715,6 +721,23 @@ export function DiceKingdomPage() {
   // (2026-09-05): that should read as a distinct "twist," not the same
   // toss-and-tumble a real roll gets - so any die whose face changed but
   // ISN'T in `rolledDieIds` goes through spinDie instead of launchRoll.
+  // Dice the ACTIVE player just rolled or rerolled, between two states that
+  // arrived from elsewhere (a poll, or the computer's own move) - they
+  // tumble like your own; see ./DiceKingdomMobilePage.tsx's identical
+  // helper, which also holds its tray on screen through a reroll.
+  function remoteRolledIds(previous: GameState, next: GameState): string[] {
+    const before = new Map(previous.dice.map((d) => [d.id, d]));
+    const rolling = previous.currentStepId === "roll-and-reroll";
+    return next.dice
+      .filter((d) => {
+        const was = before.get(d.id);
+        if (!was || d.zone !== "ReservePool" || !rolled(d) || d.controllerId !== next.activePlayerId) return false;
+        if (!rolled(was)) return true;
+        return rolling && (was.level !== d.level || was.energySymbolId !== d.energySymbolId || was.energyAmount !== d.energyAmount);
+      })
+      .map((d) => d.id);
+  }
+
   function animateRolledDice(previous: GameState, next: GameState, rolledDieIds?: string[]) {
     const before = new Map(previous.dice.map((d) => [d.id, d]));
     const explicit = new Set(rolledDieIds ?? []);
@@ -824,7 +847,7 @@ export function DiceKingdomPage() {
       // the human's own token again and self-correct it.
       const next = { ...raw, yourPlayerId: raw.playerOne.id };
       setGame(next);
-      if (previous) animateRolledDice(previous, next);
+      if (previous) animateRolledDice(previous, next, remoteRolledIds(previous, next));
       return next;
     } catch (e) {
       console.warn("[bot] action failed, skipping:", e);

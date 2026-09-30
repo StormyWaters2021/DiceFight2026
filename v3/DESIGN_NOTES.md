@@ -3628,3 +3628,18 @@ column has an "Opponent picks" option (not shown for vs Computer):
   claim-then-GET join). Pass-and-play and vs Computer are unchanged.
 Checked with two real browser contexts on both pages: both land in the
 same match. Tests: `V2OpenGameTests`.
+
+## Watching the opponent roll (2026-09-30)
+
+User request: "when watching your opponent roll and re-roll, it'd be nice
+to see the animations instead of the dice just changing." A polled update
+(the other player's move) used to be adopted with no animation at all,
+and the computer's moves only got the quick face spin. Both pages now
+compute `remoteRolledIds` - dice newly rolled into the active player's
+Reserve Pool, or a face change there during Roll & Reroll - and give those
+the full tumble. Mobile's `adoptRemote` also holds the Roll & Reroll step
+on screen through a reroll's tumble (the reroll ends the step, which would
+otherwise unmount the tray mid-tumble) - the same trick `runWithReveal`
+already used for your own reroll; the computer's moves go through it too.
+Checked with two browsers: the watcher's tray tumbles 3 dice on the roll
+and the rerolled die on the reroll, then moves on to Buy & field.
