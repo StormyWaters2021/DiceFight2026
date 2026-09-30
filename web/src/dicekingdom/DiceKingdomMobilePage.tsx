@@ -117,6 +117,18 @@ function laneOvercrush(attackers: Die[], cardsById: Map<string, CardDef>): boole
     attackers.some((a) => (a.cardId ? (cardsById.get(a.cardId)?.keywords.includes("Overcrush") ?? false) : false))
   );
 }
+// Damage a reflecting die (Rhinoceros) in this lane is about to take -
+// and so send to its controller's opponent. Kept apart from "to face"
+// (direct feedback, 2026-09-30: folding Rhino's ability damage into that
+// number was confusing): combat damage and reflected damage are
+// different things and can even land on different players.
+function laneReflect(attackers: Die[], blockers: Die[], preview: Map<string, DiePreview>, cardsById: Map<string, CardDef>) {
+  return [...attackers, ...blockers]
+    .filter((d) => d.cardId && cardsById.get(d.cardId)?.reflectsDamage)
+    .map((d) => ({ die: d, amount: preview.get(d.id)?.incoming ?? 0 }))
+    .filter((r) => r.amount > 0);
+}
+
 function laneFaceDamage(attackers: Die[], blockers: Die[], cardsById: Map<string, CardDef>): number {
   const totalAtk = attackers.reduce((n, a) => n + (a.effectiveAttack ?? 0), 0);
   if (blockers.length === 0) return totalAtk;
@@ -1207,6 +1219,7 @@ function AttackLanesCard({
           // itself only ever answers this one question.
           const faceDamage = laneFaceDamage(attackers, blockers, cardsById);
           const chipText = attackers.length === 0 ? null : `${faceDamage} to face`;
+          const reflected = laneReflect(attackers, blockers, preview, cardsById).reduce((n, r) => n + r.amount, 0);
           // Direct feedback (2026-09-17): "making me click on the attacker
           // to block doesn't make sense... tapping anywhere in the lane
           // should do it." Any live attacker in the lane works as the
@@ -1273,6 +1286,11 @@ function AttackLanesCard({
                       {chipText}
                     </span>
                   )}
+                  {reflected > 0 && (
+                    <span className="dkm-lane-chip reflect" title="Damage a reflecting creature (Rhinoceros) takes is dealt to its opponent">
+                      ↩ {reflected} reflect
+                    </span>
+                  )}
                   <div className="dkm-lane-attackers">
                     {attackers.length > 0 && <span className="dkm-lane-role atk">Attacking</span>}
                     {attackers.map((a) => (
@@ -1299,6 +1317,11 @@ function AttackLanesCard({
                       }}
                     >
                       {chipText}
+                    </span>
+                  )}
+                  {reflected > 0 && (
+                    <span className="dkm-lane-chip reflect" title="Damage a reflecting creature (Rhinoceros) takes is dealt to its opponent">
+                      ↩ {reflected} reflect
                     </span>
                   )}
                   <div className="dkm-lane-blockers">
@@ -3047,6 +3070,14 @@ export function DiceKingdomMobilePage() {
                         {overcrush && faceDamage > 0 && <b className="dkm-ko-tag"> · Overcrush: {faceDamage} to face</b>}
                       </span>
                     )}
+                    {laneReflect(laneAttackersForBreakdown, laneBlockers, combatPreview(attackersByLane, blockersByAttacker), cardsById).map((r) => (
+                      <span key={r.die.id} className="dkm-inspect-stats">
+                        <b className="dkm-reflect-tag">
+                          ↩ {nameOf(r.die, cardsById)} takes {r.amount} and reflects it to{" "}
+                          {(r.die.controllerId === game.playerOne.id ? game.playerTwo : game.playerOne).name} (its ability, not combat damage)
+                        </b>
+                      </span>
+                    ))}
                   </div>
                 );
               })()}

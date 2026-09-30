@@ -28,6 +28,8 @@ export interface CardDef {
   global?: GlobalAbility | null;
   /** The energy its die's energy faces show (a Basic Action's purchase has no type). */
   dieEnergyType?: string | null;
+  /** Damage this die takes is dealt to its controller's opponent too (Rhinoceros). */
+  reflectsDamage?: boolean;
 }
 
 export interface GlobalAbility {

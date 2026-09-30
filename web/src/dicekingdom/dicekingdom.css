@@ -3683,3 +3683,13 @@
   font-size: 9px;
   letter-spacing: 0.04em;
 }
+
+/* Reflected damage (Rhinoceros) - its own chip, apart from "to face". */
+.dk-mobile .dkm-lane-chip.reflect {
+  background: color-mix(in srgb, var(--shell) 22%, transparent);
+  border-color: var(--shell);
+  color: var(--dkm-ink);
+}
+.dk-mobile .dkm-reflect-tag {
+  color: var(--shell);
+}

@@ -27,7 +27,12 @@ public sealed record V2CardDefDto(
     // ActionText/Global split RawText at "Global:" for display; DieEnergyType
     // is the energy its die's energy faces show (a Basic Action has no
     // purchase type of its own, so EnergyTypes can't say).
-    bool IsAction = false, string? ActionText = null, V2GlobalDto? Global = null, string? DieEnergyType = null)
+    bool IsAction = false, string? ActionText = null, V2GlobalDto? Global = null, string? DieEnergyType = null,
+    // "Whenever this takes damage, it deals that much to the opponent"
+    // (Rhinoceros) - read off the ability, not the name. The client shows
+    // that reflected damage as its own lane marker, apart from "to face"
+    // (2026-09-30: folding the two together read as confusing).
+    bool ReflectsDamage = false)
 {
     public static V2CardDefDto From(CardDef card)
     {
@@ -50,7 +55,9 @@ public sealed record V2CardDefDto(
             card.CardType.IsActionDie(),
             split >= 0 ? card.RawText[..split].Trim() : card.RawText,
             global,
-            card.Die.Faces.SelectMany(f => f.Symbols).Select(sym => sym.SymbolId).FirstOrDefault());
+            card.Die.Faces.SelectMany(f => f.Symbols).Select(sym => sym.SymbolId).FirstOrDefault(),
+            card.Abilities.Any(a => a.Trigger == TriggerKind.DieDamaged
+                && a.Effect is DealDamage { Target: { Kind: TargetKind.Player, Ownership: TargetOwnership.Opposing } }));
     }
 }
 
