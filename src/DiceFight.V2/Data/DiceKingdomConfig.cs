@@ -604,6 +604,36 @@ public static class DiceKingdomConfig
         Abilities: [],
         Continuous: []);
 
+    // Attune and Obscure (2026-10-03) - the two Dice Masters keywords that
+    // pay off "each time you use an action die" (Global uses don't count;
+    // a Global-triggered keyword would be its own keyword). Same policy as
+    // the two above: catalog only for now, priced by the Homash model as
+    // a weak ability. Don't read their worth off today's simulator: Dice
+    // Kingdom has only four Basic Actions, none of them the cheap
+    // ramp/ping/churn actions real decks buy for exactly this combo (user,
+    // 2026-10-03).
+
+    // Attune - every action used sends a jolt out. Plain "Attune" is 1
+    // damage; "Attune N" deals N (Boom Boom reads as Attune 2).
+    public static readonly CardDef ElectricEel = new(
+        Id: "DK-CLAW-10", Name: "Electric Eel", Subtitle: null, Set: "Dice Kingdom", CardType: CardType.Character,
+        PurchaseCost: 3, EnergySymbolIds: ["Claw"],
+        Die: CharacterDie("DK-CLAW-10Die", energyType: "Claw", (0, 2, 1), (1, 3, 3), (1, 4, 4)),
+        DieLimit: 4, Affiliations: [], Keywords: ["Attune"],
+        RawText: "Attune (while active, each time you use an action die, deal 1 damage to the opponent or a target character die).",
+        Abilities: [],
+        Continuous: []);
+
+    // Obscure - blends into the background, slips past the blockers.
+    public static readonly CardDef Chameleon = new(
+        Id: "DK-EYE-11", Name: "Chameleon", Subtitle: null, Set: "Dice Kingdom", CardType: CardType.Character,
+        PurchaseCost: 4, EnergySymbolIds: ["Eye"],
+        Die: CharacterDie("DK-EYE-11Die", energyType: "Eye", (1, 2, 4), (1, 3, 5), (2, 5, 6)),
+        DieLimit: 4, Affiliations: [], Keywords: ["Obscure"],
+        RawText: "Obscure (while active, each time you use an action die, this creature can't be blocked this turn).",
+        Abilities: [],
+        Continuous: []);
+
     // --- Basic Actions: one per Champion (2026-09-26, user call). Rather
     // than each team drafting two Basic Actions, each Champion brings
     // one, and both are shared (community, rule 2.1.2) - either player
@@ -770,7 +800,7 @@ public static class DiceKingdomConfig
         Hippopotamus, MuskOx, Pangolin, HermitCrab, Opossum, QueenTermite, Rhinoceros, BoxTurtle,
         Osprey, BarnSwallow, Hummingbird, MountainGoat, MonarchButterfly, HomingPigeon, Greyhound, Phoenix, Swift,
         BarnOwl, Hyena, Anglerfish, Cowbird, Magpie, Basilisk, Elephant, Fox, Cuttlefish,
-        FrilledLizard, FlyingSquirrel,
+        FrilledLizard, FlyingSquirrel, ElectricEel, Chameleon,
         AngerIssues, Distraction, Resurrection, Mutation, Archnemesis,
     }.ToDictionary(c => c.Id);
 
@@ -866,7 +896,7 @@ public static class DiceKingdomConfig
             new SymbolDef("Wild", IsWild: true),
         ],
         Keywords: [new KeywordDef("Fast"), new KeywordDef("Overcrush"), new KeywordDef("Deadly"),
-            new KeywordDef("Intimidate"), new KeywordDef("Infiltrate"),
+            new KeywordDef("Intimidate"), new KeywordDef("Infiltrate"), new KeywordDef("Attune"), new KeywordDef("Obscure"),
             new KeywordDef("On Field"), new KeywordDef("On Attack"), new KeywordDef("On Block"), new KeywordDef("Awaken")],
         Rules: new RulesConfig(
             StartingLife: 20,

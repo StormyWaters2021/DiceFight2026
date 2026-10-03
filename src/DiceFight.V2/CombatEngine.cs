@@ -180,7 +180,8 @@ public static class CombatEngine
             if (LaneBlockerIds(assignment, attackers).Count == 0) continue;
             var unblockable = attackers.FirstOrDefault(a => a.CombatFlags.Contains(CombatFlagKind.Unblockable));
             if (unblockable is not null)
-                throw new InvalidOperationException($"Die '{unblockable.Id}' is unblockable this turn.");
+                throw new InvalidOperationException(
+                    $"{(unblockable.CardId is { } c ? state.CardCatalog[c].Name : "That Tardigrade")} can't be blocked this turn - nor can anything in its lane.");
         }
     }
 

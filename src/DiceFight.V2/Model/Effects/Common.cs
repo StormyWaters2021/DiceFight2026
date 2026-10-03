@@ -19,6 +19,13 @@ public enum TargetKind
     BasicActionDie,
     Player,
     DieOrPlayer,
+    /// <summary>
+    /// "Target opponent or target character die" (Attune, 2026-10-03): any
+    /// character die, plus the opposing player only. Ownership narrows the
+    /// dice as usual; DieOrPlayer would also offer the ability's own
+    /// controller as a damage target.
+    /// </summary>
+    CharacterDieOrOpponent,
 }
 
 // The stat kinds a TargetFilter/EventFilter can threshold on, plus

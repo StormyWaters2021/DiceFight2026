@@ -379,6 +379,10 @@ function DieTile({
             {label && <div className="lbl">{label}</div>}
             {/* Forced to block this turn (Hermit Crab), 2026-09-30. */}
             {die.mustBlock && zone === "FieldZone" && <div className="lbl dk-must-block">Must block</div>}
+            {/* Obscure (2026-10-03). */}
+            {die.unblockable && (zone === "FieldZone" || zone === "AttackZone") && (
+              <div className="lbl dk-must-block dk-unblockable">Unblockable</div>
+            )}
             {/* Damage marked on a die in play - see the mobile page's
                 identical badge (2026-09-30). */}
             {(die.damage ?? 0) > 0 && (zone === "FieldZone" || zone === "AttackZone") && (
@@ -1680,6 +1684,7 @@ export function DiceKingdomPage() {
           candidateIds={game.pendingChoice.candidateIds}
           max={game.pendingChoice.maxCount}
           min={game.pendingChoice.minCount}
+          players={[game.playerOne, game.playerTwo]}
           dice={game.dice}
           cardsById={cardsById}
           onSubmit={(ids) => run(() => api.resolvePendingChoice(game.gameId, ids))}
@@ -2012,6 +2017,7 @@ function PendingChoiceChips({
   candidateIds,
   max,
   min,
+  players,
   dice,
   cardsById,
   onSubmit,
@@ -2022,6 +2028,8 @@ function PendingChoiceChips({
   max: number;
   /** 0 for a "you may" offer (Infiltrate) - confirming with nothing picked declines it. */
   min: number;
+  /** For a pick that can name a player (Attune: "the opponent or a target character die"). */
+  players: { id: string; name: string }[];
   dice: Die[];
   cardsById: Map<string, { name: string }>;
   onSubmit: (ids: string[]) => void;
@@ -2035,7 +2043,8 @@ function PendingChoiceChips({
           : candidateIds
         ).map((id) => {
           const die = dice.find((d) => d.id === id);
-          const name = die?.cardId ? (cardsById.get(die.cardId)?.name ?? die.cardId) : "Tardigrade";
+          const player = die ? undefined : players.find((p) => p.id === id);
+          const name = die?.cardId ? (cardsById.get(die.cardId)?.name ?? die.cardId) : (player?.name ?? "Tardigrade");
           if (nameCard)
             return (
               <span key={id} className={`chip${picked.includes(id) ? " on" : ""}`} onClick={() => setPicked(picked.includes(id) ? [] : [id])}>
@@ -2050,7 +2059,8 @@ function PendingChoiceChips({
                 setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : p.length < max ? [...p, id] : p))
               }
             >
-              {name} {die?.effectiveAttack}/{die?.effectiveDefense}
+              {name}
+              {die && ` ${die.effectiveAttack}/${die.effectiveDefense}`}
             </span>
           );
         })}

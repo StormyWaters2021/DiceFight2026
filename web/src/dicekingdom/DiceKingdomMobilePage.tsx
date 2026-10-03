@@ -265,11 +265,8 @@ const PHASES: { key: PhaseKey; label: string }[] = [
 // never hard-coded - README's "the important bit". Two entries (Range
 // damage/Infiltrate) only appear when a DECLARED ATTACKER's own card
 // actually carries that keyword (read off the real V2CardDefDto.keywords
-// the engine reports, not a fixed lookup table). No creature in
-// DiceKingdomConfig carries either keyword yet (V2_PLAN.md/CardCatalog.cs's
-// own "not implemented" notes), so in today's game these two never
-// appear - this derivation is correct and ready, not inert set dressing,
-// it simply has nothing to react to yet.
+// the engine reports, not a fixed lookup table). Infiltrate is real since
+// 2026-10-03 (Flying Squirrel); no Dice Kingdom creature has Range yet.
 //
 // Order corrected from the design handoff's own illustrative chain
 // ("Declare attackers - Action & globals - [Range] - Assign blockers -
@@ -502,6 +499,10 @@ function DTile({
       {/* Forced to block this turn (Hermit Crab) - 2026-09-30: the server's
           own rejection used to be the only sign, naming an internal id. */}
       {die.mustBlock && die.zone === "FieldZone" && <span className="dkm-must-block">Must block</span>}
+      {/* Obscure (2026-10-03) - can't be blocked this turn. */}
+      {die.unblockable && (die.zone === "FieldZone" || die.zone === "AttackZone") && (
+        <span className="dkm-must-block dkm-unblockable">Unblockable</span>
+      )}
       {/* Damage marked on a die in play (Honey Badger's ping, a survived
           block...) - direct feedback 2026-09-30: nothing showed it. Keyed
           by the amount so a fresh hit pops again; clears at Clean Up. */}

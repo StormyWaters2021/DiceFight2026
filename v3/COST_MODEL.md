@@ -39,6 +39,12 @@ The 128 Dice Masters characters in the DPS catalog, under the same formula: mean
 
 **Infiltrate** (2026-10-03, Dice Masters rule kept as-is): when an attacker's whole lane is unblocked, its controller may return it to the Field and deal the opponent 1 damage instead of its full ATK. Queued in `CombatEngine.DeclareBlockers` after the On Block abilities, so it resolves before the Action/Global window; back on the Field it is still targetable. Its value here is the body: an unblocked attacker otherwise leaves play. On Flying Squirrel (catalog only).
 
+**Attune** / **Attune N** (2026-10-03, Dice Masters rule): while active, each time you use an action die, deal N damage (plain "Attune" = 1; Boom Boom reads as Attune 2) to the opponent or a target character die (`TargetKind.CharacterDieOrOpponent` - never yourself). Global uses don't count; a Global-triggered keyword would be its own keyword. Each Attune keyword on a die fires separately. On Electric Eel (catalog only).
+
+**Obscure** (2026-10-03, Dice Masters rule): while active, each time you use an action die, this creature can't be blocked this turn. A lane is the unit of combat, so its lane-mates can't be blocked either (existing `ValidateUnblockable` behavior). On Chameleon (catalog only).
+
+Don't price Attune/Obscure off the simulator's action-die usage: Dice Kingdom has only four Basic Actions, none of them the cheap ping/ramp/churn actions real decks buy for exactly this combo, and having a payoff on the team makes buying any action more attractive (user, 2026-10-03). Both sit in the weak-ability band for now.
+
 **Fast** and **Overcrush** (both in `CombatEngine`): Wolverine (Fast + 1 direct), Peregrine Falcon (Fast + 3 dmg), Greyhound (Fast), Grizzly Bear (Overcrush), Tiger (Overcrush + 2 direct). Vanilla: Elephant, Hippopotamus. Also On Block: Box Turtle. Not yet engine-supported: Regenerate, Retaliation, Swarm, Range.
 
 ## Current roster
@@ -57,6 +63,8 @@ The 128 Dice Masters characters in the DPS catalog, under the same formula: mean
 | Box Turtle | 3 | 1/0/3 · 1/2/4 · 1/4/6 | 1.58 | On Block: deal 1 damage to a target creature. |
 | Honey Badger | 2 | 0/1/1 · 0/2/2 · 1/2/3 | 1.57 | On Field: deal 1 damage to a target creature. |
 | Barn Owl | 4 | 1/2/5 · 1/3/5 · 2/4/6 | 1.56 | On Field: a weak target creature (3 ATK or less) can't block this turn. |
+| Chameleon *(no team yet)* | 4 | 1/2/4 · 1/3/5 · 2/5/6 | 1.56 | Obscure. |
+| Electric Eel *(no team yet)* | 3 | 0/2/1 · 1/3/3 · 1/4/4 | 1.55 | Attune. |
 | Stoat | 4 | 0/2/2 · 1/4/4 · 2/5/6 | 1.53 | On Field: deal 1 damage to the opponent directly. |
 | Barn Swallow | 3 | 0/2/2 · 1/2/3 · 2/4/5 | 1.50 | Awaken: draw a die into your Prep Area. |
 | Cuttlefish | 2 | 0/0/3 · 1/1/3 · 1/1/4 | 1.50 | On Attack: spin a target opposing level 1 creature to an energy face. |

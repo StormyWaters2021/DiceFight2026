@@ -110,7 +110,7 @@ public static class TargetResolver
         if (filter.AttackersOnly)
             dice = dice.Where(d => d.Zone == Zone.AttackZone && d.ControllerId == state.ActivePlayerId);
 
-        if (filter.Kind == TargetKind.CharacterDie)
+        if (filter.Kind is TargetKind.CharacterDie or TargetKind.CharacterDieOrOpponent)
             dice = dice.Where(d => FaceOf(d)?.Character is not null);
         else if (filter.Kind == TargetKind.ActionDie)
             dice = dice.Where(d => d.CardId is { } cid && state.CardCatalog[cid].CardType.IsActionDie());
@@ -159,7 +159,9 @@ public static class TargetResolver
 
         var ids = dice.Select(d => d.Id).ToList();
 
-        if (filter.Kind is TargetKind.Player or TargetKind.DieOrPlayer)
+        if (filter.Kind == TargetKind.CharacterDieOrOpponent)
+            ids.Add(state.OpponentOf(requestingControllerId));
+        else if (filter.Kind is TargetKind.Player or TargetKind.DieOrPlayer)
         {
             IEnumerable<string> playerIds = filter.Ownership switch
             {

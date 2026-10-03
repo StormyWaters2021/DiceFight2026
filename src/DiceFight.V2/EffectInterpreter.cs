@@ -801,7 +801,9 @@ public static class EffectInterpreter
             foreach (var id in ids)
             {
                 FindDie(ctx.State, id).CombatFlags.Add(n.Flag);
-                LogAbility(ctx, $"{SourceName(ctx)}: {TargetName(ctx.State, id)} gets {n.Flag} this turn.");
+                LogAbility(ctx, n.Flag == CombatFlagKind.Unblockable && ctx.Bindings.GetValueOrDefault("self") == id
+                    ? $"{SourceName(ctx)} can't be blocked this turn."
+                    : $"{SourceName(ctx)}: {TargetName(ctx.State, id)} gets {n.Flag} this turn.");
             }
             onComplete();
         });

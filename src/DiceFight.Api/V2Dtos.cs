@@ -109,7 +109,11 @@ public sealed record V2DieDto(
     // Forced to block this turn (Hermit Crab) - the client marks it and
     // won't confirm blocks without it (2026-09-30: the server's own
     // rejection used to be the only sign, and it named an internal die id).
-    bool MustBlock = false)
+    bool MustBlock = false,
+    // Can't be blocked this turn (Obscure, 2026-10-03) - and neither can
+    // anything sharing its lane. Same reason as MustBlock: a blocker's
+    // only clue used to be the server's rejection.
+    bool Unblockable = false)
 {
     private static readonly HashSet<DiceFight.V2.Model.Zone> InPlayZones =
         [DiceFight.V2.Model.Zone.FieldZone, DiceFight.V2.Model.Zone.AttackZone];
@@ -136,7 +140,8 @@ public sealed record V2DieDto(
             die.AttackOrder,
             face?.Kind == FaceKind.ActionFace,
             hasCharacterFace ? QueryEngine.GetFieldingCost(state, die) : null,
-            die.CombatFlags.Contains(CombatFlagKind.MustBlock));
+            die.CombatFlags.Contains(CombatFlagKind.MustBlock),
+            die.CombatFlags.Contains(CombatFlagKind.Unblockable));
     }
 }
 

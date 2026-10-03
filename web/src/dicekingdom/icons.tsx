@@ -829,6 +829,46 @@ function FlyingSquirrelIcon(props: IconProps) {
   );
 }
 
+// Side-on, a jolt arcing off its back - every action used zaps something.
+function ElectricEelIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={7}
+        strokeLinecap="round"
+        d="M8,44 C16,34 24,50 32,40 C40,30 48,46 56,36"
+      />
+      <circle cx={10} cy={42} r={1.4} fill={CREAM} />
+      <path fill="currentColor" d="M34,8 L26,22 L32,22 L28,32 L40,17 L34,17 L38,8 Z" />
+    </Svg>
+  );
+}
+
+// Curled tail, crest and a swivelling eye - blends in, slips past.
+function ChameleonIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path fill="currentColor" d="M8,34 C8,22 20,16 34,18 C44,19 52,24 54,32 C48,38 36,40 26,38 C18,37 12,38 8,34 Z" />
+      <path fill="currentColor" d="M8,34 L4,26 L14,24 Z" />
+      <path
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={4}
+        strokeLinecap="round"
+        d="M52,32 C60,38 58,52 48,52 C41,52 40,44 46,43 C50,42 51,47 48,48"
+      />
+      <g stroke="currentColor" strokeWidth={3} strokeLinecap="round">
+        <path d="M22,38 L20,48" />
+        <path d="M38,39 L40,48" />
+      </g>
+      <circle cx={16} cy={27} r={3.6} fill={CREAM} />
+      <circle cx={16} cy={27} r={1.6} fill="currentColor" />
+    </Svg>
+  );
+}
+
 function CuttlefishIcon(props: IconProps) {
   return (
     <Svg {...props}>
@@ -947,6 +987,7 @@ export const CHARACTER_ICONS: Record<string, (p: IconProps) => ReactElement> = {
   "DK-CLAW-07": StoatIcon,
   "DK-CLAW-08": CapeBuffaloIcon,
   "DK-CLAW-09": MongooseIcon,
+  "DK-CLAW-10": ElectricEelIcon,
   "DK-SHELL-01": HippopotamusIcon,
   "DK-SHELL-02": MuskOxIcon,
   "DK-SHELL-03": PangolinIcon,
@@ -975,4 +1016,5 @@ export const CHARACTER_ICONS: Record<string, (p: IconProps) => ReactElement> = {
   "DK-EYE-08": FoxIcon,
   "DK-EYE-09": CuttlefishIcon,
   "DK-EYE-10": FrilledLizardIcon,
+  "DK-EYE-11": ChameleonIcon,
 };

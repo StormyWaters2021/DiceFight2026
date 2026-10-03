@@ -112,7 +112,9 @@ In the card pool but in no Champion's pack, so they don't come up in games.
 
 | Name | Cost | Die Limit | Keywords | Stats (fielding / ATK / DEF per level) | Energy faces | Ability text |
 |---|:-:|:-:|---|---|---|---|
+| Electric Eel | 3 | 4 | Attune | L1: 0&#9889; / 2A / 1D<br>L2: 1&#9889; / 3A / 3D<br>L3: 1&#9889; / 4A / 4D | 2 Claw<br>2 Claw<br>1 Claw | Attune (while active, each time you use an action die, deal 1 damage to the opponent or a target character die). |
 | Orca | 5 | 4 | On Field | L1: 1&#9889; / 2A / 3D<br>L2: 1&#9889; / 4A / 4D<br>L3: 2&#9889; / 5A / 5D | 2 Claw<br>2 Claw<br>1 Claw | On Field: KO a target creature. |
+| Chameleon | 4 | 4 | Obscure | L1: 1&#9889; / 2A / 4D<br>L2: 1&#9889; / 3A / 5D<br>L3: 2&#9889; / 5A / 6D | 2 Eye<br>2 Eye<br>1 Eye | Obscure (while active, each time you use an action die, this creature can't be blocked this turn). |
 | Frilled Lizard | 4 | 4 | Intimidate | L1: 1&#9889; / 2A / 4D<br>L2: 1&#9889; / 3A / 4D<br>L3: 2&#9889; / 4A / 5D | 2 Eye<br>2 Eye<br>1 Eye | Intimidate (when fielded, remove a target opposing creature from the Field until end of turn). |
 | Anglerfish | 6 | 4 | On Attack | L1: 1&#9889; / 2A / 5D<br>L2: 2&#9889; / 4A / 6D<br>L3: 3&#9889; / 6A / 8D | 2 Eye<br>2 Eye<br>1 Eye | On Attack: every weak opposing creature (3 DEF or less) can't block this turn. |
 | Flying Squirrel | 3 | 4 | Infiltrate | L1: 0&#9889; / 2A / 2D<br>L2: 1&#9889; / 3A / 3D<br>L3: 1&#9889; / 4A / 2D | 2 Wing<br>2 Wing<br>1 Wing | Infiltrate (when unblocked, you may return it to the Field and deal 1 damage to the opponent instead). |

@@ -3792,3 +3792,72 @@ matchup, powers off): Eagle 57.3% baseline -> 62.3% first pass -> 60.0%
 now. vs Wolf: 61.2 -> 72.5 -> 67.7. Still a modest upgrade over Barn
 Swallow, inside the range where a fifth Champion's own pack would decide
 whether it needs more.
+
+## Attune (N) and Obscure, on two more new animals (2026-10-03)
+
+User request: "Let's do Attune next, since we have action dice now."
+Decisions:
+
+- **Action dice only.** "A Keyword that fires off Globals would be a
+  different, distinct keyword." The DieUsed event only fires from
+  `TurnEngine.UseAction`, so Globals never count. "Action die" is the
+  broad category, so any action die qualifies, Basic or not.
+- **Attune keeps the Dice Masters effect, with a parameter.** While
+  active, each time you use an action die, deal 1 damage to the opponent
+  or a target character die. "Attune N" deals N (user: "Boom Boom is
+  effectively Attune 2"). New `TargetKind.CharacterDieOrOpponent`, because
+  `DieOrPlayer` would have offered your own face as a target. Each Attune
+  keyword on a die fires separately, so a granted Attune 2 on an Attune
+  die deals 1 + 2.
+- **Obscure, built alongside it.** User: Dice Masters started with
+  open-ended "when you use an action die, ..." abilities (Yuan-Ti's
+  unblockable) and later turned that one into the Obscure keyword, so keep
+  each payoff its own keyword rather than an open "Attune: <anything>"
+  trigger. While active, each time you use an action die, this creature
+  can't be blocked this turn (`CombatFlag Unblockable` on itself).
+- **Don't judge them from the simulator's action usage.** Today's ~0.5-0.85
+  action uses per player per game reflect four expensive Basic Actions,
+  not the cheap ping/ramp/churn actions real decks buy. A payoff on the
+  team also makes buying any action more attractive. Priced in the
+  weak-ability band (~1.55) for now.
+- **New animals, still off the teams:** **Electric Eel** (Claw, buy 3,
+  0/2/1 · 1/3/3 · 1/4/4, Attune) and **Chameleon** (Eye, buy 4,
+  1/2/4 · 1/3/5 · 2/5/6, Obscure).
+
+Both are engine keywords in `KeywordAbilities`, like Intimidate. Bot:
+- values action dice +1.5 when its team has an Attune/Obscure creature;
+- uses an action in Main, before declaring attackers, when an Obscure
+  creature could attack;
+- aims Attune at the best opposing creature the damage actually KOs,
+  otherwise at the opponent's face.
+
+**A bug the simulator caught:** the first Chameleon run threw in 20 of
+~1,200 games. A lane holding an unblockable attacker can't be blocked at
+all (`CombatEngine.ValidateUnblockable` - a lane is the unit of combat),
+but the bot only dropped the unblockable attacker itself and still tried
+to block its lane-mate. Nothing in Dice Kingdom granted Unblockable
+before, so this never came up. The bot now skips the whole lane; there's
+a regression test.
+
+**Open question for the user:** under that same lane rule, Obscure makes
+every attacker sharing its lane unblockable too. The bot doesn't exploit
+this on purpose (attackers get their own lanes until there are 5+), but a
+human player can: put the Chameleon in a lane with the biggest attacker.
+That is either a nice combo or a rules hole. The alternative is "a lane
+can still be blocked; the blocker just can't engage the unblockable die."
+
+UI:
+- New `Unblockable` flag on the die DTO, shown as a badge like "Must
+  block" on both pages. A blocker's only clue before was the server's
+  rejection, which named an internal die id; that message now uses the
+  card name and says the lane can't be blocked.
+- The desktop choice chips can now show a player as a target. Before, a
+  player candidate rendered as "Tardigrade undefined/undefined"; mobile
+  already showed a name button.
+- New icons for both animals.
+- Cleaned up a stale "no creature has Infiltrate" comment in the mobile
+  attack-chain code.
+- Verified in the browser the same way as Intimidate/Infiltrate: the
+  bot-driven API run until an Attune choice and an Obscure trigger came
+  up (`keyword-check.js`, now with `WANT`/`CHAMPS` env vars), then
+  mobile + desktop screenshots.

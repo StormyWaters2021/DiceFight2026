@@ -298,6 +298,10 @@ public static class DiceKingdomBot
         var card = state.CardCatalog[die.CardId!];
         var effect = card.Abilities.FirstOrDefault(a => a.Trigger == TriggerKind.DieUsed)?.Effect;
         var oppId = state.OpponentOf(botId);
+        // Obscure only pays off before attackers are declared: an
+        // unblockable swing beats holding the action for the window.
+        if (PotentialAttackers(state, botId).Any(d => QueryEngine.GetKeywords(state, d).Contains("Obscure")))
+            return true;
         switch (effect)
         {
             // Anger Issues-style combat pump: wait for the window.
@@ -377,7 +381,9 @@ public static class DiceKingdomBot
         if (card.CardType.IsActionDie())
         {
             var energyType = ActionEnergyType(card);
-            var v = 2.5 + (energyType is not null && offTypeDemand.Contains(energyType) ? 1.5 : 0);
+            var v = 2.5 + (energyType is not null && offTypeDemand.Contains(energyType) ? 1.5 : 0)
+                // Every action die also fires the team's Attune/Obscure creatures.
+                + (TeamHasActionPayoff(state, botId) ? 1.5 : 0);
             return v * (copiesOwned switch { 0 => 1.0, 1 => 0.6, _ => 0.3 });
         }
         var purchasedDice = state.Dice.Count(d => d.ControllerId == botId && d.CardId is not null && d.Zone != Zone.Unpurchased);
@@ -385,6 +391,11 @@ public static class DiceKingdomBot
         if (card.PurchaseCost <= 3 && purchasedDice >= 8) baseValue *= 0.6;
         return baseValue * (copiesOwned switch { 0 => 1.0, 1 => 0.9, 2 => 0.7, _ => 0.45 });
     }
+
+    private static bool IsActionPayoff(string keyword) => keyword == "Obscure" || KeywordAbilities.AttuneAmount(keyword) is not null;
+
+    private static bool TeamHasActionPayoff(GameState state, string botId) =>
+        state.GetPlayer(botId).TeamCardIds.Any(id => state.CardCatalog.TryGetValue(id, out var c) && c.Keywords.Any(IsActionPayoff));
 
     // Energy types this player's team needs but its own dice don't make:
     // any card still Unpurchased whose type isn't the Champion's own.
@@ -541,8 +552,14 @@ public static class DiceKingdomBot
     {
         var activeId = state.OpponentOf(botId);
         var myLife = state.GetPlayer(botId).Life;
-        var lanes = state.DiceIn(activeId, Zone.AttackZone)
-            .Where(d => !d.CombatFlags.Contains(CombatFlagKind.Unblockable))
+        // One unblockable attacker makes its whole lane unblockable
+        // (CombatEngine.ValidateUnblockable - a lane is the unit of combat).
+        var attacking = state.DiceIn(activeId, Zone.AttackZone).ToList();
+        var openLanes = attacking.GroupBy(d => d.Lane ?? -1)
+            .Where(g => !g.Any(a => a.CombatFlags.Contains(CombatFlagKind.Unblockable)))
+            .Select(g => g.Key).ToHashSet();
+        var lanes = attacking
+            .Where(d => openLanes.Contains(d.Lane ?? -1))
             .GroupBy(d => d.Lane ?? -1)
             .Select(g => new Lane(g.ToList(),
                 g.Sum(a => QueryEngine.GetAttack(state, a)),
@@ -550,8 +567,7 @@ public static class DiceKingdomBot
                 g.Any(a => QueryEngine.GetKeywords(state, a).Contains("Deadly"))))
             .OrderByDescending(l => l.Attack)
             .ToList();
-        var unblockable = state.DiceIn(activeId, Zone.AttackZone).Where(d => d.CombatFlags.Contains(CombatFlagKind.Unblockable))
-            .Sum(d => QueryEngine.GetAttack(state, d));
+        var unblockable = attacking.Where(d => !openLanes.Contains(d.Lane ?? -1)).Sum(d => QueryEngine.GetAttack(state, d));
         var available = PotentialBlockers(state, botId).ToList();
         var blocks = new List<(string, string)>();
         var incoming = lanes.Sum(l => l.Attack) + unblockable;
@@ -734,6 +750,17 @@ public static class DiceKingdomBot
             // Infiltrate: 1 damage and the die stays home, or its full ATK
             // and it leaves play. Stay home unless the full hit is lethal
             // (and 1 isn't) or the full hit is big enough to be worth a die.
+            // Attune: KO the best opposing creature the ping actually kills;
+            // otherwise the damage goes to the opponent's face.
+            case DealDamage { Target.Kind: TargetKind.CharacterDieOrOpponent, Amount: Fixed { Value: var dmg } }:
+                var kill = pending.CandidateIds.Where(id => !state.IsPlayerId(id))
+                    .Select(id => state.Dice.First(d => d.Id == id))
+                    .Where(d => d.ControllerId != botId && QueryEngine.GetDefense(state, d) - d.Damage <= dmg)
+                    .OrderByDescending(d => DieValue(state, d)).FirstOrDefault();
+                var face = pending.CandidateIds.FirstOrDefault(id => state.IsPlayerId(id) && id != botId);
+                if ((kill?.Id ?? face) is { } attunePick)
+                    return new(BotActionKind.ResolvePendingChoice, kill is not null ? "Attune: finish a creature." : "Attune: hit face.") { DieIds = [attunePick] };
+                break;
             case MayPay offer when offer == KeywordAbilities.InfiltrateChoice:
                 var infiltrator = state.Dice.First(d => d.Id == pending.CandidateIds[0]);
                 var oppLife = state.GetPlayer(state.OpponentOf(botId)).Life;

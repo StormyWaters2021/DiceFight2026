@@ -3689,6 +3689,19 @@
   letter-spacing: 0.04em;
 }
 
+/* Obscure's marker - the must-block badge, in the Eye (trickery) hue. */
+.dk-mobile .dkm-must-block.dkm-unblockable {
+  background: var(--eye);
+  /* "Unblockable" is a long word on a 50px tile - two side by side ran
+     into each other in uppercase. */
+  text-transform: none;
+  letter-spacing: 0;
+  padding: 3px 3px;
+}
+.dicekingdom .dk-must-block.dk-unblockable {
+  color: var(--eye);
+}
+
 /* Reflected damage (Rhinoceros) - its own chip, apart from "to face". */
 .dk-mobile .dkm-lane-chip.reflect {
   background: color-mix(in srgb, var(--shell) 22%, transparent);

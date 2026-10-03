@@ -1,6 +1,7 @@
 using DiceFight.V2.Bot;
 using DiceFight.V2.Data;
 using DiceFight.V2.Model;
+using DiceFight.V2.Model.Effects;
 
 namespace DiceFight.V2.Tests;
 
@@ -228,5 +229,179 @@ public class DiceKingdomKeywordTests
 
         state.PlayerTwo.Life = 2; // the full 2 is lethal, 1 isn't
         Assert.Empty(DiceKingdomBot.Decide(state, "p1")!.DieIds!);
+    }
+
+    // --- Attune / Obscure ---
+
+    // An Anger Issues die already on its action face in p1's Reserve Pool.
+    private static DieInstance ActionDieReady(GameState state)
+    {
+        var die = AddDie(state, DiceKingdomConfig.AngerIssues.Id, "p1", Zone.ReservePool, level: 1, tag: "action");
+        if (!state.PlayerOne.TeamCardIds.Contains(DiceKingdomConfig.AngerIssues.Id))
+            state.PlayerOne.TeamCardIds.Add(DiceKingdomConfig.AngerIssues.Id);
+        return die;
+    }
+
+    // Answers every pending choice: Attune's with `attunePick`, anything
+    // else (Anger Issues' own pump) with its first candidate.
+    private static void ResolveAll(GameState state, AbilityQueue queue, string attunePick)
+    {
+        while (state.PendingChoice is { } pending)
+        {
+            var pick = pending.Description.Contains("Attune") ? attunePick : pending.CandidateIds[0];
+            EffectInterpreter.AnswerPendingChoice(state, [pick]);
+            Drain(state, queue);
+        }
+    }
+
+    [Fact]
+    public void Attune_Deals_1_To_The_Opponent_Or_A_Character_Each_Time_You_Use_An_Action_Die()
+    {
+        var state = NewGame();
+        var queue = new AbilityQueue();
+        var eel = AddDie(state, DiceKingdomConfig.ElectricEel.Id, "p1", Zone.FieldZone);
+        var crab = AddDie(state, DiceKingdomConfig.HermitCrab.Id, "p2", Zone.FieldZone);
+
+        TurnEngine.UseAction(state, queue, ActionDieReady(state).Id);
+        Drain(state, queue);
+
+        var pending = Assert.IsType<PendingChoice>(state.PendingChoice);
+        Assert.Contains("Attune", pending.Description);
+        Assert.Contains("p2", pending.CandidateIds);
+        Assert.DoesNotContain("p1", pending.CandidateIds); // never yourself
+        Assert.Contains(crab.Id, pending.CandidateIds);
+        Assert.Contains(eel.Id, pending.CandidateIds); // any character die
+
+        ResolveAll(state, queue, "p2");
+        Assert.Equal(19, state.PlayerTwo.Life);
+    }
+
+    [Fact]
+    public void Attune_Can_KO_A_Creature()
+    {
+        var state = NewGame();
+        var queue = new AbilityQueue();
+        AddDie(state, DiceKingdomConfig.ElectricEel.Id, "p1", Zone.FieldZone);
+        var badger = AddDie(state, DiceKingdomConfig.HoneyBadger.Id, "p2", Zone.FieldZone); // L1 1 DEF
+
+        TurnEngine.UseAction(state, queue, ActionDieReady(state).Id);
+        Drain(state, queue);
+        ResolveAll(state, queue, badger.Id);
+
+        Assert.Equal(Zone.PrepArea, badger.Zone); // KO'd
+    }
+
+    [Fact]
+    public void Attune_Does_Not_Fire_On_A_Global_Or_While_Inactive()
+    {
+        var state = NewGame();
+        var queue = new AbilityQueue();
+        AddDie(state, DiceKingdomConfig.ElectricEel.Id, "p1", Zone.PrepArea); // not active
+        var activeEel = AddDie(state, DiceKingdomConfig.ElectricEel.Id, "p1", Zone.FieldZone, tag: "field");
+        ActionDieReady(state);
+
+        // A Global is not an action die.
+        TurnEngine.UseGlobal(state, queue, DiceKingdomConfig.AngerIssues.Id, "p1", 1, Energy(state, "p1", "Claw", 1));
+        Drain(state, queue);
+        while (state.PendingChoice is { } pending)
+        {
+            Assert.DoesNotContain("Attune", pending.Description);
+            EffectInterpreter.AnswerPendingChoice(state, [pending.CandidateIds[0]]);
+            Drain(state, queue);
+        }
+        Assert.Equal(20, state.PlayerTwo.Life);
+
+        // The die in the Prep Area adds nothing: one action, one Attune.
+        activeEel.Zone = Zone.FieldZone;
+        TurnEngine.UseAction(state, queue, state.Dice.First(d => d.Id.EndsWith("-action")).Id);
+        Drain(state, queue);
+        var attunes = 0;
+        while (state.PendingChoice is { } pending)
+        {
+            if (pending.Description.Contains("Attune")) attunes++;
+            EffectInterpreter.AnswerPendingChoice(state, [pending.Description.Contains("Attune") ? "p2" : pending.CandidateIds[0]]);
+            Drain(state, queue);
+        }
+        Assert.Equal(1, attunes);
+    }
+
+    [Fact]
+    public void Attune_N_Deals_N_And_A_Granted_Attune_Stacks_With_The_Printed_One()
+    {
+        Assert.Equal(1, KeywordAbilities.AttuneAmount("Attune"));
+        Assert.Equal(2, KeywordAbilities.AttuneAmount("Attune 2"));
+        Assert.Null(KeywordAbilities.AttuneAmount("Attuned"));
+
+        var state = NewGame();
+        var queue = new AbilityQueue();
+        var eel = AddDie(state, DiceKingdomConfig.ElectricEel.Id, "p1", Zone.FieldZone);
+        eel.GrantedTags.Add(new GrantedTag("Attune 2", Duration.EndOfTurn, "p1"));
+
+        TurnEngine.UseAction(state, queue, ActionDieReady(state).Id);
+        Drain(state, queue);
+        ResolveAll(state, queue, "p2");
+
+        Assert.Equal(17, state.PlayerTwo.Life); // 1 + 2
+    }
+
+    [Fact]
+    public void Obscure_Makes_The_Creature_Unblockable_This_Turn_When_You_Use_An_Action_Die()
+    {
+        var state = NewGame();
+        var queue = new AbilityQueue();
+        var chameleon = AddDie(state, DiceKingdomConfig.Chameleon.Id, "p1", Zone.FieldZone);
+        var wall = AddDie(state, DiceKingdomConfig.Hippopotamus.Id, "p2", Zone.FieldZone);
+
+        TurnEngine.UseAction(state, queue, ActionDieReady(state).Id);
+        Drain(state, queue);
+        ResolveAll(state, queue, "p2");
+        Assert.Contains(CombatFlagKind.Unblockable, chameleon.CombatFlags);
+
+        state.MoveToStep(StepIds.SelectAttackers);
+        CombatEngine.DeclareAttackers(state, queue, [chameleon.Id]);
+        var assignment = new CombatAssignment();
+        assignment.AssignBlocker(chameleon.Id, wall.Id);
+        Assert.Throws<InvalidOperationException>(() => CombatEngine.DeclareBlockers(state, queue, assignment, [wall.Id]));
+
+        state.MoveToStep(StepIds.ReturnToField);
+        chameleon.Zone = Zone.FieldZone;
+        TurnEngine.CleanUp(state, queue);
+        Assert.DoesNotContain(CombatFlagKind.Unblockable, chameleon.CombatFlags); // this turn only
+    }
+
+    [Fact]
+    public void Bot_Attune_Finishes_A_Creature_It_Can_Kill_Else_Hits_Face()
+    {
+        var state = NewGame();
+        var queue = new AbilityQueue();
+        AddDie(state, DiceKingdomConfig.ElectricEel.Id, "p1", Zone.FieldZone);
+        var hippo = AddDie(state, DiceKingdomConfig.Hippopotamus.Id, "p2", Zone.FieldZone); // 5 DEF: a ping does nothing
+        TurnEngine.UseAction(state, queue, ActionDieReady(state).Id);
+        Drain(state, queue);
+        Assert.Contains("Attune", state.PendingChoice!.Description);
+        Assert.Equal(["p2"], DiceKingdomBot.Decide(state, "p1")!.DieIds!);
+
+        hippo.Damage = 4; // now 1 more kills it
+        Assert.Equal([hippo.Id], DiceKingdomBot.Decide(state, "p1")!.DieIds!);
+    }
+
+    // A lane holding an unblockable attacker can't be blocked at all, so
+    // the bot must not block its lane-mate either (the simulator's first
+    // Chameleon run threw "is unblockable this turn" in 20 games).
+    [Fact]
+    public void Bot_Never_Blocks_A_Lane_With_An_Unblockable_Attacker_In_It()
+    {
+        var state = NewGame();
+        var queue = new AbilityQueue();
+        var chameleon = AddDie(state, DiceKingdomConfig.Chameleon.Id, "p1", Zone.FieldZone);
+        var badger = AddDie(state, DiceKingdomConfig.HoneyBadger.Id, "p1", Zone.FieldZone);
+        AddDie(state, DiceKingdomConfig.Hippopotamus.Id, "p2", Zone.FieldZone, level: 3); // blocks anything for free
+        chameleon.CombatFlags.Add(CombatFlagKind.Unblockable);
+        state.MoveToStep(StepIds.SelectAttackers);
+        CombatEngine.DeclareAttackers(state, queue, new Dictionary<string, int> { [chameleon.Id] = 0, [badger.Id] = 0 });
+
+        var decision = DiceKingdomBot.Decide(state, "p2")!;
+        Assert.Equal(BotActionKind.DeclareBlockers, decision.Kind);
+        Assert.Empty(decision.Blocks);
     }
 }

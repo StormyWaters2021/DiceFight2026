@@ -86,6 +86,8 @@ export interface Die {
   fieldingCost?: number | null;
   /** Forced to block this turn (Hermit Crab). */
   mustBlock?: boolean;
+  /** Can't be blocked this turn (Obscure) - nor can its lane-mates. */
+  unblockable?: boolean;
 }
 
 export interface PlayerState {
