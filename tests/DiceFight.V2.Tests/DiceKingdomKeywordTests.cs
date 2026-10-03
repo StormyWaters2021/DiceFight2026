@@ -741,4 +741,50 @@ public class DiceKingdomKeywordTests
 
         Assert.Empty(DiceKingdomBot.Decide(state, "p1")!.DieIds);
     }
+
+    // X keywords carry their number: "Breath Weapon 2" costs 2 and deals
+    // 2 everywhere; "Range 3" shoots for 3. Granted onto dice here, since
+    // the catalog's own cards are all X = 1.
+    [Fact]
+    public void Breath_Weapon_2_Costs_2_And_Deals_2_To_The_Opponent_And_Every_Creature()
+    {
+        var state = NewGame();
+        var queue = new AbilityQueue();
+        var dragon = AddDie(state, DiceKingdomConfig.KomodoDragon.Id, "p1", Zone.FieldZone);
+        dragon.GrantedTags.Add(new GrantedTag("Breath Weapon 2", Duration.EndOfTurn, "p1"));
+        var energy = Energy(state, "p1", "Claw", 2).Select(id => state.Dice.First(d => d.Id == id)).ToArray();
+        energy[0].CurrentFaceIndex = 2; energy[1].CurrentFaceIndex = 2; // 1 pip each
+        var crab = AddDie(state, DiceKingdomConfig.HermitCrab.Id, "p2", Zone.FieldZone); // 2 DEF
+        var hippo = AddDie(state, DiceKingdomConfig.Hippopotamus.Id, "p2", Zone.FieldZone); // 5 DEF
+        state.MoveToStep(StepIds.SelectAttackers);
+        CombatEngine.DeclareAttackers(state, queue, [dragon.Id]);
+        Drain(state, queue);
+
+        var offer = Assert.IsType<PendingChoice>(state.PendingChoice);
+        Assert.Contains("Breath Weapon 2", offer.Description);
+        EffectInterpreter.AnswerPendingChoice(state, [energy[0].Id]); // only 1 - asked again
+        Drain(state, queue);
+        Assert.Contains("only 1", state.PendingChoice!.Description);
+        EffectInterpreter.AnswerPendingChoice(state, [energy[0].Id, energy[1].Id]);
+        Drain(state, queue);
+
+        Assert.Equal(18, state.PlayerTwo.Life);
+        Assert.Equal(Zone.PrepArea, crab.Zone);
+        Assert.Equal(2, hippo.Damage);
+    }
+
+    [Fact]
+    public void Range_3_Hits_For_3()
+    {
+        var state = NewGame();
+        var queue = new AbilityQueue();
+        var fish = AddDie(state, DiceKingdomConfig.Archerfish.Id, "p1", Zone.FieldZone);
+        fish.GrantedTags.Add(new GrantedTag("Range 3", Duration.EndOfTurn, "p1"));
+        var hippo = AddDie(state, DiceKingdomConfig.Hippopotamus.Id, "p2", Zone.FieldZone);
+        state.MoveToStep(StepIds.SelectAttackers);
+        CombatEngine.DeclareAttackers(state, queue, [fish.Id]);
+        Drain(state, queue);
+
+        Assert.Equal(3, hippo.Damage); // the higher of Range (1) and Range 3
+    }
 }
