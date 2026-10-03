@@ -636,6 +636,16 @@ public static class TurnEngine
         }
         state.DeadlyEngagedDieIds.Clear();
 
+        // Keyword Intimidate - "until end of turn": every Intimidated die,
+        // whoever's, comes back on the face it left on. Not "fielded" (no
+        // On Field trigger, no cost), and it lost its damage and this
+        // turn's modifiers on the way out (EffectInterpreter.MoveToZone).
+        foreach (var die in state.Dice.Where(d => d.Zone == Zone.Intimidated).ToList())
+        {
+            die.Zone = Zone.FieldZone;
+            state.LogEvent(die.ControllerId, (die.CardId is { } cid ? state.CardCatalog[cid].Name : "A Tardigrade") + " returns to the Field.");
+        }
+
         // TURN SUMMARY, Cleanup Step: "Move any unused Action Dice to the
         // Used Pile" and "End turn. Move dice from Out of Play to the
         // Used Pile." NOT the whole Reserve Pool - leftover energy

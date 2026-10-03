@@ -66,6 +66,9 @@ public static class ConditionEvaluator
             state.GetCurrentFace(faceDie) is { } face &&
             face.Kind == c.Kind,
 
+        InZone c => bindings.TryGetValue(c.CheckBinding, out var zoneId) &&
+            state.Dice.FirstOrDefault(d => d.Id == zoneId)?.Zone == c.Zone,
+
         BlockedByAtLeast c => bindings.TryGetValue(c.CheckBinding, out var blockedId) &&
             state.DeclaredBlocks is { } assignment &&
             assignment.BlockersOf(blockedId).Count >= c.N,

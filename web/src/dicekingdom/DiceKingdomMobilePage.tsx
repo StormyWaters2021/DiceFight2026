@@ -770,6 +770,7 @@ function MatCard({
   const used = zone("UsedPile");
   const prep = zone("PrepArea");
   const out = zone("OutOfPlay");
+  const intimidated = zone("Intimidated");
   const bag = zone("Bag");
   const reserve = zone("ReservePool");
   const rolledReserve = reserve.filter(rolled);
@@ -904,6 +905,21 @@ function MatCard({
           />
         ))}
       </div>
+
+      {/* Keyword Intimidate: off the Field (can't block, can't be
+          targeted, auras off) until Clean Up puts it back on the same
+          face - shown dimmed beside the Field it came from, not hidden
+          in a pile, since it's coming straight back. */}
+      {intimidated.length > 0 && (
+        <>
+          <span className="dkm-field-label">Intimidated · back at end of turn</span>
+          <div className="dkm-tile-row wrap dkm-intimidated" data-region={mine ? "intimidated-mine" : "intimidated-opp"}>
+            {intimidated.map((d) => (
+              <DTile key={d.id} die={d} cardsById={cardsById} size={40} mine={mine} />
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }

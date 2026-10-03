@@ -86,6 +86,23 @@ foreach (var champion in config.Champions)
     html.AppendLine("</tbody></table>");
 }
 
+// Characters in the Catalog but on no Champion's pack (2026-10-03) -
+// retired picks and new keyword animals waiting for a fifth Champion.
+// They were invisible here before, so a card could exist with nobody
+// able to see it short of reading the config.
+var benched = catalog.Values
+    .Where(c => c.CardType == CardType.Character && !DiceKingdomConfig.CharactersByChampion.Values.Any(team => team.Contains(c.Id)))
+    .OrderBy(c => c.EnergySymbolIds.FirstOrDefault()).ThenBy(c => c.PurchaseCost).ThenBy(c => c.Name)
+    .ToList();
+if (benched.Count > 0)
+{
+    html.AppendLine("<h2>Not on a team yet</h2>");
+    html.AppendLine("<p class=\"note\">In the card pool but in no Champion's pack, so they don't come up in games.</p>");
+    html.AppendLine("<table><thead><tr><th>Name</th><th>Cost</th><th>Die&nbsp;Limit</th><th>Keywords</th><th>Stats (fielding&nbsp;/&nbsp;ATK&nbsp;/&nbsp;DEF per level)</th><th>Energy faces</th><th>Ability text</th></tr></thead><tbody>");
+    foreach (var card in benched) AppendCardRow(html, card);
+    html.AppendLine("</tbody></table>");
+}
+
 html.AppendLine("<h2>Champion Basic Actions <small>(Global abilities, one per Champion)</small></h2>");
 html.AppendLine("<table><thead><tr><th>Champion</th><th>Name</th><th>Cost</th><th>Die&nbsp;Limit</th><th>Die faces</th><th>Ability text</th></tr></thead><tbody>");
 foreach (var (championId, cardId) in DiceKingdomConfig.ActionByChampion)
@@ -155,12 +172,18 @@ string BuildMarkdown()
         md.AppendLine("| Name | Cost | Die Limit | Keywords | Stats (fielding / ATK / DEF per level) | Energy faces | Ability text |");
         md.AppendLine("|---|:-:|:-:|---|---|---|---|");
         foreach (var cardId in DiceKingdomConfig.CharactersByChampion[champion.Id])
-        {
-            var card = catalog[cardId];
-            var name = card.Subtitle is { } sub ? $"{Md(card.Name)} _({Md(sub)})_" : Md(card.Name);
-            var energy = string.Join("<br>", card.Die.Faces.Where(f => f.Kind == FaceKind.EnergyFace).Select(DescribeEnergy));
-            md.AppendLine($"| {name} | {card.PurchaseCost} | {card.DieLimit} | {string.Join(", ", card.Keywords.Select(Md))} | {DescribeLevels(card)} | {energy} | {Md(card.RawText)} |");
-        }
+            AppendMdRow(md, catalog[cardId]);
+    }
+    if (benched.Count > 0)
+    {
+        md.AppendLine();
+        md.AppendLine("## Not on a team yet");
+        md.AppendLine();
+        md.AppendLine("In the card pool but in no Champion's pack, so they don't come up in games.");
+        md.AppendLine();
+        md.AppendLine("| Name | Cost | Die Limit | Keywords | Stats (fielding / ATK / DEF per level) | Energy faces | Ability text |");
+        md.AppendLine("|---|:-:|:-:|---|---|---|---|");
+        foreach (var card in benched) AppendMdRow(md, card);
     }
     md.AppendLine();
     md.AppendLine("## Champion Basic Actions (Global abilities, one per Champion)");
@@ -180,6 +203,13 @@ string BuildMarkdown()
 
 // Text for a Markdown table cell: pipes escaped, line breaks as <br>.
 static string Md(string s) => s.Replace("|", "\\|").Replace("\r\n", "<br>").Replace("\n", "<br>");
+
+void AppendMdRow(StringBuilder md, CardDef card)
+{
+    var name = card.Subtitle is { } sub ? $"{Md(card.Name)} _({Md(sub)})_" : Md(card.Name);
+    var energy = string.Join("<br>", card.Die.Faces.Where(f => f.Kind == FaceKind.EnergyFace).Select(DescribeEnergy));
+    md.AppendLine($"| {name} | {card.PurchaseCost} | {card.DieLimit} | {string.Join(", ", card.Keywords.Select(Md))} | {DescribeLevels(card)} | {energy} | {Md(card.RawText)} |");
+}
 
 void AppendCardRow(StringBuilder sb, CardDef card)
 {

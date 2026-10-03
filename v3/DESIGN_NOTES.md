@@ -3706,3 +3706,74 @@ Eagle 58.3/58.8). No effect. The Bulwark is one face in six on a die the
 bot mostly spends as energy; the remaining stalls are the Rhinoceros
 walls (Armadillo wins ~8% of games on the turn-cap tiebreak; Armadillo vs
 Owl averages 36 turns, every other pairing 15-24).
+
+## Intimidate and Infiltrate, on two new animals (2026-10-03)
+
+User request: "implement a few more keywords, like Intimidate or
+Infiltrate." Design calls, asked up front:
+
+- **Intimidate: Dice Masters rule, as-is.** When fielded, remove a target
+  opposing creature from the Field until end of turn. Chosen over a
+  simpler "target can't block" version, which would just have been an
+  unrestricted Barn Owl. New `Zone.Intimidated` (appended last). While
+  there the die isn't active, so it can't block, can't be targeted, and
+  its "while active" text is off (tested with Musk Ox's aura). It keeps
+  its face, and `TurnEngine.CleanUp` puts it back on the Field without
+  "fielding" it (no On Field, no cost). It loses damage and this turn's
+  modifiers on the way out.
+- **Infiltrate: Dice Masters rule, as-is** (user: keep the DM ability; it
+  isn't really "safe" from post-block effects, it just moves from the
+  Attack Zone to the Field Zone). When an attacker's lane has no blockers,
+  its controller may return it to the Field and deal the opponent 1 damage
+  instead of its full ATK. In Dice Kingdom the payoff is the body: an
+  unblocked attacker otherwise leaves play. Queued in
+  `CombatEngine.DeclareBlockers` behind the On Block abilities, so it
+  resolves before the Action/Global window, guarded by a new
+  `InZone(AttackZone)` condition in case an On Block ping already KO'd it.
+- **Both are engine keywords** (`src/DiceFight.V2/KeywordAbilities.cs`):
+  the card lists just the keyword, like Deadly. Intimidate's ability comes
+  in through `QueryEngine.AbilitiesOf`, so a granted Intimidate works, and
+  blanking turns it off.
+- **New animals, kept off the current teams** (user: "leave the current
+  teams for now - maybe a fifth Champion once we get enough new
+  abilities"). **Frilled Lizard** (Eye, buy 4, 1/2/4 · 1/3/4 · 2/4/5,
+  Homash 1.38, Intimidate: the threat display) and **Flying Squirrel**
+  (Wing, buy 3, 0/2/2 · 1/3/3 · 1/5/3, Homash 1.64, Infiltrate: glides in,
+  glides back out). Both appear in a new "Not on a team yet" section of the
+  card reference (`tools/CardCatalogDocs`), which never listed benched
+  cards before.
+- Two other evasion ideas from the same talk went to `PARKED_IDEAS.md`
+  (#8 "unblocked bonus", #9 "can't be blocked by anything bigger").
+
+Smaller changes along the way:
+- `MayPay` gained an optional `Prompt`. Infiltrate's offer used to read a
+  bare "You may.", and now says what it's for.
+- The desktop choice panel could not decline a "you may": Confirm stayed
+  disabled until something was picked. That was a real, older bug for
+  every optional choice, not just Infiltrate. It now has a Decline button
+  when `minCount` is 0. Mobile already had Skip.
+- `MoveToZone` clears `Lane`/`AttackOrder` when a die leaves the Attack
+  Zone by any route.
+- Readable log lines: "Frilled Lizard intimidates Box Turtle off the Field
+  until end of turn.", "Flying Squirrel slips back to the Field."
+- Bot: takes Infiltrate when the full hit is 2 or less and not lethal (or
+  when 1 damage is itself lethal). Intimidate uses the existing
+  harmful-target scoring.
+- UI: Intimidated dice show dimmed under each Field ("Intimidated · back
+  at end of turn") on both pages. New SVG icons for both animals.
+
+Simulator (300 games/matchup, powers off), like-for-like what-if swaps:
+
+| Swap | Champion win% before -> after |
+|---|---|
+| Eagle: Barn Swallow -> Flying Squirrel | 57.3 -> 62.3 (vs Wolf 61 -> 72.5) |
+| Owl: Hyena -> Frilled Lizard | 43.1 -> 45.1 |
+
+Flying Squirrel looks a little strong for its slot. Coming home keeps the
+body every time the lane goes unblocked, and the Homash model doesn't
+price that. Worth a stat trim (e.g. L3 5/3 -> 4/3) before it joins a
+team. Frilled Lizard sits about where Hyena did. Verified in the browser
+by having both seats play bot-vs-bot through the real API until each
+keyword came up (`~/.devtools/playwright/keyword-check.js`, with the
+cards swapped into packs locally for the run only), then screenshotting
+mobile and desktop.

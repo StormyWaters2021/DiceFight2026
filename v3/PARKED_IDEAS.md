@@ -40,6 +40,17 @@ core loop (Champion / Tardigrade / Energy / Affiliation, see
 7. **Gambler die.** A free purchase, rolled immediately on acquisition, with
    a mixed table of good and bad effects.
 
+8. **"Unblocked bonus" evasion ability** (2026-10-03, from the Infiltrate
+   design talk). When unblocked, the creature deals its normal damage AND
+   draws a die into your Prep Area (Ricochet's follow-up folded in).
+   Easy to price, rewards evasive attackers. The user liked it for some
+   future character; Infiltrate itself kept the Dice Masters rule.
+
+9. **"Can't be blocked by anything bigger"** (2026-10-03, same talk). A
+   sneaky-small-animal evasion keyword: can't be blocked by creatures
+   whose DEF is higher than its ATK. Also earmarked for a future
+   character.
+
 ## Tension flagged alongside these
 
 If it gets easier to field chump blockers — and the Tardigrade L1/L2 faces

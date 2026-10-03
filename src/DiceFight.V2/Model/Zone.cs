@@ -32,4 +32,10 @@ public enum Zone
     DiceFromBag,
     DiceFromPrep,
     Unpurchased,
+    // Keyword Intimidate (Dice Kingdom, 2026-10-03) - "remove target
+    // opposing creature from the Field Zone until end of turn". Not
+    // active, not targetable, no "while active" text; TurnEngine.CleanUp
+    // puts every die here back in the Field Zone on the face it left on.
+    // Appended last so existing zone ordinals don't shift.
+    Intimidated,
 }

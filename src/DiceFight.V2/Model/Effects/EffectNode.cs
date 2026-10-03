@@ -133,7 +133,10 @@ public sealed record Sequence(IReadOnlyList<EffectNode> Steps) : EffectNode;
 // never collapsed to "always happens." AnsweredBy (Finding 14) routes
 // the offer to the opponent instead of the ability's own controller
 // (Black Widow "Tsarina").
-public sealed record MayPay(EffectNode? Cost, EffectNode Then, TargetOwnership AnsweredBy = TargetOwnership.Own) : EffectNode;
+// Prompt (2026-10-03) says what the yes/no is FOR - without it the
+// offer reads a bare "You may.", which says nothing about Infiltrate's
+// "return to the Field and deal 1 damage" when it pops up mid-combat.
+public sealed record MayPay(EffectNode? Cost, EffectNode Then, TargetOwnership AnsweredBy = TargetOwnership.Own, string? Prompt = null) : EffectNode;
 
 public sealed record Conditional(Condition When, EffectNode Then, EffectNode? Else = null) : EffectNode;
 

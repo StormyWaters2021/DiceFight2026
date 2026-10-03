@@ -13,8 +13,9 @@ namespace DiceFight.V2;
 // (Phase 5's per-die grants) + CombatRules (Phase 6's continuous grants) -
 // both of which get their first real consumer here.
 //
-// Deliberately NOT ported: v1's Range/Infiltrate/Tag Out/Energy Drain/
-// Deadly/Call Out/Obscure/Regenerate/Retaliation keywords, and every
+// Deliberately NOT ported: v1's Range/Tag Out/Energy Drain/
+// Call Out/Obscure/Regenerate/Retaliation keywords (Deadly and
+// Infiltrate have since been built for Dice Kingdom), and every
 // card-specific Grants* combat hook (Blob's Sidekick-return, Deathbird's
 // damage-on-high-defense-KO, Lilandra's reroll-to-Prep-Area, etc.) - none
 // of those are CombatFlag/CombatRule-shaped grants in the closed
@@ -148,6 +149,18 @@ public static class CombatEngine
 
         // "Assign blockers. Resolve effects that occur due to blocking."
         EnterStep(state, queue, StepIds.BlockEffects);
+
+        // Keyword Infiltrate - queued behind the On Block abilities just
+        // enqueued, so it resolves before anyone gets the Action/Global
+        // Window. Unblocked means the whole lane is unblocked (a lane is
+        // the unit of combat).
+        foreach (var laneGroup in AttackersByLane(state))
+        {
+            if (LaneBlockerIds(assignment, laneGroup).Count > 0) continue;
+            foreach (var attacker in laneGroup.Where(a => QueryEngine.GetKeywords(state, a).Contains("Infiltrate")))
+                queue.Enqueue(attacker.Id, attacker.ControllerId, TriggerKind.DieBlocks, KeywordAbilities.InfiltrateOffer);
+        }
+
         EnterStep(state, queue, StepIds.ActionGlobalWindow);
     }
 

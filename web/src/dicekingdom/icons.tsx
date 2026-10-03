@@ -795,6 +795,40 @@ function SwiftIcon(props: IconProps) {
   );
 }
 
+// Head-on with the frill fanned out - the threat display Intimidate is.
+function FrilledLizardIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path fill="currentColor" d="M32,42 L5,30 C6,14 20,6 32,6 C44,6 58,14 59,30 Z" />
+      <g stroke={CREAM} strokeWidth={1.8} strokeLinecap="round" opacity={0.75}>
+        <path d="M32,40 L11,24" />
+        <path d="M32,40 L20,13" />
+        <path d="M32,40 L32,10" />
+        <path d="M32,40 L44,13" />
+        <path d="M32,40 L53,24" />
+      </g>
+      <ellipse cx={32} cy={44} rx={9} ry={8} fill="currentColor" />
+      <path d="M26,49 Q32,54 38,49" stroke={CREAM} strokeWidth={2} fill="none" strokeLinecap="round" />
+      <circle cx={28} cy={41} r={1.8} fill={CREAM} />
+      <circle cx={36} cy={41} r={1.8} fill={CREAM} />
+    </Svg>
+  );
+}
+
+// Gliding, membrane spread, seen from below.
+function FlyingSquirrelIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path fill="currentColor" d="M10,22 C20,26 44,26 54,22 L50,42 C42,38 22,38 14,42 Z" />
+      <circle cx={32} cy={20} r={7} fill="currentColor" />
+      <path fill="currentColor" d="M26,15 L25,8 L30,13 Z M38,15 L39,8 L34,13 Z" />
+      <ellipse cx={32} cy={50} rx={5} ry={10} fill="currentColor" />
+      <circle cx={29.5} cy={19} r={1.6} fill={CREAM} />
+      <circle cx={34.5} cy={19} r={1.6} fill={CREAM} />
+    </Svg>
+  );
+}
+
 function CuttlefishIcon(props: IconProps) {
   return (
     <Svg {...props}>
@@ -930,6 +964,7 @@ export const CHARACTER_ICONS: Record<string, (p: IconProps) => ReactElement> = {
   "DK-WING-07": GreyhoundIcon,
   "DK-WING-08": AlbatrossIcon,
   "DK-WING-09": SwiftIcon,
+  "DK-WING-10": FlyingSquirrelIcon,
   "DK-EYE-01": BarnOwlIcon,
   "DK-EYE-02": HyenaIcon,
   "DK-EYE-03": AnglerfishIcon,
@@ -939,4 +974,5 @@ export const CHARACTER_ICONS: Record<string, (p: IconProps) => ReactElement> = {
   "DK-EYE-07": ElephantIcon,
   "DK-EYE-08": FoxIcon,
   "DK-EYE-09": CuttlefishIcon,
+  "DK-EYE-10": FrilledLizardIcon,
 };

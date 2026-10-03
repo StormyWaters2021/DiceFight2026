@@ -568,6 +568,39 @@ public static class DiceKingdomConfig
             new SpinToEnergy(new TargetFilter(Kind: TargetKind.CharacterDie, Ownership: TargetOwnership.Opposing, Stat: new StatThreshold(StatKind.Level, Min: 1, Max: 1))))],
         Continuous: []);
 
+    // --- New keyword animals (2026-10-03, user call): in the Catalog, on
+    // no Champion's team yet - "leave the current teams for now; maybe a
+    // fifth Champion once we get enough new abilities." Reach them in the
+    // simulator with SIM_SWAP. Both keywords are engine-built
+    // (KeywordAbilities), so the cards carry no Abilities of their own,
+    // same as Opossum's Deadly.
+
+    // Intimidate - a frill display that scares a blocker off the board
+    // for the turn. Priced in the medium band (~1.4, v3/COST_MODEL.md):
+    // stronger than Barn Owl's "weak creature can't block" (no ATK limit,
+    // and the target's "while active" text is off too), short of a KO.
+    public static readonly CardDef FrilledLizard = new(
+        Id: "DK-EYE-10", Name: "Frilled Lizard", Subtitle: null, Set: "Dice Kingdom", CardType: CardType.Character,
+        PurchaseCost: 4, EnergySymbolIds: ["Eye"],
+        Die: CharacterDie("DK-EYE-10Die", energyType: "Eye", (1, 2, 4), (1, 3, 4), (2, 4, 5)),
+        DieLimit: 4, Affiliations: [], Keywords: ["Intimidate"],
+        RawText: "Intimidate (when fielded, remove a target opposing creature from the Field until end of turn).",
+        Abilities: [],
+        Continuous: []);
+
+    // Infiltrate - glides in, glides back out. Keyword-only band (~1.65):
+    // an unblocked attacker normally hits and then leaves play, so coming
+    // home for 1 damage keeps the body, but it trades away the rest of
+    // its ATK. ATK leans high (Wing) so that trade is a real choice.
+    public static readonly CardDef FlyingSquirrel = new(
+        Id: "DK-WING-10", Name: "Flying Squirrel", Subtitle: null, Set: "Dice Kingdom", CardType: CardType.Character,
+        PurchaseCost: 3, EnergySymbolIds: ["Wing"],
+        Die: CharacterDie("DK-WING-10Die", energyType: "Wing", (0, 2, 2), (1, 3, 3), (1, 5, 3)),
+        DieLimit: 4, Affiliations: [], Keywords: ["Infiltrate"],
+        RawText: "Infiltrate (when unblocked, you may return it to the Field and deal 1 damage to the opponent instead).",
+        Abilities: [],
+        Continuous: []);
+
     // --- Basic Actions: one per Champion (2026-09-26, user call). Rather
     // than each team drafting two Basic Actions, each Champion brings
     // one, and both are shared (community, rule 2.1.2) - either player
@@ -734,6 +767,7 @@ public static class DiceKingdomConfig
         Hippopotamus, MuskOx, Pangolin, HermitCrab, Opossum, QueenTermite, Rhinoceros, BoxTurtle,
         Osprey, BarnSwallow, Hummingbird, MountainGoat, MonarchButterfly, HomingPigeon, Greyhound, Phoenix, Swift,
         BarnOwl, Hyena, Anglerfish, Cowbird, Magpie, Basilisk, Elephant, Fox, Cuttlefish,
+        FrilledLizard, FlyingSquirrel,
         AngerIssues, Distraction, Resurrection, Mutation, Archnemesis,
     }.ToDictionary(c => c.Id);
 
@@ -829,6 +863,7 @@ public static class DiceKingdomConfig
             new SymbolDef("Wild", IsWild: true),
         ],
         Keywords: [new KeywordDef("Fast"), new KeywordDef("Overcrush"), new KeywordDef("Deadly"),
+            new KeywordDef("Intimidate"), new KeywordDef("Infiltrate"),
             new KeywordDef("On Field"), new KeywordDef("On Attack"), new KeywordDef("On Block"), new KeywordDef("Awaken")],
         Rules: new RulesConfig(
             StartingLife: 20,

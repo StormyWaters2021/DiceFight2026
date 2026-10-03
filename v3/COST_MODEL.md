@@ -35,7 +35,11 @@ The 128 Dice Masters characters in the DPS catalog, under the same formula: mean
 
 **Deadly**: a die engaged with a Deadly die (blocking it or blocked by it) is KO'd at Clean Up, even if the Deadly die dealt no damage or left combat. Recorded at declare-blockers, resolved in `TurnEngine.CleanUp`. On Opossum.
 
-**Fast** and **Overcrush** (both in `CombatEngine`): Wolverine (Fast + 1 direct), Peregrine Falcon (Fast + 3 dmg), Greyhound (Fast), Grizzly Bear (Overcrush), Tiger (Overcrush + 2 direct). Vanilla: Elephant, Hippopotamus. Also On Block: Box Turtle. Not yet engine-supported: Regenerate, Retaliation, Swarm, Range/Infiltrate (UI already checks these names), Global abilities.
+**Intimidate** (2026-10-03): when fielded, remove a target opposing creature from the Field until end of turn - it waits in `Zone.Intimidated` (can't block, can't be targeted, its "while active" text is off) and `TurnEngine.CleanUp` returns it on the same face. Engine-built: `KeywordAbilities.Intimidate`, folded into `QueryEngine.AbilitiesOf` for any die with the keyword, so the card text is just the keyword. On Frilled Lizard (catalog only).
+
+**Infiltrate** (2026-10-03, Dice Masters rule kept as-is): when an attacker's whole lane is unblocked, its controller may return it to the Field and deal the opponent 1 damage instead of its full ATK. Queued in `CombatEngine.DeclareBlockers` after the On Block abilities, so it resolves before the Action/Global window; back on the Field it is still targetable. Its value here is the body: an unblocked attacker otherwise leaves play. On Flying Squirrel (catalog only).
+
+**Fast** and **Overcrush** (both in `CombatEngine`): Wolverine (Fast + 1 direct), Peregrine Falcon (Fast + 3 dmg), Greyhound (Fast), Grizzly Bear (Overcrush), Tiger (Overcrush + 2 direct). Vanilla: Elephant, Hippopotamus. Also On Block: Box Turtle. Not yet engine-supported: Regenerate, Retaliation, Swarm, Range.
 
 ## Current roster
 
@@ -45,6 +49,7 @@ The 128 Dice Masters characters in the DPS catalog, under the same formula: mean
 | Elephant | 6 | 1/5/7 · 2/6/9 · 3/7/10 | 1.83 | Vanilla - no ability. |
 | Greyhound | 4 | 1/3/4 · 1/5/5 · 2/5/5 | 1.69 | Fast. |
 | Grizzly Bear | 5 | 1/4/5 · 2/5/6 · 2/6/7 | 1.65 | Overcrush. |
+| Flying Squirrel *(no team yet)* | 3 | 0/2/2 · 1/3/3 · 1/5/3 | 1.64 | Infiltrate. |
 | Homing Pigeon | 4 | 1/3/3 · 1/4/5 · 2/5/6 | 1.62 | On Field: gain 2 life. |
 | Swift | 2 | 0/1/2 · 1/2/2 · 1/3/3 | 1.62 | On Attack: draw a die into your Prep Area. |
 | Cowbird | 3 | 1/1/4 · 1/2/5 · 2/3/6 | 1.62 | Awaken: move an opposing die from their Prep Area back to their Bag. |
@@ -63,6 +68,7 @@ The 128 Dice Masters characters in the DPS catalog, under the same formula: mean
 | Mountain Goat | 3 | 1/1/2 · 1/2/3 · 1/4/5 | 1.42 | On Attack: draw a die into your Prep Area. |
 | Magpie | 3 | 1/0/3 · 1/1/4 · 1/3/6 | 1.42 | On Field: draw a die into your Prep Area. |
 | Osprey | 4 | 1/2/3 · 1/3/4 · 2/5/5 | 1.38 | On Attack: move a die from your discard to your Prep Area. |
+| Frilled Lizard *(no team yet)* | 4 | 1/2/4 · 1/3/4 · 2/4/5 | 1.38 | Intimidate. |
 | Hyena | 4 | 1/2/4 · 1/2/5 · 2/3/6 | 1.38 | Gets +1 ATK for each weak opposing creature (2 DEF or less). |
 | Albatross | 5 | 1/3/3 · 1/4/5 · 2/5/6 | 1.37 | On Field: deal 2 damage to a target creature. |
 | Raven | 5 | 1/2/5 · 2/3/6 · 2/4/7 | 1.35 | On Field: deal 2 damage to a target creature. |

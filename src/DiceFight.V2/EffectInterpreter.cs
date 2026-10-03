@@ -202,9 +202,10 @@ public static class EffectInterpreter
         ctx.State.PendingChoice = new PendingChoice
         {
             ControllerId = answeredBy,
-            Description = "You may.",
+            Description = n.Prompt is { } prompt ? $"{SourceName(ctx)}: {prompt}" : "You may.",
             CandidateIds = [standInId],
             Intent = ChoiceIntent.Beneficial,
+            Effect = n,
             MinCount = 0,
             MaxCount = 1,
             Resolve = chosen =>
@@ -402,8 +403,15 @@ public static class EffectInterpreter
         {
             foreach (var id in ids)
             {
-                LogAbility(ctx, $"{SourceName(ctx)} moves {TargetName(ctx.State, id)} to {n.ToZone}.");
-                MoveToZone(ctx.State, FindDie(ctx.State, id), n.ToZone);
+                var die = FindDie(ctx.State, id);
+                LogAbility(ctx, (n.ToZone, die.Zone) switch
+                {
+                    (Zone.Intimidated, _) => $"{SourceName(ctx)} intimidates {TargetName(ctx.State, id)} off the Field until end of turn.",
+                    (Zone.FieldZone, Zone.AttackZone) when ctx.Bindings.GetValueOrDefault("self") == id =>
+                        $"{SourceName(ctx)} slips back to the Field.",
+                    _ => $"{SourceName(ctx)} moves {TargetName(ctx.State, id)} to {n.ToZone}.",
+                });
+                MoveToZone(ctx.State, die, n.ToZone);
             }
             onComplete();
         });
@@ -999,12 +1007,22 @@ public static class EffectInterpreter
     // ReservePool) is the first real user), it keeps the face it just
     // rolled - the whole point of "energy faces are sent to the Reserve
     // Pool" is that the die is still usable there.
-    private static bool ShowsFace(Zone zone) => zone is Zone.FieldZone or Zone.AttackZone or Zone.ReservePool;
+    // Intimidated keeps its face: the die comes back on the same level it
+    // left on (TurnEngine.CleanUp).
+    private static bool ShowsFace(Zone zone) => zone is Zone.FieldZone or Zone.AttackZone or Zone.ReservePool or Zone.Intimidated;
 
     private static void MoveToZone(GameState state, DieInstance die, Zone toZone)
     {
         var wasActive = die.Zone is Zone.FieldZone or Zone.AttackZone;
         var enteringActive = toZone is Zone.FieldZone or Zone.AttackZone;
+        // Leaving the Attack Zone by any route (Infiltrate, Distraction-
+        // style "back to the Field") drops the lane, or the die would
+        // still draw in a lane until ReturnToField swept it.
+        if (die.Zone == Zone.AttackZone && toZone != Zone.AttackZone)
+        {
+            die.Lane = null;
+            die.AttackOrder = null;
+        }
         die.Zone = toZone;
 
         if (wasActive && !enteringActive)

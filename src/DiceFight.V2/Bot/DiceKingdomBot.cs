@@ -731,6 +731,16 @@ public static class DiceKingdomBot
         // Picks the intent alone can't judge (PendingChoice.Effect).
         switch (pending.Effect)
         {
+            // Infiltrate: 1 damage and the die stays home, or its full ATK
+            // and it leaves play. Stay home unless the full hit is lethal
+            // (and 1 isn't) or the full hit is big enough to be worth a die.
+            case MayPay offer when offer == KeywordAbilities.InfiltrateChoice:
+                var infiltrator = state.Dice.First(d => d.Id == pending.CandidateIds[0]);
+                var oppLife = state.GetPlayer(state.OpponentOf(botId)).Life;
+                var atk = QueryEngine.GetAttack(state, infiltrator);
+                var goHome = oppLife <= 1 || (atk < oppLife && atk <= 2);
+                return new(BotActionKind.ResolvePendingChoice, goHome ? "Infiltrate - back to the Field." : "Infiltrate declined - full hit.")
+                    { DieIds = goHome ? [infiltrator.Id] : [] };
             case GrantTag { Tags.Count: 0 } when BestFight(state, botId) is { } fight && pending.CandidateIds.Contains(fight.Mine.Id):
                 return new(BotActionKind.ResolvePendingChoice, "Archnemesis: my fighter.") { DieIds = [fight.Mine.Id] };
             case DealDamage { Amount: StatOf } when BestFight(state, botId) is { } fight && pending.CandidateIds.Contains(fight.Theirs.Id):

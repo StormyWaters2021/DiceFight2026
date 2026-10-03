@@ -1,6 +1,6 @@
 # Dice Kingdom — Card Reference
 
-_Generated 2026-09-30 from `src/DiceFight.V2/Data/DiceKingdomConfig.cs` by `tools/CardCatalogDocs` — every field is read straight from the live CardDef/ChampionDef records. Re-run the tool after any card change; don't hand-edit this file._
+_Generated 2026-10-03 from `src/DiceFight.V2/Data/DiceKingdomConfig.cs` by `tools/CardCatalogDocs` — every field is read straight from the live CardDef/ChampionDef records. Re-run the tool after any card change; don't hand-edit this file._
 
 ## Wolf (Claw)
 
@@ -105,6 +105,18 @@ _Passive: Foresight - once per turn during your Main Step, reroll one die in you
 | Queen Termite | 4 | 4 |  | L1: 1&#9889; / 2A / 4D<br>L2: 1&#9889; / 3A / 5D<br>L3: 2&#9889; / 3A / 6D | 2 Shell<br>2 Shell<br>1 Shell | While active, your creatures get +1 ATK. |
 | Stoat | 4 | 4 | On Field | L1: 0&#9889; / 2A / 2D<br>L2: 1&#9889; / 4A / 4D<br>L3: 2&#9889; / 5A / 6D | 2 Claw<br>2 Claw<br>1 Claw | On Field: deal 1 damage to the opponent directly. |
 | Homing Pigeon | 4 | 4 | On Field | L1: 1&#9889; / 3A / 3D<br>L2: 1&#9889; / 4A / 5D<br>L3: 2&#9889; / 5A / 6D | 2 Wing<br>2 Wing<br>1 Wing | On Field: gain 2 life. |
+
+## Not on a team yet
+
+In the card pool but in no Champion's pack, so they don't come up in games.
+
+| Name | Cost | Die Limit | Keywords | Stats (fielding / ATK / DEF per level) | Energy faces | Ability text |
+|---|:-:|:-:|---|---|---|---|
+| Orca | 5 | 4 | On Field | L1: 1&#9889; / 2A / 3D<br>L2: 1&#9889; / 4A / 4D<br>L3: 2&#9889; / 5A / 5D | 2 Claw<br>2 Claw<br>1 Claw | On Field: KO a target creature. |
+| Frilled Lizard | 4 | 4 | Intimidate | L1: 1&#9889; / 2A / 4D<br>L2: 1&#9889; / 3A / 4D<br>L3: 2&#9889; / 4A / 5D | 2 Eye<br>2 Eye<br>1 Eye | Intimidate (when fielded, remove a target opposing creature from the Field until end of turn). |
+| Anglerfish | 6 | 4 | On Attack | L1: 1&#9889; / 2A / 5D<br>L2: 2&#9889; / 4A / 6D<br>L3: 3&#9889; / 6A / 8D | 2 Eye<br>2 Eye<br>1 Eye | On Attack: every weak opposing creature (3 DEF or less) can't block this turn. |
+| Flying Squirrel | 3 | 4 | Infiltrate | L1: 0&#9889; / 2A / 2D<br>L2: 1&#9889; / 3A / 3D<br>L3: 1&#9889; / 5A / 3D | 2 Wing<br>2 Wing<br>1 Wing | Infiltrate (when unblocked, you may return it to the Field and deal 1 damage to the opponent instead). |
+| Monarch Butterfly | 4 | 4 |  | L1: 0&#9889; / 2A / 2D<br>L2: 1&#9889; / 3A / 4D<br>L3: 2&#9889; / 4A / 5D | 2 Wing<br>2 Wing<br>1 Wing | Gets +2 ATK for each of your creatures waiting in your Prep Area. |
 
 ## Champion Basic Actions (Global abilities, one per Champion)
 

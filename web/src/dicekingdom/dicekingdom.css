@@ -2620,6 +2620,11 @@
 .dk-mobile .dkm-tile-row.wrap {
   flex-wrap: wrap;
 }
+/* Keyword Intimidate - off the Field until Clean Up: dimmed, not gone. */
+.dk-mobile .dkm-tile-row.dkm-intimidated {
+  opacity: 0.55;
+  filter: grayscale(0.5);
+}
 .dk-mobile .dkm-tile {
   padding: 0;
   border-radius: 8px;
@@ -3755,4 +3760,13 @@
 .dicekingdom .dk-gameover-life {
   margin: 0 0 16px;
   opacity: 0.85;
+}
+
+/* Keyword Intimidate (desktop) - same dimmed treatment as mobile's. */
+.dicekingdom .dk-intimidated {
+  margin-top: 6px;
+}
+.dicekingdom .dk-intimidated .dierow {
+  opacity: 0.55;
+  filter: grayscale(0.5);
 }

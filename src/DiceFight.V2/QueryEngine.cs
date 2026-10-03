@@ -361,6 +361,11 @@ public static class QueryEngine
         }
 
         foreach (var granted in die.GrantedAbilities) yield return granted.Ability;
+
+        // A keyword's built-in ability (KeywordAbilities) - printed or
+        // granted keyword alike. Blanked with the rest of the card text.
+        if (AbilitiesActive(state, die))
+            foreach (var ability in KeywordAbilities.For(GetKeywords(state, die))) yield return ability;
     }
 
     /// <summary>

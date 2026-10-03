@@ -47,7 +47,7 @@ const EMPTY_SELECTION: Selection = { primary: null, secondary: [] };
 // before it left a rolled zone. Gating this by zone rather than trusting
 // effectiveAttack directly is what fixes a spent/KO'd die still showing
 // its last rolled stats in the Used Pile.
-const ROLLED_ZONES = new Set(["ReservePool", "PrepArea", "FieldZone", "AttackZone"]);
+const ROLLED_ZONES = new Set(["ReservePool", "PrepArea", "FieldZone", "AttackZone", "Intimidated"]);
 // Used Pile/Out of Play tiles show only the card/Tardigrade icon (see
 // DieTile's own remarks) - shared here so groupDice can group them by
 // that same identity alone, ignoring whatever face they happened to be
@@ -1134,6 +1134,7 @@ export function DiceKingdomPage() {
     const prep = diceFor(playerId, "PrepArea");
     const used = diceFor(playerId, "UsedPile");
     const outOfPlay = diceFor(playerId, "OutOfPlay");
+    const intimidated = diceFor(playerId, "Intimidated");
     const bag = diceFor(playerId, "Bag");
     const drawn = diceFor(playerId, "DiceFromBag");
     const carried = diceFor(playerId, "DiceFromPrep");
@@ -1317,6 +1318,17 @@ export function DiceKingdomPage() {
             );
           })}
         </div>
+        {/* Keyword Intimidate - back on the same face at Clean Up. */}
+        {intimidated.length > 0 && (
+          <div className="dk-intimidated">
+            <span className="zone-note">Intimidated · back at end of turn</span>
+            <div className="dierow">
+              {intimidated.map((d) => (
+                <DieTile key={d.id} die={d} zone="Intimidated" cardsById={cardsById} accent={accent} mine={playerId === you} />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     );
 
@@ -1667,6 +1679,7 @@ export function DiceKingdomPage() {
           nameCard={game.pendingChoice.intent === "NameCard"}
           candidateIds={game.pendingChoice.candidateIds}
           max={game.pendingChoice.maxCount}
+          min={game.pendingChoice.minCount}
           dice={game.dice}
           cardsById={cardsById}
           onSubmit={(ids) => run(() => api.resolvePendingChoice(game.gameId, ids))}
@@ -1998,6 +2011,7 @@ function PendingChoiceChips({
   nameCard = false,
   candidateIds,
   max,
+  min,
   dice,
   cardsById,
   onSubmit,
@@ -2006,6 +2020,8 @@ function PendingChoiceChips({
   nameCard?: boolean;
   candidateIds: string[];
   max: number;
+  /** 0 for a "you may" offer (Infiltrate) - confirming with nothing picked declines it. */
+  min: number;
   dice: Die[];
   cardsById: Map<string, { name: string }>;
   onSubmit: (ids: string[]) => void;
@@ -2039,9 +2055,14 @@ function PendingChoiceChips({
           );
         })}
       </div>
-      <button className="btn" disabled={picked.length === 0} onClick={() => onSubmit(picked)}>
+      <button className="btn" disabled={picked.length < Math.max(1, min)} onClick={() => onSubmit(picked)}>
         Confirm Choice
       </button>
+      {min === 0 && picked.length === 0 && (
+        <button className="btn" onClick={() => onSubmit([])}>
+          Decline
+        </button>
+      )}
     </>
   );
 }

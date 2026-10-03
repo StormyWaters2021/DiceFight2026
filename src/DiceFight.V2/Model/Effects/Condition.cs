@@ -46,3 +46,10 @@ public sealed record OnFaceKind(FaceKind Kind, string CheckBinding = "self") : C
 // concept (CombatEngine's own LaneBlockerIds) this condition does not
 // reach.
 public sealed record BlockedByAtLeast(int N, string CheckBinding = "self") : Condition;
+
+// Keyword Infiltrate (2026-10-03) - "is the checked die still in this
+// zone." Self/Bound targets skip the zone scan entirely (TargetResolver),
+// so nothing else can ask whether a queued offer's own die is still
+// where the offer assumed it was - an On Block ping that resolves first
+// can KO an Infiltrate attacker before its offer comes up.
+public sealed record InZone(Zone Zone, string CheckBinding = "self") : Condition;
