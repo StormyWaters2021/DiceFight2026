@@ -49,7 +49,6 @@ The 128 Dice Masters characters in the DPS catalog, under the same formula: mean
 | Elephant | 6 | 1/5/7 · 2/6/9 · 3/7/10 | 1.83 | Vanilla - no ability. |
 | Greyhound | 4 | 1/3/4 · 1/5/5 · 2/5/5 | 1.69 | Fast. |
 | Grizzly Bear | 5 | 1/4/5 · 2/5/6 · 2/6/7 | 1.65 | Overcrush. |
-| Flying Squirrel *(no team yet)* | 3 | 0/2/2 · 1/3/3 · 1/5/3 | 1.64 | Infiltrate. |
 | Homing Pigeon | 4 | 1/3/3 · 1/4/5 · 2/5/6 | 1.62 | On Field: gain 2 life. |
 | Swift | 2 | 0/1/2 · 1/2/2 · 1/3/3 | 1.62 | On Attack: draw a die into your Prep Area. |
 | Cowbird | 3 | 1/1/4 · 1/2/5 · 2/3/6 | 1.62 | Awaken: move an opposing die from their Prep Area back to their Bag. |
@@ -62,6 +61,7 @@ The 128 Dice Masters characters in the DPS catalog, under the same formula: mean
 | Barn Swallow | 3 | 0/2/2 · 1/2/3 · 2/4/5 | 1.50 | Awaken: draw a die into your Prep Area. |
 | Cuttlefish | 2 | 0/0/3 · 1/1/3 · 1/1/4 | 1.50 | On Attack: spin a target opposing level 1 creature to an energy face. |
 | Fox | 5 | 1/2/5 · 2/3/6 · 2/5/8 | 1.45 | While active, your creatures get +1 DEF. |
+| Flying Squirrel *(no team yet)* | 3 | 0/2/2 · 1/3/3 · 1/4/2 | 1.45 | Infiltrate. (Was 1/5/3 at L3, Homash 1.64 - trimmed 2026-10-03, keeping the body is worth more than the formula sees.) |
 | Musk Ox | 4 | 1/2/4 · 1/3/5 · 2/3/6 | 1.44 | While active, your creatures get +1 DEF. |
 | Queen Termite | 4 | 1/2/4 · 1/3/5 · 2/3/6 | 1.44 | While active, your creatures get +1 ATK. |
 | Mongoose | 3 | 0/2/2 · 1/2/3 · 2/4/4 | 1.42 | Awaken: deal 2 damage to a target creature. |

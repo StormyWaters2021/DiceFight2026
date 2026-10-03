@@ -3777,3 +3777,18 @@ by having both seats play bot-vs-bot through the real API until each
 keyword came up (`~/.devtools/playwright/keyword-check.js`, with the
 cards swapped into packs locally for the run only), then screenshotting
 mobile and desktop.
+
+### Flying Squirrel trimmed: L3 5/3 -> 4/2 (2026-10-03)
+
+User call, after the simulator showed the first pass lifting Golden Eagle
+about 5 points: lower the ATK, "might lower D by one as well, as that
+makes attacking and trying to get the Infiltrate more of a risk tradeoff
+as the die is also easier to KO." Read as the L3 face only (taking a point
+off every level would land it at Homash 1.27, strong-ability pricing for a
+keyword-only card). Now 0/2/2 · 1/3/3 · 1/4/2, Homash 1.45.
+
+Same what-if swap (Eagle: Barn Swallow -> Flying Squirrel, 300 games per
+matchup, powers off): Eagle 57.3% baseline -> 62.3% first pass -> 60.0%
+now. vs Wolf: 61.2 -> 72.5 -> 67.7. Still a modest upgrade over Barn
+Swallow, inside the range where a fifth Champion's own pack would decide
+whether it needs more.

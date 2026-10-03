@@ -588,14 +588,17 @@ public static class DiceKingdomConfig
         Abilities: [],
         Continuous: []);
 
-    // Infiltrate - glides in, glides back out. Keyword-only band (~1.65):
-    // an unblocked attacker normally hits and then leaves play, so coming
-    // home for 1 damage keeps the body, but it trades away the rest of
-    // its ATK. ATK leans high (Wing) so that trade is a real choice.
+    // Infiltrate - glides in, glides back out. An unblocked attacker
+    // normally hits and then leaves play, so coming home for 1 damage
+    // keeps the body - worth more than the Homash model prices it (first
+    // pass, 1/5/3 at L3 and Homash 1.64, lifted Golden Eagle ~5 points in
+    // the simulator). Trimmed 2026-10-03 to 1/4/2 (Homash 1.45): ATK still
+    // leans high (Wing) so the Infiltrate trade is a real choice, and the
+    // low DEF makes swinging for it a risk - it's easy to KO if blocked.
     public static readonly CardDef FlyingSquirrel = new(
         Id: "DK-WING-10", Name: "Flying Squirrel", Subtitle: null, Set: "Dice Kingdom", CardType: CardType.Character,
         PurchaseCost: 3, EnergySymbolIds: ["Wing"],
-        Die: CharacterDie("DK-WING-10Die", energyType: "Wing", (0, 2, 2), (1, 3, 3), (1, 5, 3)),
+        Die: CharacterDie("DK-WING-10Die", energyType: "Wing", (0, 2, 2), (1, 3, 3), (1, 4, 2)),
         DieLimit: 4, Affiliations: [], Keywords: ["Infiltrate"],
         RawText: "Infiltrate (when unblocked, you may return it to the Field and deal 1 damage to the opponent instead).",
         Abilities: [],
