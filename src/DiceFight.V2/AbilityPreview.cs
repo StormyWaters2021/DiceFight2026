@@ -45,6 +45,7 @@ public static class AbilityPreview
         DealDamage n => n.Target,
         Ko n => n.Target,
         MoveDie n => n.Target,
+        Sacrifice n => n.Target,
         FieldDie n => n.Target,
         Reroll n => n.Target,
         Spin n => n.Target,

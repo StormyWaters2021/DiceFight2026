@@ -3861,3 +3861,77 @@ UI:
   bot-driven API run until an Attune choice and an Obscure trigger came
   up (`keyword-check.js`, now with `WANT`/`CHAMPS` env vars), then
   mobile + desktop screenshots.
+
+## Seven more keywords: Energize, Energy Drain, Tag Out, Sacrifice, Range, Aftershock, Breath Weapon (2026-10-03)
+
+User's list, with the instruction to use the Dice Masters rules
+throughout. Two calls asked up front:
+- **Breath Weapon's payment: pick the dice.** You tap Reserve dice, or
+  pick none to decline. Paid like a Global.
+- **Open-ended effects: DM-style defaults.** Aftershock deals 2 to a target
+  character die; Energize deals 2 to a target character die or the
+  opponent; Sacrifice is On Field, sacrifice one of your creatures to deal
+  its ATK to a target creature.
+
+All seven are on new animals, still off the teams: Firefly (Energize,
+Wing), Leech (Energy Drain, Shell), Meerkat (Tag Out, Shell), Army Ant
+(Sacrifice, Claw), Archerfish (Range, Wing), Bombardier Beetle
+(Aftershock, Shell), Komodo Dragon (Breath Weapon, Claw). Stats and Homash
+are in COST_MODEL.md. Keywords with an X read "Range" as X = 1 and
+"Range 2" as 2 (`KeywordAbilities.ParamOf`/`MaxParam`; Attune now uses it
+too).
+
+How each is built:
+- **Energize**: `KeywordAbilities.Energize(effect)` (moved from
+  DpsCards). **A real bug fixed along the way:** a Roll-and-Reroll reroll
+  onto a double face fired it twice, once for the reroll and once at the
+  start of Main, because the helper dates from before rerolls were
+  interactive. New `EventFilter.ExcludeStep` fixes it for the 15 DPS
+  Energize cards too. A test proves the old shape dealt 4 instead of 2.
+- **Energy Drain X**: in `CombatEngine.DeclareBlockers`, lane-wide like
+  Deadly. Every spin is worked out first, then applied together. New
+  shared `EffectInterpreter.SpinLevel`.
+- **Tag Out**: queued after Infiltrate for every Field Zone die with it,
+  the Active player's first. `MayPay` -> Prep itself -> +2A/+2D to a
+  target. The Meerkat recycles a lot: it costs 0 at L1/L2, so it's
+  refielded about 7 times a game in the simulator. That is the DM design.
+- **Sacrifice**: new `Sacrifice` effect node, used as `MayPay.Cost`. Out
+  of Play on the owner's turn, the Used Pile otherwise, never a KO.
+- **Range X**: new `RangeShot` / `ResolveRangeShots` nodes. Each Range die
+  records its target (Active player first), then one step deals every
+  shot, so the defender's Range die fires even if the attacker's Range KO'd
+  it (rule 1). Only when a Range creature attacks.
+- **Aftershock**: new `TriggerKind.DieRemovedByOpponent`. A `causedBy` now
+  runs through `ApplyDamage`/`TryResolveKO`/`KoDie`/`MoveDie`: combat and
+  Deadly KOs are the opponent's, and ability effects belong to the
+  ability's controller. Your own Sacrifice or Tag Out never triggers it;
+  their Intimidate does.
+- **Breath Weapon X**: new `MayPayEnergy` node, queued once per unique
+  attacking creature, and skipped when the pool can't cover it. A short
+  pick re-asks with a note rather than throwing (the choice is already
+  cleared by then). New `TurnEngine.PayAbilityEnergy` spends like a
+  Global: partial spend, Out of Play on your turn.
+
+Bot:
+- Range aims at a kill, counting the shots already called on a target.
+- Breath Weapon fires for lethal or at least one KO, paying with
+  BotEnergy's usual pick.
+- Tag Out only when one of its dice is in a fight, and boosts that die.
+- Sacrifice only for a clearly better KO. In simulator games the Army
+  Ant was fielded 34 times and never found one, which is by design; unit
+  tests cover both branches. Energize reuses the Attune targeting.
+- New `PendingChoice.DamageHint` lets it see "damage equal to its ATK".
+
+UI:
+- The desktop choice chips label Reserve dice by their energy
+  ("Tardigrade · 1 Wild").
+- The mobile sheet says "Pay energy" instead of "Choose a target" when
+  every option is your own Reserve die.
+- Seven new icons.
+- Browser-checked by bot-driven API runs (`keyword-check.js`, which gains
+  `FORCE=1` to steer seat one into a Komodo or Archerfish attack, since
+  the bot rarely lines those up), with the cards swapped into packs
+  locally for the run only. A 900-game simulator run with all seven
+  swapped in: 0 errors. Every keyword except Sacrifice and Breath Weapon
+  fired in bot play; those two were covered by the steered run and unit
+  tests.

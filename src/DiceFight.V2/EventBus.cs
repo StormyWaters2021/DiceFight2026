@@ -90,6 +90,7 @@ public static class EventBus
         // Spike C - which timing window this listener wants. Checked
         // first: it's the cheapest test and the most likely to exclude.
         if (filter.Step is { } step && evt.Step != step) return false;
+        if (filter.ExcludeStep is { } excluded && evt.Step == excluded) return false;
 
         if (filter.Ownership != TargetOwnership.Any)
         {

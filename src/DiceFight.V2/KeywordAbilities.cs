@@ -63,11 +63,67 @@ public static class KeywordAbilities
         new CombatFlag(new TargetFilter(Self: true), CombatFlagKind.Unblockable),
         YouUseAnActionDie);
 
-    // "Attune" -> 1, "Attune 3" -> 3, anything else -> null.
-    public static int? AttuneAmount(string keyword) =>
-        keyword == "Attune" ? 1
-        : keyword.StartsWith("Attune ", StringComparison.Ordinal) && int.TryParse(keyword.AsSpan(7), out var n) && n > 0 ? n
+    // Dice Masters' Tag Out: "After blockers are declared, you may Prep
+    // this die from the Field Zone to give target Character die +2A and
+    // +2D until end of turn." Either player's dice, so long as they're in
+    // the Field Zone (not attacking or blocking). Queued by
+    // CombatEngine.DeclareBlockers after Infiltrate, so both resolve
+    // before the Action/Global window. Prep is not a KO (rule 1.5.3.2).
+    public static readonly MayPay TagOutChoice = new(Cost: null,
+        Then: new Sequence([
+            new MoveDie(new TargetFilter(Self: true), Zone.PrepArea),
+            new ModifyStat(new TargetFilter(Kind: TargetKind.CharacterDie,
+                Prompt: "Tag Out - choose a creature to get +2A and +2D this turn."), AtkDelta: 2, DefDelta: 2),
+        ]),
+        Prompt: "Tag Out - send it to your Prep Area to give a creature +2A and +2D this turn?");
+
+    public static readonly EffectNode TagOutOffer = new Conditional(new InZone(Zone.FieldZone), TagOutChoice);
+
+    // Dice Masters' Breath Weapon X (queued by CombatEngine.DeclareAttackers).
+    // "Does not target" - it hits every opposing creature (Count: 0).
+    public static EffectNode BreathWeapon(int x) => new MayPayEnergy(x,
+        new Sequence([
+            new DealDamage(new Fixed(x), new TargetFilter(Kind: TargetKind.Player, Ownership: TargetOwnership.Opposing)),
+            new DealDamage(new Fixed(x), new TargetFilter(Ownership: TargetOwnership.Opposing, Count: 0)),
+        ]),
+        Prompt: $"Breath Weapon {x} - pay {x} energy to deal {x} damage to the opponent and every one of their creatures?");
+
+    // Dice Masters' Energize: "Whenever you roll this die on one of its
+    // double energy faces, you must use its Energize ability... During the
+    // Roll and Reroll Step, only check at the end of the Step. The
+    // character with Energize does not need to be active." The effect is
+    // the card's, so this wraps it - authored as `..KeywordAbilities.
+    // Energize(effect)` (first built for the DPS migration, 2026-09-01).
+    // Two halves: the start-of-Main check (EventBus's own Reserve Pool
+    // carve-out lets a not-yet-active die listen), and any LATER reroll -
+    // ExcludeStep keeps a Roll-and-Reroll reroll from firing it a second
+    // time (2026-10-03, once rerolls became interactive).
+    public static IReadOnlyList<TriggeredAbility> Energize(EffectNode effect)
+    {
+        var checkAndRun = new Conditional(
+            new CountAtLeast(new TargetFilter(Self: true, Stat: new StatThreshold(StatKind.SymbolCount, Min: 2)), 1),
+            Then: effect);
+        return
+        [
+            new TriggeredAbility(TriggerKind.TurnStepEntered, checkAndRun, Filter: new EventFilter(Step: StepIds.Main)),
+            new TriggeredAbility(TriggerKind.DieFaceChanged, checkAndRun,
+                Filter: new EventFilter(RequireSelf: true, ExcludeCause: FaceChangeCause.Roll, ExcludeStep: StepIds.RollAndReroll)),
+        ];
+    }
+
+    // "Energy Drain 2" -> 2 for name "Energy Drain"; the bare keyword is 1.
+    public static int? ParamOf(string keyword, string name) =>
+        keyword == name ? 1
+        : keyword.StartsWith(name + " ", StringComparison.Ordinal) && int.TryParse(keyword.AsSpan(name.Length + 1), out var n) && n > 0 ? n
         : null;
+
+    // Highest value of a parameterised keyword on a die (Range, Energy
+    // Drain: "the higher value is used - the values are not added").
+    public static int? MaxParam(IReadOnlySet<string> keywords, string name) =>
+        keywords.Select(k => ParamOf(k, name)).Where(n => n is not null).Max();
+
+    // "Attune" -> 1, "Attune 3" -> 3, anything else -> null.
+    public static int? AttuneAmount(string keyword) => ParamOf(keyword, "Attune");
 
     public static IEnumerable<TriggeredAbility> For(IReadOnlySet<string> keywords)
     {

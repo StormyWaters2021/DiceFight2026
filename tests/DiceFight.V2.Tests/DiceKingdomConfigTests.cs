@@ -152,8 +152,20 @@ public class DiceKingdomConfigTests
             Check(card.Abilities.Any(a => a.Trigger == TriggerKind.DieAttacks), "On Attack");
             Check(card.Abilities.Any(a => a.Trigger == TriggerKind.DieBlocks), "On Block");
             Check(card.Abilities.Any(a => a.Trigger == TriggerKind.DieFaceChanged && a.Filter?.LevelIncreased == true), "Awaken");
-            foreach (var keyword in card.Keywords.Where(k => k is "On Field" or "On Attack" or "On Block" or "Awaken"))
+            Check(card.Abilities.Any(a => a.Trigger == TriggerKind.DieFaceChanged && a.Filter?.ExcludeStep == StepIds.RollAndReroll), "Energize");
+            Check(card.Abilities.Any(a => Contains<Sacrifice>(a.Effect)), "Sacrifice");
+            Check(card.Abilities.Any(a => a.Trigger == TriggerKind.DieRemovedByOpponent), "Aftershock");
+            foreach (var keyword in card.Keywords.Where(k => k is "On Field" or "On Attack" or "On Block" or "Awaken" or "Energize" or "Aftershock"))
                 Assert.Contains(keyword + ":", card.RawText);
         }
     }
+
+    private static bool Contains<T>(EffectNode node) where T : EffectNode => node switch
+    {
+        T => true,
+        Sequence seq => seq.Steps.Any(Contains<T>),
+        Conditional c => Contains<T>(c.Then) || (c.Else is { } e && Contains<T>(e)),
+        MayPay m => (m.Cost is { } cost && Contains<T>(cost)) || Contains<T>(m.Then),
+        _ => false,
+    };
 }

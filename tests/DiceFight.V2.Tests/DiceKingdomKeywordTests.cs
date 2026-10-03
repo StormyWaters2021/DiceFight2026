@@ -404,4 +404,341 @@ public class DiceKingdomKeywordTests
         Assert.Equal(BotActionKind.DeclareBlockers, decision.Kind);
         Assert.Empty(decision.Blocks);
     }
+
+    // --- Energize / Energy Drain / Tag Out / Sacrifice ---
+
+    private static int CountChoices(GameState state, AbilityQueue queue, string marker, string answerForMarker)
+    {
+        var count = 0;
+        while (state.PendingChoice is { } pending)
+        {
+            var mine = pending.Description.Contains(marker);
+            if (mine) count++;
+            EffectInterpreter.AnswerPendingChoice(state, mine ? [answerForMarker] : pending.MinCount == 0 ? [] : [pending.CandidateIds[0]]);
+            Drain(state, queue);
+        }
+        return count;
+    }
+
+    [Fact]
+    public void Energize_Fires_Once_When_Its_Die_Rolls_A_Double_Energy_Face()
+    {
+        var state = NewGame();
+        var queue = new AbilityQueue();
+        AddDie(state, DiceKingdomConfig.Firefly.Id, "p1", Zone.ReservePool, level: 4); // face index 3: 2 Wing
+        state.MoveToStep(StepIds.RollAndReroll);
+
+        TurnEngine.FinishRoll(state, queue);
+        Drain(state, queue);
+
+        // The opponent is the only legal target (no creatures out), so no
+        // choice comes up - the 2 damage just lands.
+        Assert.Null(state.PendingChoice);
+        Assert.Equal(18, state.PlayerTwo.Life);
+    }
+
+    [Fact]
+    public void Energize_Does_Not_Fire_Twice_For_A_Reroll_Onto_A_Double_Face()
+    {
+        var state = NewGame();
+        var queue = new AbilityQueue();
+        var firefly = AddDie(state, DiceKingdomConfig.Firefly.Id, "p1", Zone.ReservePool, level: 6); // index 5: single energy
+        state.MoveToStep(StepIds.RollAndReroll);
+
+        TurnEngine.RerollOwn(state, queue, new FixedRoller(3), [firefly.Id]); // lands on a double, then advances to Main
+        Drain(state, queue);
+
+        Assert.Equal(18, state.PlayerTwo.Life); // 2 damage once, not 4
+    }
+
+    [Fact]
+    public void Energize_Ignores_A_Single_Energy_Face()
+    {
+        var state = NewGame();
+        var queue = new AbilityQueue();
+        AddDie(state, DiceKingdomConfig.Firefly.Id, "p1", Zone.ReservePool, level: 6);
+        state.MoveToStep(StepIds.RollAndReroll);
+        TurnEngine.FinishRoll(state, queue);
+        Drain(state, queue);
+
+        Assert.Equal(0, CountChoices(state, queue, "Energize", "p2"));
+    }
+
+    [Fact]
+    public void Energy_Drain_Spins_Every_Creature_Engaged_With_It_Down_A_Level_But_Not_Below_1()
+    {
+        var state = NewGame();
+        var queue = new AbilityQueue();
+        var big = AddDie(state, DiceKingdomConfig.Hippopotamus.Id, "p1", Zone.FieldZone, level: 3);
+        var small = AddDie(state, DiceKingdomConfig.HoneyBadger.Id, "p1", Zone.FieldZone, level: 1);
+        var leech = AddDie(state, DiceKingdomConfig.Leech.Id, "p2", Zone.FieldZone);
+        state.MoveToStep(StepIds.SelectAttackers);
+        CombatEngine.DeclareAttackers(state, queue, new Dictionary<string, int> { [big.Id] = 0, [small.Id] = 0 }); // one lane
+
+        var assignment = new CombatAssignment();
+        assignment.AssignBlocker(big.Id, leech.Id);
+        CombatEngine.DeclareBlockers(state, queue, assignment, [leech.Id]);
+
+        Assert.Equal(2, state.GetCurrentFace(big)!.Character!.Level); // lane-mates are engaged too
+        Assert.Equal(1, state.GetCurrentFace(small)!.Character!.Level);
+        Assert.Equal(1, state.GetCurrentFace(leech)!.Character!.Level); // nothing drains the Leech
+    }
+
+    [Fact]
+    public void Tag_Out_Is_Offered_To_Field_Dice_After_Blocks_And_Preps_Itself_For_A_Plus_2_Plus_2()
+    {
+        var state = NewGame();
+        var queue = new AbilityQueue();
+        var attacker = AddDie(state, DiceKingdomConfig.Hippopotamus.Id, "p1", Zone.FieldZone);
+        var blocker = AddDie(state, DiceKingdomConfig.HermitCrab.Id, "p2", Zone.FieldZone);
+        var meerkat = AddDie(state, DiceKingdomConfig.Meerkat.Id, "p2", Zone.FieldZone);
+        var benchedMeerkat = AddDie(state, DiceKingdomConfig.Meerkat.Id, "p1", Zone.FieldZone, tag: "attacking");
+        state.MoveToStep(StepIds.SelectAttackers);
+        CombatEngine.DeclareAttackers(state, queue, new Dictionary<string, int> { [attacker.Id] = 0, [benchedMeerkat.Id] = 1 });
+        Drain(state, queue);
+
+        var assignment = new CombatAssignment();
+        assignment.AssignBlocker(attacker.Id, blocker.Id);
+        CombatEngine.DeclareBlockers(state, queue, assignment, [blocker.Id]);
+        Drain(state, queue);
+
+        var offer = Assert.IsType<PendingChoice>(state.PendingChoice); // only p2's Field Zone Meerkat - the attacking one isn't in the Field
+        Assert.Equal("p2", offer.ControllerId);
+        Assert.Equal([meerkat.Id], offer.CandidateIds);
+        var defenseBefore = QueryEngine.GetDefense(state, blocker);
+
+        EffectInterpreter.AnswerPendingChoice(state, [meerkat.Id]);
+        Drain(state, queue);
+        EffectInterpreter.AnswerPendingChoice(state, [blocker.Id]);
+        Drain(state, queue);
+
+        Assert.Equal(Zone.PrepArea, meerkat.Zone);
+        Assert.Equal(defenseBefore + 2, QueryEngine.GetDefense(state, blocker));
+        Assert.Null(state.PendingChoice);
+    }
+
+    [Fact]
+    public void Sacrifice_Moves_The_Die_Out_Of_Play_Without_A_KO_And_Deals_Its_Attack()
+    {
+        var state = NewGame();
+        var queue = new AbilityQueue();
+        var fodder = AddDie(state, DiceKingdomConfig.Hippopotamus.Id, "p1", Zone.FieldZone, level: 3); // 5 ATK
+        var victim = AddDie(state, DiceKingdomConfig.MuskOx.Id, "p2", Zone.FieldZone); // 4 DEF (+1 its own aura)
+        var ant = AddDie(state, DiceKingdomConfig.ArmyAnt.Id, "p1", Zone.ReservePool);
+        TurnEngine.Field(state, queue, ant.Id, Energy(state, "p1", "Claw", 1));
+        Drain(state, queue);
+
+        Assert.Contains("Sacrifice", state.PendingChoice!.Description);
+        EffectInterpreter.AnswerPendingChoice(state, [ant.Id]); // yes (the stand-in)
+        Drain(state, queue);
+        EffectInterpreter.AnswerPendingChoice(state, [fodder.Id]); // the sacrifice
+        Drain(state, queue);
+        Assert.Equal(Zone.OutOfPlay, fodder.Zone); // not the Prep Area: not a KO
+        EffectInterpreter.AnswerPendingChoice(state, [victim.Id]);
+        Drain(state, queue);
+
+        Assert.Equal(Zone.PrepArea, victim.Zone); // 5 damage KO'd it
+        state.MoveToStep(StepIds.ReturnToField);
+        TurnEngine.CleanUp(state, queue);
+        Assert.Equal(Zone.UsedPile, fodder.Zone);
+    }
+
+    [Fact]
+    public void Sacrificing_On_The_Opponents_Turn_Goes_Straight_To_The_Used_Pile()
+    {
+        var state = NewGame();
+        var queue = new AbilityQueue();
+        var theirs = AddDie(state, DiceKingdomConfig.HoneyBadger.Id, "p2", Zone.FieldZone);
+        EffectInterpreter.Execute(new Sacrifice(new TargetFilter(Ownership: TargetOwnership.Own)),
+            new EffectContext { State = state, Queue = queue, ControllerId = "p2", Trigger = TriggerKind.Global, Roller = new FixedRoller(0), Random = new Random(1) });
+
+        Assert.Equal(Zone.UsedPile, theirs.Zone);
+    }
+
+    // --- Range / Aftershock / Breath Weapon ---
+
+    [Fact]
+    public void Range_Both_Sides_Pick_Then_All_Shots_Land_Together()
+    {
+        var state = NewGame();
+        var queue = new AbilityQueue();
+        var myFish = AddDie(state, DiceKingdomConfig.Archerfish.Id, "p1", Zone.FieldZone);
+        var theirFish = AddDie(state, DiceKingdomConfig.Archerfish.Id, "p2", Zone.FieldZone);
+        var myBadger = AddDie(state, DiceKingdomConfig.HoneyBadger.Id, "p1", Zone.FieldZone);
+        myBadger.Damage = 1; // 2 DEF with Armadillo's +1 - one more KOs it
+        AddDie(state, DiceKingdomConfig.Hippopotamus.Id, "p2", Zone.FieldZone); // so p1's shot is a real choice
+        theirFish.Damage = 1; // one more KOs it
+        state.MoveToStep(StepIds.SelectAttackers);
+        CombatEngine.DeclareAttackers(state, queue, [myFish.Id]);
+        Drain(state, queue);
+
+        var first = Assert.IsType<PendingChoice>(state.PendingChoice);
+        Assert.Equal("p1", first.ControllerId); // Active player picks first
+        Assert.Contains("Range", first.Description);
+        EffectInterpreter.AnswerPendingChoice(state, [theirFish.Id]);
+        Drain(state, queue);
+        Assert.Equal(Zone.FieldZone, theirFish.Zone); // nothing has landed yet
+
+        var second = Assert.IsType<PendingChoice>(state.PendingChoice); // Badger or my Archerfish
+        Assert.Equal("p2", second.ControllerId);
+        EffectInterpreter.AnswerPendingChoice(state, [myBadger.Id]);
+        Drain(state, queue);
+
+        Assert.Equal(Zone.PrepArea, theirFish.Zone); // KO'd by my shot...
+        Assert.Equal(Zone.PrepArea, myBadger.Zone); // ...and its own shot still landed
+    }
+
+    [Fact]
+    public void Range_Only_Fires_When_A_Range_Creature_Attacks()
+    {
+        var state = NewGame();
+        var queue = new AbilityQueue();
+        var attacker = AddDie(state, DiceKingdomConfig.Hippopotamus.Id, "p1", Zone.FieldZone);
+        AddDie(state, DiceKingdomConfig.Archerfish.Id, "p2", Zone.FieldZone);
+        state.MoveToStep(StepIds.SelectAttackers);
+        CombatEngine.DeclareAttackers(state, queue, [attacker.Id]);
+        Drain(state, queue);
+
+        Assert.Null(state.PendingChoice);
+    }
+
+    [Fact]
+    public void Aftershock_Fires_When_The_Opponent_KOs_It_In_Combat()
+    {
+        var state = NewGame();
+        var queue = new AbilityQueue();
+        var attacker = AddDie(state, DiceKingdomConfig.Hippopotamus.Id, "p1", Zone.FieldZone, level: 3); // 5 ATK
+        var beetle = AddDie(state, DiceKingdomConfig.BombardierBeetle.Id, "p2", Zone.FieldZone);
+        state.MoveToStep(StepIds.SelectAttackers);
+        CombatEngine.DeclareAttackers(state, queue, [attacker.Id]);
+        var assignment = new CombatAssignment();
+        assignment.AssignBlocker(attacker.Id, beetle.Id);
+        CombatEngine.DeclareBlockers(state, queue, assignment, [beetle.Id]);
+        Drain(state, queue);
+        CombatEngine.AssignCombatDamage(state, queue, assignment, new Dictionary<string, IReadOnlyDictionary<string, int>>());
+        Drain(state, queue);
+
+        Assert.Equal(Zone.PrepArea, beetle.Zone);
+        // The attacking Hippopotamus is the only creature left, so the
+        // Aftershock's 2 damage lands on it without a choice.
+        Assert.Contains(state.Log, l => l.Text == "Bombardier Beetle deals 2 damage to Hippopotamus.");
+    }
+
+    [Fact]
+    public void Aftershock_Fires_On_The_Opponents_Intimidate_But_Not_Your_Own_Sacrifice()
+    {
+        var state = NewGame();
+        var queue = new AbilityQueue();
+        var beetle = AddDie(state, DiceKingdomConfig.BombardierBeetle.Id, "p2", Zone.FieldZone);
+        AddDie(state, DiceKingdomConfig.Hippopotamus.Id, "p1", Zone.FieldZone, level: 3); // the Aftershock's only target (5 DEF)
+        FieldLizard(state, queue); // p1's Intimidate - the beetle is p2's only creature
+        Assert.Equal(Zone.Intimidated, beetle.Zone);
+        var hippo = state.Dice.First(d => d.CardId == DiceKingdomConfig.Hippopotamus.Id);
+        var aftershock = Assert.IsType<PendingChoice>(state.PendingChoice); // Hippopotamus or the Lizard
+        Assert.Equal("p2", aftershock.ControllerId);
+        EffectInterpreter.AnswerPendingChoice(state, [hippo.Id]);
+        Drain(state, queue);
+        Assert.Equal(2, hippo.Damage);
+
+        var state2 = NewGame();
+        var queue2 = new AbilityQueue();
+        var ownBeetle = AddDie(state2, DiceKingdomConfig.BombardierBeetle.Id, "p1", Zone.FieldZone);
+        EffectInterpreter.Execute(new Sacrifice(new TargetFilter(Ownership: TargetOwnership.Own)),
+            new EffectContext { State = state2, Queue = queue2, ControllerId = "p1", Trigger = TriggerKind.Global, Roller = new FixedRoller(0), Random = new Random(1) });
+        Assert.Equal(Zone.OutOfPlay, ownBeetle.Zone);
+        Assert.Empty(queue2.Pending);
+    }
+
+    private static (GameState state, AbilityQueue queue, DieInstance[] energy) SwingKomodo(int komodos = 1)
+    {
+        var state = NewGame();
+        var queue = new AbilityQueue();
+        var dragons = Enumerable.Range(0, komodos)
+            .Select(i => AddDie(state, DiceKingdomConfig.KomodoDragon.Id, "p1", Zone.FieldZone, tag: $"k{i}")).ToList();
+        var energy = Energy(state, "p1", "Claw", 2).Select(id => state.Dice.First(d => d.Id == id)).ToArray();
+        energy[1].CurrentFaceIndex = 2; // a 1-pip (L2) Tardigrade face
+        AddDie(state, DiceKingdomConfig.HoneyBadger.Id, "p2", Zone.FieldZone); // 1 DEF - dies
+        AddDie(state, DiceKingdomConfig.Hippopotamus.Id, "p2", Zone.FieldZone); // 5 DEF - survives
+        state.MoveToStep(StepIds.SelectAttackers);
+        CombatEngine.DeclareAttackers(state, queue, dragons.Select(d => d.Id).ToList());
+        Drain(state, queue);
+        return (state, queue, energy);
+    }
+
+    [Fact]
+    public void Breath_Weapon_Paid_Hits_The_Opponent_And_Every_Creature_They_Have()
+    {
+        var (state, queue, energy) = SwingKomodo();
+        var offer = Assert.IsType<PendingChoice>(state.PendingChoice);
+        Assert.Contains("Breath Weapon", offer.Description);
+        Assert.Equal(0, offer.MinCount);
+
+        EffectInterpreter.AnswerPendingChoice(state, [energy[1].Id]); // the 1-pip die covers X = 1
+        Drain(state, queue);
+
+        Assert.Equal(19, state.PlayerTwo.Life);
+        Assert.Equal(Zone.PrepArea, state.Dice.First(d => d.CardId == DiceKingdomConfig.HoneyBadger.Id).Zone);
+        Assert.Equal(1, state.Dice.First(d => d.CardId == DiceKingdomConfig.Hippopotamus.Id).Damage);
+        Assert.Equal(Zone.OutOfPlay, energy[1].Zone); // spent like a Global
+        Assert.Equal(Zone.ReservePool, energy[0].Zone);
+    }
+
+    [Fact]
+    public void Breath_Weapon_Declined_Does_Nothing_And_Fires_Once_Per_Unique_Creature()
+    {
+        var (state, queue, _) = SwingKomodo(komodos: 2);
+        Assert.NotNull(state.PendingChoice);
+        EffectInterpreter.AnswerPendingChoice(state, []);
+        Drain(state, queue);
+
+        Assert.Null(state.PendingChoice); // no second offer for the second Komodo
+        Assert.Equal(20, state.PlayerTwo.Life);
+    }
+
+    [Fact]
+    public void Bot_Breathes_When_It_KOs_Something_And_Pays_With_One_Die()
+    {
+        var (state, _, energy) = SwingKomodo();
+        var decision = DiceKingdomBot.Decide(state, "p1")!;
+        // Which die is BotEnergy's call (it keeps the better body); X = 1
+        // only ever needs one.
+        Assert.Single(decision.DieIds);
+        Assert.Contains(decision.DieIds[0], energy.Select(e => e.Id));
+    }
+
+    [Fact]
+    public void Bot_Sacrifices_A_Cheap_Creature_To_KO_A_Better_One()
+    {
+        var state = NewGame();
+        var queue = new AbilityQueue();
+        var badger = AddDie(state, DiceKingdomConfig.HoneyBadger.Id, "p1", Zone.FieldZone, level: 3); // 2 ATK, cheap
+        var silverback = AddDie(state, DiceKingdomConfig.Silverback.Id, "p2", Zone.FieldZone, level: 3);
+        silverback.Damage = QueryEngine.GetDefense(state, silverback) - 2; // 2 more finishes it
+        var ant = AddDie(state, DiceKingdomConfig.ArmyAnt.Id, "p1", Zone.ReservePool);
+        TurnEngine.Field(state, queue, ant.Id, Energy(state, "p1", "Claw", 1));
+        Drain(state, queue);
+
+        for (var i = 0; i < 4 && state.PendingChoice is { } pending; i++)
+        {
+            var decision = DiceKingdomBot.Decide(state, pending.ControllerId)!;
+            EffectInterpreter.AnswerPendingChoice(state, decision.DieIds);
+            Drain(state, queue);
+        }
+
+        Assert.Equal(Zone.OutOfPlay, badger.Zone);
+        Assert.Equal(Zone.PrepArea, silverback.Zone);
+    }
+
+    [Fact]
+    public void Bot_Declines_Sacrifice_Without_A_Good_Trade()
+    {
+        var state = NewGame();
+        var queue = new AbilityQueue();
+        AddDie(state, DiceKingdomConfig.Hippopotamus.Id, "p2", Zone.FieldZone); // 5 DEF: nothing of mine KOs it
+        var ant = AddDie(state, DiceKingdomConfig.ArmyAnt.Id, "p1", Zone.ReservePool);
+        TurnEngine.Field(state, queue, ant.Id, Energy(state, "p1", "Claw", 1));
+        Drain(state, queue);
+
+        Assert.Empty(DiceKingdomBot.Decide(state, "p1")!.DieIds);
+    }
 }

@@ -45,6 +45,15 @@ The 128 Dice Masters characters in the DPS catalog, under the same formula: mean
 
 Don't price Attune/Obscure off the simulator's action-die usage: Dice Kingdom has only four Basic Actions, none of them the cheap ping/ramp/churn actions real decks buy for exactly this combo, and having a payoff on the team makes buying any action more attractive (user, 2026-10-03). Both sit in the weak-ability band for now.
 
+**Seven more, 2026-10-03** (all Dice Masters rules, all on catalog-only animals; X keywords read "Range" = 1, "Range 2" = 2 via `KeywordAbilities.ParamOf`):
+- **Energize: <effect>** - when the die rolls a double energy face (checked at the start of Main, and on any later reroll). `KeywordAbilities.Energize(effect)`. Firefly: 2 damage to a target character die or the opponent.
+- **Energy Drain X** - after blockers are assigned, every die engaged with it (lane-wide, like Deadly) spins down X levels, all at once, never below level 1. Leech.
+- **Tag Out** - after blockers are declared, either player may move a Field Zone (not fighting) Tag Out die to their Prep Area to give a target creature +2A/+2D this turn. Meerkat.
+- **Sacrifice** - a cost: the creature goes Out of Play on its owner's turn (Used Pile at Clean Up), the Used Pile otherwise, and is never a KO. `Sacrifice` effect node, used as `MayPay.Cost`. Army Ant: On Field, may Sacrifice one of your creatures (itself included) to deal damage equal to its ATK to a target creature.
+- **Range X** - when a Range creature attacks, every active Range creature on both sides picks a target opposing creature (Active player first), then all the shots land together, so a Range die KO'd by the other side still fires. Archerfish.
+- **Aftershock: <effect>** - when the opponent makes it leave the Field (combat KO, their ability's damage/KO/move - Intimidate included; not your own Sacrifice or Tag Out). New `TriggerKind.DieRemovedByOpponent`, fired where a die leaves play with a known cause. Bombardier Beetle: 2 damage to a target character die.
+- **Breath Weapon X** - when it attacks, you may pay X energy (tap your Reserve dice, paid like a Global) to deal X damage to the opponent and every creature they have; once per unique creature however many attack. Komodo Dragon.
+
 **Fast** and **Overcrush** (both in `CombatEngine`): Wolverine (Fast + 1 direct), Peregrine Falcon (Fast + 3 dmg), Greyhound (Fast), Grizzly Bear (Overcrush), Tiger (Overcrush + 2 direct). Vanilla: Elephant, Hippopotamus. Also On Block: Box Turtle. Not yet engine-supported: Regenerate, Retaliation, Swarm, Range.
 
 ## Current roster
@@ -59,8 +68,9 @@ Don't price Attune/Obscure off the simulator's action-die usage: Dice Kingdom ha
 | Swift | 2 | 0/1/2 · 1/2/2 · 1/3/3 | 1.62 | On Attack: draw a die into your Prep Area. |
 | Cowbird | 3 | 1/1/4 · 1/2/5 · 2/3/6 | 1.62 | Awaken: move an opposing die from their Prep Area back to their Bag. |
 | Pangolin | 3 | 1/1/3 · 1/2/4 · 1/3/6 | 1.58 | On Field: name an opposing character; while Pangolin is active, your opponent can't purchase or field it. (Lockout - arguably a stronger band; simulated roughly neutral, so stats left alone, 2026-09-29.) |
-| Hermit Crab | 2 | 0/1/2 · 0/1/3 · 1/1/3 | 1.57 | On Field: target character die must block this turn. (Was vanilla 1/3 · 1/4 · 1/4, Homash 2.00, until 2026-09-29; briefly "gain 1 life" the same day.) |
 | Box Turtle | 3 | 1/0/3 · 1/2/4 · 1/4/6 | 1.58 | On Block: deal 1 damage to a target creature. |
+| Hermit Crab | 2 | 0/1/2 · 0/1/3 · 1/1/3 | 1.57 | On Field: target character die must block this turn. (Was vanilla 1/3 · 1/4 · 1/4, Homash 2.00, until 2026-09-29; briefly "gain 1 life" the same day.) |
+| Meerkat *(no team yet)* | 2 | 0/1/2 · 0/1/3 · 1/2/2 | 1.57 | Tag Out. |
 | Honey Badger | 2 | 0/1/1 · 0/2/2 · 1/2/3 | 1.57 | On Field: deal 1 damage to a target creature. |
 | Barn Owl | 4 | 1/2/5 · 1/3/5 · 2/4/6 | 1.56 | On Field: a weak target creature (3 ATK or less) can't block this turn. |
 | Chameleon *(no team yet)* | 4 | 1/2/4 · 1/3/5 · 2/5/6 | 1.56 | Obscure. |
@@ -70,6 +80,9 @@ Don't price Attune/Obscure off the simulator's action-die usage: Dice Kingdom ha
 | Cuttlefish | 2 | 0/0/3 · 1/1/3 · 1/1/4 | 1.50 | On Attack: spin a target opposing level 1 creature to an energy face. |
 | Fox | 5 | 1/2/5 · 2/3/6 · 2/5/8 | 1.45 | While active, your creatures get +1 DEF. |
 | Flying Squirrel *(no team yet)* | 3 | 0/2/2 · 1/3/3 · 1/4/2 | 1.45 | Infiltrate. (Was 1/5/3 at L3, Homash 1.64 - trimmed 2026-10-03, keeping the body is worth more than the formula sees.) |
+| Leech *(no team yet)* | 3 | 0/1/3 · 1/2/3 · 1/2/5 | 1.45 | Energy Drain. |
+| Archerfish *(no team yet)* | 3 | 0/2/2 · 1/3/2 · 1/4/3 | 1.45 | Range. |
+| Bombardier Beetle *(no team yet)* | 3 | 0/1/3 · 1/2/3 · 1/3/4 | 1.45 | Aftershock: 2 damage to a target character die. |
 | Musk Ox | 4 | 1/2/4 · 1/3/5 · 2/3/6 | 1.44 | While active, your creatures get +1 DEF. |
 | Queen Termite | 4 | 1/2/4 · 1/3/5 · 2/3/6 | 1.44 | While active, your creatures get +1 ATK. |
 | Mongoose | 3 | 0/2/2 · 1/2/3 · 2/4/4 | 1.42 | Awaken: deal 2 damage to a target creature. |
@@ -79,12 +92,15 @@ Don't price Attune/Obscure off the simulator's action-die usage: Dice Kingdom ha
 | Frilled Lizard *(no team yet)* | 4 | 1/2/4 · 1/3/4 · 2/4/5 | 1.38 | Intimidate. |
 | Hyena | 4 | 1/2/4 · 1/2/5 · 2/3/6 | 1.38 | Gets +1 ATK for each weak opposing creature (2 DEF or less). |
 | Albatross | 5 | 1/3/3 · 1/4/5 · 2/5/6 | 1.37 | On Field: deal 2 damage to a target creature. |
+| Firefly *(no team yet)* | 3 | 0/2/2 · 1/3/2 · 1/3/3 | 1.36 | Energize: 2 damage to a target character die or the opponent. |
 | Raven | 5 | 1/2/5 · 2/3/6 · 2/4/7 | 1.35 | On Field: deal 2 damage to a target creature. |
 | Cape Buffalo | 6 | 1/3/4 · 2/5/5 · 2/7/7 | 1.35 | While active, your creatures get +1 ATK. |
 | Monarch Butterfly | 4 | 0/2/2 · 1/3/4 · 2/4/5 | 1.33 | Gets +2 ATK for each of your creatures waiting in your Prep Area. |
 | Tiger | 6 | 1/4/4 · 2/5/5 · 2/6/6 | 1.30 | Overcrush. On Attack: deal 2 damage to the opponent directly. |
 | Anglerfish | 6 | 1/2/5 · 2/4/6 · 3/6/8 | 1.29 | On Attack: every weak opposing creature (3 DEF or less) can't block this turn. |
 | Wolverine | 4 | 1/2/3 · 1/3/4 · 2/4/4 | 1.25 | Fast. On Attack: deal 1 damage to the opponent directly. |
+| Komodo Dragon *(no team yet)* | 5 | 1/4/3 · 2/5/4 · 2/6/3 | 1.25 | Breath Weapon. |
+| Army Ant *(no team yet)* | 4 | 1/3/2 · 1/4/2 · 2/5/4 | 1.25 | On Field: may Sacrifice one of your creatures to deal its ATK to a target creature. |
 | Orca | 5 | 1/2/3 · 1/4/4 · 2/5/5 | 1.21 | On Field: KO a target creature. |
 | Snapping Turtle | 5 | 1/1/4 · 2/3/5 · 2/4/7 | 1.20 | On Field: KO a target creature. |
 | Opossum | 3 | 0/0/2 · 1/1/3 · 1/2/5 | 1.18 | Deadly. |

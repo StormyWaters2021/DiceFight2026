@@ -22,6 +22,30 @@ public sealed record Ko(TargetFilter Target, bool TriggersKOAbilities = true) : 
 
 public sealed record MoveDie(TargetFilter Target, Zone ToZone) : EffectNode;
 
+// Keyword Sacrifice (2026-10-03): "Sacrificed Character dice are moved
+// from the Field Zone to Out of Play or the Used Pile, as applicable" -
+// Out of Play on its owner's turn (to the Used Pile at Clean Up), the Used
+// Pile otherwise - and "will not trigger 'when KO'd' abilities". An
+// ability COST (rule 2): use it as MayPay.Cost. BindAs on the target keeps
+// its stats for the rest of the ability ("damage equal to its ATK").
+public sealed record Sacrifice(TargetFilter Target) : EffectNode;
+
+// "You may pay X energy. If you do, [Then]" (2026-10-03, Breath Weapon).
+// One choice: the payer taps Reserve Pool energy dice to cover Amount, or
+// picks none to decline. Paid like a Global (TurnEngine.PayAbilityEnergy -
+// partial spend, Out of Play on your turn). Skipped outright when the pool
+// can't cover it, so it never offers a payment that can't be made.
+public sealed record MayPayEnergy(int Amount, EffectNode Then, string? Prompt = null) : EffectNode;
+
+// Keyword Range X (2026-10-03). RangeShot picks this die's target and
+// records it without dealing damage; ResolveRangeShots then deals every
+// recorded shot at once - "All Range damage is dealt simultaneously; the
+// Active player chooses their targets..., immediately followed by the
+// Inactive player", and a Range die KO'd by the other side's Range still
+// fires (CombatEngine.DeclareAttackers queues both).
+public sealed record RangeShot(int Amount) : EffectNode;
+public sealed record ResolveRangeShots : EffectNode;
+
 // Landing in ReservePool means rolled; landing in PrepArea/Bag/UsedPile
 // does not (v1's DrawDice/PrepFromBag/Corrupt convention - the
 // destination zone alone decides, no separate "rolled" flag).

@@ -21,6 +21,13 @@ public enum TriggerKind
     DieUsed,
     DieFaceChanged,
     Global,
+    // Keyword Aftershock (2026-10-03): this die left the Field/Attack Zone
+    // BECAUSE OF ITS CONTROLLER'S OPPONENT - KO'd by their combat damage or
+    // ability, or moved off by their ability (Intimidate included). Fired
+    // from EffectInterpreter.MoveToZone, which only knows the cause when
+    // the caller passes one. The leaving die is the subject, so its own
+    // ability still hears it (EventBus's subject-die carve-out).
+    DieRemovedByOpponent,
 }
 
 public enum FaceChangeCause { Roll, Reroll, Spin, Effect }
@@ -115,7 +122,13 @@ public sealed record EventFilter(
     // interactive reroll is wired up, no ability resolves mid-step), so
     // excluding Cause.Roll and excluding "during Roll and Reroll" are the
     // same set for now. Revisit if interactive rerolling changes that.
-    FaceChangeCause? ExcludeCause = null);
+    FaceChangeCause? ExcludeCause = null,
+    // The opposite of Step: ignore events fired during this step (2026-10-03,
+    // Energize). Dice Kingdom's interactive reroll fires DieFaceChanged
+    // (Reroll) DURING Roll and Reroll, and Energize already checks every
+    // die at the start of Main - so without this a die rerolled onto a
+    // double face triggered twice.
+    string? ExcludeStep = null);
 
 // Rule 2.6.5.4 - a Global ability's energy price. RequiredSymbolId null
 // means any energy (including generic) satisfies it.

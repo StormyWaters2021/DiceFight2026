@@ -144,6 +144,10 @@ public static class EffectInterpreter
             case DealDamage n: ExecuteDealDamage(n, ctx, onComplete); break;
             case Ko n: ExecuteKo(n, ctx, onComplete); break;
             case MoveDie n: ExecuteMoveDie(n, ctx, onComplete); break;
+            case Sacrifice n: ExecuteSacrifice(n, ctx, onComplete); break;
+            case MayPayEnergy n: ExecuteMayPayEnergy(n, ctx, onComplete); break;
+            case RangeShot n: ExecuteRangeShot(n, ctx, onComplete); break;
+            case ResolveRangeShots: ExecuteResolveRangeShots(ctx, onComplete); break;
             case DrawToZone n: ExecuteDrawToZone(n, ctx, onComplete); break;
             case FieldDie n: ExecuteFieldDie(n, ctx, onComplete); break;
             case Reroll n: ExecuteReroll(n, ctx, onComplete); break;
@@ -240,7 +244,13 @@ public static class EffectInterpreter
 
     private static void ExecuteDealDamage(DealDamage n, EffectContext ctx, Action onComplete)
     {
-        ResolveTarget(ctx, n.Target, ProtectionFor(ctx.Trigger), ChoiceIntent.Harmful, n, targets =>
+        int? hint = n.Amount switch
+        {
+            Fixed f => f.Value,
+            StatOf so when ctx.CapturedStats.TryGetValue(so.Binding, out var captured) && captured.TryGetValue(so.Stat, out var v) => v,
+            _ => null,
+        };
+        ResolveTarget(ctx, n.Target, ProtectionFor(ctx.Trigger), ChoiceIntent.Harmful, n, hint, targets =>
         {
             if (targets.Count == 0) { onComplete(); return; } // rule 3.1.10
 
@@ -256,7 +266,7 @@ public static class EffectInterpreter
                 foreach (var id in targets)
                 {
                     LogAbility(ctx, $"{SourceName(ctx)} deals {amount} damage to {TargetName(ctx.State, id)}.");
-                    ApplyDamage(ctx.State, ctx.Queue, DamageSource.Ability, id, amount);
+                    ApplyDamage(ctx.State, ctx.Queue, DamageSource.Ability, id, amount, ctx.ControllerId);
                 }
                 onComplete();
             }
@@ -284,7 +294,7 @@ public static class EffectInterpreter
             MaxCount = 1,
             Resolve = chosen =>
             {
-                ApplyDamage(ctx.State, ctx.Queue, DamageSource.Ability, chosen[0], 1);
+                ApplyDamage(ctx.State, ctx.Queue, DamageSource.Ability, chosen[0], 1, ctx.ControllerId);
                 DistributeDamage(ctx, targets, remainingAmount - 1, onComplete);
             },
         };
@@ -342,10 +352,11 @@ public static class EffectInterpreter
     // one step. Public so CombatEngine can run this as its own pass,
     // once per wave, after MarkDamage has already landed on both sides
     // of every engagement in that wave.
-    public static bool TryResolveKO(GameState state, AbilityQueue queue, DieInstance die)
+    // causedBy (2026-10-03, Aftershock): the player responsible, when known.
+    public static bool TryResolveKO(GameState state, AbilityQueue queue, DieInstance die, string? causedBy = null)
     {
         if (QueryEngine.GetDefense(state, die) > die.Damage) return false;
-        KoDie(state, queue, die, triggersKOAbilities: true);
+        KoDie(state, queue, die, triggersKOAbilities: true, causedBy);
         return true;
     }
 
@@ -355,10 +366,10 @@ public static class EffectInterpreter
     // instance at a time (rule 3.2.2). Combat damage (Phase 7) calls
     // MarkDamage/TryResolveKO directly instead - see MarkDamage's own
     // remarks for why the two can't be one atomic call there.
-    public static void ApplyDamage(GameState state, AbilityQueue queue, DamageSource source, string id, int amount)
+    public static void ApplyDamage(GameState state, AbilityQueue queue, DamageSource source, string id, int amount, string? causedBy = null)
     {
         if (MarkDamage(state, queue, source, id, amount) is { } recipient)
-            TryResolveKO(state, queue, recipient);
+            TryResolveKO(state, queue, recipient, causedBy);
     }
 
     private static void ExecuteKo(Ko n, EffectContext ctx, Action onComplete)
@@ -368,7 +379,7 @@ public static class EffectInterpreter
             foreach (var id in ids)
             {
                 LogAbility(ctx, $"{SourceName(ctx)} knocks out {TargetName(ctx.State, id)}.");
-                KoDie(ctx.State, ctx.Queue, FindDie(ctx.State, id), n.TriggersKOAbilities);
+                KoDie(ctx.State, ctx.Queue, FindDie(ctx.State, id), n.TriggersKOAbilities, ctx.ControllerId);
             }
             onComplete();
         });
@@ -387,12 +398,23 @@ public static class EffectInterpreter
     // if a migrated card actually needs that distinction. Public +
     // (state, queue) for the same Phase 7/CombatEngine reason ApplyDamage
     // is.
-    public static void KoDie(GameState state, AbilityQueue queue, DieInstance die, bool triggersKOAbilities)
+    public static void KoDie(GameState state, AbilityQueue queue, DieInstance die, bool triggersKOAbilities, string? causedBy = null)
     {
+        var controllerId = die.ControllerId;
         MoveToZone(state, die, Zone.PrepArea);
-        state.CharacterDiceKOdThisTurn.Add(die.ControllerId);
+        state.CharacterDiceKOdThisTurn.Add(controllerId);
         if (triggersKOAbilities)
-            EventBus.Fire(state, queue, new GameEvent(TriggerKind.DieKOd, die, die.ControllerId, state.CurrentStepId));
+            EventBus.Fire(state, queue, new GameEvent(TriggerKind.DieKOd, die, controllerId, state.CurrentStepId));
+        FireIfRemovedByOpponent(state, queue, die, controllerId, causedBy);
+    }
+
+    // Keyword Aftershock's trigger. "Because of your opponent" - the
+    // cause is the other player (not unknown, not the die's own
+    // controller, e.g. a Sacrifice or Tag Out).
+    private static void FireIfRemovedByOpponent(GameState state, AbilityQueue queue, DieInstance die, string controllerId, string? causedBy)
+    {
+        if (causedBy is null || causedBy == controllerId) return;
+        EventBus.Fire(state, queue, new GameEvent(TriggerKind.DieRemovedByOpponent, die, controllerId, state.CurrentStepId));
     }
 
     // --- Movement ---
@@ -409,12 +431,97 @@ public static class EffectInterpreter
                     (Zone.Intimidated, _) => $"{SourceName(ctx)} intimidates {TargetName(ctx.State, id)} off the Field until end of turn.",
                     (Zone.FieldZone, Zone.AttackZone) when ctx.Bindings.GetValueOrDefault("self") == id =>
                         $"{SourceName(ctx)} slips back to the Field.",
+                    (Zone.PrepArea, Zone.FieldZone) when ctx.Bindings.GetValueOrDefault("self") == id =>
+                        $"{SourceName(ctx)} tags out to the Prep Area.",
                     _ => $"{SourceName(ctx)} moves {TargetName(ctx.State, id)} to {n.ToZone}.",
                 });
+                var leftPlay = die.Zone is Zone.FieldZone or Zone.AttackZone && n.ToZone is not (Zone.FieldZone or Zone.AttackZone);
+                var controllerId = die.ControllerId;
                 MoveToZone(ctx.State, die, n.ToZone);
+                if (leftPlay) FireIfRemovedByOpponent(ctx.State, ctx.Queue, die, controllerId, ctx.ControllerId);
             }
             onComplete();
         });
+    }
+
+    private static void ExecuteSacrifice(Sacrifice n, EffectContext ctx, Action onComplete)
+    {
+        ResolveTarget(ctx, n.Target, ProtectionFor(ctx.Trigger), ChoiceIntent.Harmful, n, ids =>
+        {
+            foreach (var id in ids)
+            {
+                var die = FindDie(ctx.State, id);
+                LogAbility(ctx, $"{SourceName(ctx)} sacrifices {TargetName(ctx.State, id)}.");
+                MoveToZone(ctx.State, die, die.OwnerId == ctx.State.ActivePlayerId ? Zone.OutOfPlay : Zone.UsedPile);
+            }
+            onComplete();
+        });
+    }
+
+    private static void ExecuteMayPayEnergy(MayPayEnergy n, EffectContext ctx, Action onComplete)
+    {
+        var pool = ctx.State.DiceIn(ctx.ControllerId, Zone.ReservePool)
+            .Where(d => ctx.State.GetCurrentFace(d)?.SymbolCount > 0).Select(d => d.Id).ToList();
+        var available = pool.Sum(id => ctx.State.GetCurrentFace(FindDie(ctx.State, id))!.SymbolCount);
+        if (n.Amount > 0 && available < n.Amount) { onComplete(); return; } // can't pay - nothing to offer
+
+        PendingChoice Offer(string note) => new()
+        {
+            ControllerId = ctx.ControllerId,
+            Description = $"{SourceName(ctx)}: {n.Prompt ?? $"pay {n.Amount} energy?"}{note} Pick energy to pay, or none to decline.",
+            CandidateIds = pool,
+            MinCount = 0,
+            MaxCount = pool.Count,
+            Intent = ChoiceIntent.Beneficial,
+            Effect = n,
+            Resolve = chosen =>
+            {
+                if (chosen.Count == 0) { onComplete(); return; } // declined
+                var picked = chosen.Sum(id => ctx.State.GetCurrentFace(FindDie(ctx.State, id))?.SymbolCount ?? 0);
+                if (picked < n.Amount)
+                {
+                    // Short - ask again rather than throw: the choice was
+                    // already cleared, and a throw would strand the ability.
+                    ctx.State.PendingChoice = Offer($" (that was only {picked} - pick at least {n.Amount}.)");
+                    return;
+                }
+                TurnEngine.PayAbilityEnergy(ctx.State, ctx.ControllerId, chosen, n.Amount);
+                LogAbility(ctx, $"{ctx.State.NameOf(ctx.ControllerId)} pays {n.Amount} energy for {SourceName(ctx)}.");
+                Execute(n.Then, ctx, onComplete);
+            },
+        };
+        ctx.State.PendingChoice = Offer("");
+    }
+
+    private static void ExecuteRangeShot(RangeShot n, EffectContext ctx, Action onComplete)
+    {
+        // "Each ACTIVE die with Range" - one already gone fires nothing.
+        if (ctx.Bindings.GetValueOrDefault("self") is not { } selfId
+            || FindDie(ctx.State, selfId).Zone is not (Zone.FieldZone or Zone.AttackZone)) { onComplete(); return; }
+        var filter = new TargetFilter(Ownership: TargetOwnership.Opposing,
+            Prompt: $"Range {n.Amount} - choose an opposing creature to hit for {n.Amount} (all Range damage lands together).");
+        ResolveTarget(ctx, filter, ProtectionFor(ctx.Trigger), ChoiceIntent.Harmful, n, n.Amount, ids =>
+        {
+            foreach (var id in ids) ctx.State.RangeShots.Add((selfId, id, n.Amount));
+            onComplete();
+        });
+    }
+
+    private static void ExecuteResolveRangeShots(EffectContext ctx, Action onComplete)
+    {
+        var state = ctx.State;
+        var hit = new List<DieInstance>();
+        foreach (var (sourceId, targetId, amount) in state.RangeShots)
+        {
+            var target = FindDie(state, targetId);
+            if (target.Zone is not (Zone.FieldZone or Zone.AttackZone)) continue;
+            state.LogEvent(FindDie(state, sourceId).ControllerId, $"{DieName(state, FindDie(state, sourceId))}'s Range hits {DieName(state, target)} for {amount}.");
+            if (MarkDamage(state, ctx.Queue, DamageSource.Ability, targetId, amount) is { } recipient) hit.Add(recipient);
+        }
+        state.RangeShots.Clear();
+        foreach (var die in hit.DistinctBy(d => d.Id).ToList())
+            TryResolveKO(state, ctx.Queue, die, causedBy: state.OpponentOf(die.ControllerId));
+        onComplete();
     }
 
     private static void ExecuteDrawToZone(DrawToZone n, EffectContext ctx, Action onComplete)
@@ -553,27 +660,32 @@ public static class EffectInterpreter
         ResolveTarget(ctx, n.Target, ProtectionFor(ctx.Trigger), (n.LevelDelta ?? 0) > 0 ? ChoiceIntent.Beneficial : n.LevelDelta < 0 || n.SetLevel is not null ? ChoiceIntent.Harmful : ChoiceIntent.Unknown, ids =>
         {
             foreach (var id in ids)
-            {
-                var die = FindDie(ctx.State, id);
-                var definition = ctx.State.GetDieDefinition(die);
-                var levels = definition.Faces.Where(f => f.Character is not null)
-                    .Select(f => f.Character!.Level).Distinct().OrderBy(l => l).ToList();
-                if (levels.Count == 0) continue; // no character face on this die at all - nothing to spin to
-
-                var priorFace = ctx.State.GetCurrentFace(die);
-                var currentLevel = priorFace?.Character?.Level ?? levels[0];
-                // Finding 12 - SetLevel/LevelDelta are mutually exclusive
-                // (an authoring concern, not re-validated at runtime here).
-                var targetLevel = Math.Clamp(n.SetLevel ?? currentLevel + (n.LevelDelta ?? 0), levels[0], levels[^1]);
-
-                var faceIndex = definition.Faces.Select((f, i) => (f, i)).First(x => x.f.Character?.Level == targetLevel).i;
-                die.CurrentFaceIndex = faceIndex;
-
-                var payload = new DieFaceChangedPayload(priorFace, definition.Faces[faceIndex], FaceChangeCause.Spin);
-                EventBus.Fire(ctx.State, ctx.Queue, new GameEvent(TriggerKind.DieFaceChanged, die, die.ControllerId, ctx.State.CurrentStepId, payload));
-            }
+                SpinLevel(ctx.State, ctx.Queue, FindDie(ctx.State, id), n.SetLevel, n.LevelDelta);
             onComplete();
         });
+    }
+
+    // Spins a die to SetLevel, or by LevelDelta, clamped to the levels its
+    // die actually has, firing DieFaceChanged(Spin). Shared with keyword
+    // Energy Drain (CombatEngine), which spins without an ability.
+    // Finding 12 - SetLevel/LevelDelta are mutually exclusive (an
+    // authoring concern, not re-validated at runtime here).
+    public static void SpinLevel(GameState state, AbilityQueue queue, DieInstance die, int? setLevel, int? levelDelta)
+    {
+        var definition = state.GetDieDefinition(die);
+        var levels = definition.Faces.Where(f => f.Character is not null)
+            .Select(f => f.Character!.Level).Distinct().OrderBy(l => l).ToList();
+        if (levels.Count == 0) return; // no character face on this die at all - nothing to spin to
+
+        var priorFace = state.GetCurrentFace(die);
+        var currentLevel = priorFace?.Character?.Level ?? levels[0];
+        var targetLevel = Math.Clamp(setLevel ?? currentLevel + (levelDelta ?? 0), levels[0], levels[^1]);
+
+        var faceIndex = definition.Faces.Select((f, i) => (f, i)).First(x => x.f.Character?.Level == targetLevel).i;
+        die.CurrentFaceIndex = faceIndex;
+
+        var payload = new DieFaceChangedPayload(priorFace, definition.Faces[faceIndex], FaceChangeCause.Spin);
+        EventBus.Fire(state, queue, new GameEvent(TriggerKind.DieFaceChanged, die, die.ControllerId, state.CurrentStepId, payload));
     }
 
     private static void ExecuteSpinToEnergy(SpinToEnergy n, EffectContext ctx, Action onComplete)
@@ -906,7 +1018,10 @@ public static class EffectInterpreter
     private static void ResolveTarget(EffectContext ctx, TargetFilter filter, ProtectionFrom? protection, ChoiceIntent intent, Action<IReadOnlyList<string>> onResolved) =>
         ResolveTarget(ctx, filter, protection, intent, null, onResolved);
 
-    private static void ResolveTarget(EffectContext ctx, TargetFilter filter, ProtectionFrom? protection, ChoiceIntent intent, EffectNode? forEffect, Action<IReadOnlyList<string>> onResolved)
+    private static void ResolveTarget(EffectContext ctx, TargetFilter filter, ProtectionFrom? protection, ChoiceIntent intent, EffectNode? forEffect, Action<IReadOnlyList<string>> onResolved) =>
+        ResolveTarget(ctx, filter, protection, intent, forEffect, null, onResolved);
+
+    private static void ResolveTarget(EffectContext ctx, TargetFilter filter, ProtectionFrom? protection, ChoiceIntent intent, EffectNode? forEffect, int? damageHint, Action<IReadOnlyList<string>> onResolved)
     {
         var candidates = TargetResolver.Query(ctx.State, ctx.ControllerId, filter, ctx.Bindings, protection, snapshot: ctx.Snapshot);
 
@@ -943,6 +1058,7 @@ public static class EffectInterpreter
             MaxCount = maxCount,
             Intent = intent,
             Effect = forEffect,
+            DamageHint = damageHint,
             Resolve = chosen =>
             {
                 BindIfNeeded(ctx, filter, chosen);

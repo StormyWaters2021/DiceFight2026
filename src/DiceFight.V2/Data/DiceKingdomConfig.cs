@@ -634,6 +634,93 @@ public static class DiceKingdomConfig
         Abilities: [],
         Continuous: []);
 
+    // Energize, Energy Drain, Tag Out, Sacrifice (2026-10-03, user's
+    // keyword list) - Dice Masters rules, catalog only like the others.
+    // Effects for the open-ended ones are the DM-style defaults the user
+    // picked.
+
+    // Energize - flashes when it rolls a double energy face.
+    public static readonly CardDef Firefly = new(
+        Id: "DK-WING-11", Name: "Firefly", Subtitle: null, Set: "Dice Kingdom", CardType: CardType.Character,
+        PurchaseCost: 3, EnergySymbolIds: ["Wing"],
+        Die: CharacterDie("DK-WING-11Die", energyType: "Wing", (0, 2, 2), (1, 3, 2), (1, 3, 3)),
+        DieLimit: 4, Affiliations: [], Keywords: ["Energize"],
+        RawText: "Energize: deal 2 damage to a target character die or the opponent.",
+        Abilities: [.. KeywordAbilities.Energize(
+            new DealDamage(new Fixed(2), new TargetFilter(Kind: TargetKind.CharacterDieOrOpponent,
+                Prompt: "Energize - deal 2 damage to the opponent or a target character die.")))],
+        Continuous: []);
+
+    // Energy Drain - latches on to whatever it fights.
+    public static readonly CardDef Leech = new(
+        Id: "DK-SHELL-09", Name: "Leech", Subtitle: null, Set: "Dice Kingdom", CardType: CardType.Character,
+        PurchaseCost: 3, EnergySymbolIds: ["Shell"],
+        Die: CharacterDie("DK-SHELL-09Die", energyType: "Shell", (0, 1, 3), (1, 2, 3), (1, 2, 5)),
+        DieLimit: 4, Affiliations: [], Keywords: ["Energy Drain"],
+        RawText: "Energy Drain (after blockers are assigned, every creature fighting this one spins down a level).",
+        Abilities: [],
+        Continuous: []);
+
+    // Tag Out - the sentry steps down and a teammate steps up.
+    public static readonly CardDef Meerkat = new(
+        Id: "DK-SHELL-10", Name: "Meerkat", Subtitle: null, Set: "Dice Kingdom", CardType: CardType.Character,
+        PurchaseCost: 2, EnergySymbolIds: ["Shell"],
+        Die: CharacterDie("DK-SHELL-10Die", energyType: "Shell", (0, 1, 2), (0, 1, 3), (1, 2, 2)),
+        DieLimit: 4, Affiliations: [], Keywords: ["Tag Out"],
+        RawText: "Tag Out (after blockers are declared, you may move this die from the Field to your Prep Area to give a target creature +2A and +2D this turn).",
+        Abilities: [],
+        Continuous: []);
+
+    // Sacrifice - the colony throws itself at the problem.
+    public static readonly CardDef ArmyAnt = new(
+        Id: "DK-CLAW-11", Name: "Army Ant", Subtitle: null, Set: "Dice Kingdom", CardType: CardType.Character,
+        PurchaseCost: 4, EnergySymbolIds: ["Claw"],
+        Die: CharacterDie("DK-CLAW-11Die", energyType: "Claw", (1, 3, 2), (1, 4, 2), (2, 5, 4)),
+        DieLimit: 4, Affiliations: [], Keywords: ["On Field", "Sacrifice"],
+        RawText: "On Field: you may Sacrifice one of your creatures (it goes Out of Play, not KO'd). If you do, deal damage equal to its ATK to a target creature.",
+        Abilities: [new TriggeredAbility(TriggerKind.DieFielded, new MayPay(
+            Cost: new Sacrifice(new TargetFilter(Ownership: TargetOwnership.Own, Zones: [Zone.FieldZone], BindAs: "sacrificed",
+                Prompt: "Sacrifice - choose one of your creatures (it goes Out of Play).")),
+            Then: new DealDamage(new StatOf("sacrificed", StatKind.Attack), new TargetFilter(
+                Prompt: "deal damage equal to the sacrificed creature's ATK to a target creature.")),
+            Prompt: "Sacrifice one of your creatures to deal damage equal to its ATK to a target creature?"))],
+        Continuous: []);
+
+    // Range, Aftershock, Breath Weapon (2026-10-03, same list). Range and
+    // Breath Weapon carry an X: the bare keyword is X = 1, "Range 2" and
+    // so on for more (KeywordAbilities.ParamOf).
+
+    // Range - knocks a target off its perch with a jet of water.
+    public static readonly CardDef Archerfish = new(
+        Id: "DK-WING-12", Name: "Archerfish", Subtitle: null, Set: "Dice Kingdom", CardType: CardType.Character,
+        PurchaseCost: 3, EnergySymbolIds: ["Wing"],
+        Die: CharacterDie("DK-WING-12Die", energyType: "Wing", (0, 2, 2), (1, 3, 2), (1, 4, 3)),
+        DieLimit: 4, Affiliations: [], Keywords: ["Range"],
+        RawText: "Range (when any creature with Range attacks, every active Range creature on both sides deals 1 damage to a target opposing creature, all at once).",
+        Abilities: [],
+        Continuous: []);
+
+    // Aftershock - blasts whatever finally takes it out.
+    public static readonly CardDef BombardierBeetle = new(
+        Id: "DK-SHELL-11", Name: "Bombardier Beetle", Subtitle: null, Set: "Dice Kingdom", CardType: CardType.Character,
+        PurchaseCost: 3, EnergySymbolIds: ["Shell"],
+        Die: CharacterDie("DK-SHELL-11Die", energyType: "Shell", (0, 1, 3), (1, 2, 3), (1, 3, 4)),
+        DieLimit: 4, Affiliations: [], Keywords: ["Aftershock"],
+        RawText: "Aftershock: deal 2 damage to a target character die. (Aftershock: when your opponent makes this creature leave the Field - KO, damage, removal.)",
+        Abilities: [new TriggeredAbility(TriggerKind.DieRemovedByOpponent,
+            new DealDamage(new Fixed(2), new TargetFilter(Prompt: "Aftershock - deal 2 damage to a target character die.")))],
+        Continuous: []);
+
+    // Breath Weapon - the dragon's bite, poisoning the whole board.
+    public static readonly CardDef KomodoDragon = new(
+        Id: "DK-CLAW-12", Name: "Komodo Dragon", Subtitle: null, Set: "Dice Kingdom", CardType: CardType.Character,
+        PurchaseCost: 5, EnergySymbolIds: ["Claw"],
+        Die: CharacterDie("DK-CLAW-12Die", energyType: "Claw", (1, 4, 3), (2, 5, 4), (2, 6, 3)),
+        DieLimit: 4, Affiliations: [], Keywords: ["Breath Weapon"],
+        RawText: "Breath Weapon (when this attacks, you may pay 1 energy to deal 1 damage to the opponent and every one of their creatures; once per turn however many Komodo Dragons attack).",
+        Abilities: [],
+        Continuous: []);
+
     // --- Basic Actions: one per Champion (2026-09-26, user call). Rather
     // than each team drafting two Basic Actions, each Champion brings
     // one, and both are shared (community, rule 2.1.2) - either player
@@ -800,7 +887,8 @@ public static class DiceKingdomConfig
         Hippopotamus, MuskOx, Pangolin, HermitCrab, Opossum, QueenTermite, Rhinoceros, BoxTurtle,
         Osprey, BarnSwallow, Hummingbird, MountainGoat, MonarchButterfly, HomingPigeon, Greyhound, Phoenix, Swift,
         BarnOwl, Hyena, Anglerfish, Cowbird, Magpie, Basilisk, Elephant, Fox, Cuttlefish,
-        FrilledLizard, FlyingSquirrel, ElectricEel, Chameleon,
+        FrilledLizard, FlyingSquirrel, ElectricEel, Chameleon, Firefly, Leech, Meerkat, ArmyAnt,
+        Archerfish, BombardierBeetle, KomodoDragon,
         AngerIssues, Distraction, Resurrection, Mutation, Archnemesis,
     }.ToDictionary(c => c.Id);
 
@@ -897,6 +985,8 @@ public static class DiceKingdomConfig
         ],
         Keywords: [new KeywordDef("Fast"), new KeywordDef("Overcrush"), new KeywordDef("Deadly"),
             new KeywordDef("Intimidate"), new KeywordDef("Infiltrate"), new KeywordDef("Attune"), new KeywordDef("Obscure"),
+            new KeywordDef("Energize"), new KeywordDef("Energy Drain"), new KeywordDef("Tag Out"), new KeywordDef("Sacrifice"),
+            new KeywordDef("Range"), new KeywordDef("Aftershock"), new KeywordDef("Breath Weapon"),
             new KeywordDef("On Field"), new KeywordDef("On Attack"), new KeywordDef("On Block"), new KeywordDef("Awaken")],
         Rules: new RulesConfig(
             StartingLife: 20,

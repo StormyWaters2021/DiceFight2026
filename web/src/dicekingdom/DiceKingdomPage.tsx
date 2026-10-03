@@ -2060,7 +2060,11 @@ function PendingChoiceChips({
               }
             >
               {name}
-              {die && ` ${die.effectiveAttack}/${die.effectiveDefense}`}
+              {/* Paying energy (Breath Weapon) offers Reserve dice - what
+                  matters there is the energy, not the body. */}
+              {die && (die.zone === "ReservePool" && die.energyAmount > 0
+                ? ` · ${die.energyAmount} ${die.energySymbolId}`
+                : ` ${die.effectiveAttack}/${die.effectiveDefense}`)}
             </span>
           );
         })}

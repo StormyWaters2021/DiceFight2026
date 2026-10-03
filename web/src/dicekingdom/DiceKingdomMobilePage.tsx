@@ -1602,6 +1602,9 @@ function ChoiceSheet({
   const candidateDice = choice.candidateIds.map((id) => dice.find((d) => d.id === id)).filter((d): d is Die => !!d);
   const otherCandidates = choice.candidateIds.filter((id) => !dice.some((d) => d.id === id));
   const group = (mine: boolean) => candidateDice.filter((d) => (d.controllerId === you) === mine);
+  // Every option one of your own Reserve dice: paying a cost (Breath
+  // Weapon), not picking a target.
+  const paying = candidateDice.length > 0 && candidateDice.every((d) => d.zone === "ReservePool" && d.controllerId === you);
   const renderGroup = (label: string, list: Die[], mine: boolean) =>
     list.length > 0 && (
       <>
@@ -1628,7 +1631,7 @@ function ChoiceSheet({
       <div className="dkm-sheet dkm-pay-sheet">
         <div className="dkm-sheet-handle" />
         <div className="dkm-popout-head">
-          <span className="dkm-popout-title">Choose a target</span>
+          <span className="dkm-popout-title">{paying ? "Pay energy" : "Choose a target"}</span>
         </div>
         <p className="dkm-pay-status">
           <b>{choice.description}</b>

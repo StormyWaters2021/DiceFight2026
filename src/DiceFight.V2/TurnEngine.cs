@@ -631,7 +631,7 @@ public static class TurnEngine
             if (engaged.Zone == Zone.FieldZone)
             {
                 state.LogEvent(engaged.ControllerId, "A Deadly die's engagement knocks out " + (engaged.CardId is { } cid ? state.CardCatalog[cid].Name : "a Tardigrade") + ".");
-                EffectInterpreter.KoDie(state, queue, engaged, triggersKOAbilities: true);
+                EffectInterpreter.KoDie(state, queue, engaged, triggersKOAbilities: true, causedBy: state.OpponentOf(engaged.ControllerId));
             }
         }
         state.DeadlyEngagedDieIds.Clear();
@@ -778,6 +778,18 @@ public static class TurnEngine
         if (best is not { } pick) throw lastError!;
         SpendDice(state, energyDice, amountNeeded - pick.Virtual, amountNeeded > 0, requiredSymbolIds, spentZone, dryRun: false);
         if (pick.Virtual > 0) state.VirtualEnergy[payerId!] = state.VirtualEnergyOf(payerId!) - pick.Virtual;
+    }
+
+    // Paying an energy cost in the middle of an ability (MayPayEnergy -
+    // Breath Weapon), with the same rules as a Global: the payer's own
+    // Reserve Pool dice, partial spend, Out of Play on their own turn and
+    // the Used Pile otherwise. Throws if the dice don't cover it.
+    public static void PayAbilityEnergy(GameState state, string payerId, IReadOnlyList<string> dieIds, int amount)
+    {
+        var dice = dieIds.Select(id => FindDie(state, id)).ToList();
+        if (dice.Any(d => d.ControllerId != payerId || d.Zone != Zone.ReservePool))
+            throw new InvalidOperationException("Pay with your own Reserve Pool energy.");
+        SpendEnergy(state, dice, amount, [], payerId == state.ActivePlayerId ? Zone.OutOfPlay : Zone.UsedPile, payerId);
     }
 
     // The die half of SpendEnergy; returns the overspent pip count.

@@ -869,6 +869,116 @@ function ChameleonIcon(props: IconProps) {
   );
 }
 
+// Glowing tail end and a pair of wings - flashes on a double energy roll.
+function FireflyIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <ellipse cx={32} cy={24} rx={6} ry={8} fill="currentColor" />
+      <ellipse cx={32} cy={42} rx={8} ry={10} fill="currentColor" />
+      <circle cx={32} cy={44} r={5} fill={CREAM} />
+      <path fill="currentColor" opacity={0.7} d="M26,28 C14,20 8,30 14,36 C18,38 24,34 26,32 Z M38,28 C50,20 56,30 50,36 C46,38 40,34 38,32 Z" />
+      <g stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+        <path d="M30,17 L26,9" />
+        <path d="M34,17 L38,9" />
+      </g>
+    </Svg>
+  );
+}
+
+// A looping leech with its sucker down - drains whatever it touches.
+function LeechIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={9}
+        strokeLinecap="round"
+        d="M12,46 C12,30 26,22 32,32 C38,42 52,34 52,20"
+      />
+      <circle cx={12} cy={48} r={6} fill="currentColor" />
+      <circle cx={12} cy={48} r={2.5} fill={CREAM} />
+    </Svg>
+  );
+}
+
+// Upright on sentry duty.
+function MeerkatIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <ellipse cx={32} cy={14} rx={7} ry={8} fill="currentColor" />
+      <path fill="currentColor" d="M24,22 C22,34 22,46 24,56 L40,56 C42,46 42,34 40,22 Z" />
+      <g stroke="currentColor" strokeWidth={3} strokeLinecap="round">
+        <path d="M25,30 L21,36" />
+        <path d="M39,30 L43,36" />
+      </g>
+      <circle cx={29} cy={13} r={1.5} fill={CREAM} />
+      <circle cx={35} cy={13} r={1.5} fill={CREAM} />
+    </Svg>
+  );
+}
+
+// Three-part body, mandibles open.
+function ArmyAntIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <circle cx={16} cy={30} r={7} fill="currentColor" />
+      <ellipse cx={30} cy={32} rx={6} ry={5} fill="currentColor" />
+      <ellipse cx={46} cy={34} rx={11} ry={8} fill="currentColor" />
+      <g stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" fill="none">
+        <path d="M10,26 L4,20 M10,33 L3,36" />
+        <path d="M27,36 L22,48 M30,37 L30,50 M33,36 L38,48" />
+      </g>
+    </Svg>
+  );
+}
+
+// Spitting a jet up and over.
+function ArcherfishIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path fill="currentColor" d="M10,44 C18,34 34,32 44,40 L54,32 L52,46 L54,58 L44,50 C34,56 18,54 10,44 Z" />
+      <circle cx={18} cy={42} r={2} fill={CREAM} />
+      <g fill="currentColor">
+        <circle cx={14} cy={30} r={2.2} />
+        <circle cx={20} cy={20} r={2.2} />
+        <circle cx={30} cy={13} r={2.2} />
+        <circle cx={42} cy={10} r={2.2} />
+      </g>
+    </Svg>
+  );
+}
+
+// Beetle with its spray going off behind it.
+function BombardierBeetleIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <ellipse cx={26} cy={34} rx={14} ry={11} fill="currentColor" />
+      <circle cx={10} cy={34} r={5} fill="currentColor" />
+      <path d="M26,23 L26,45" stroke={CREAM} strokeWidth={1.6} />
+      <g stroke="currentColor" strokeWidth={2.4} strokeLinecap="round">
+        <path d="M44,30 L56,24" />
+        <path d="M44,34 L58,34" />
+        <path d="M44,38 L56,44" />
+      </g>
+    </Svg>
+  );
+}
+
+// Long lizard, forked tongue out.
+function KomodoDragonIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path fill="currentColor" d="M6,32 C10,26 18,26 24,28 L46,28 C52,28 58,32 62,38 C54,36 50,36 46,38 L24,38 C18,40 10,38 6,32 Z" />
+      <g stroke="currentColor" strokeWidth={3} strokeLinecap="round">
+        <path d="M26,38 L22,48 M40,38 L44,48 M28,28 L24,20 M40,28 L44,20" />
+      </g>
+      <path d="M6,32 L0,30 M6,32 L0,34" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" />
+      <circle cx={12} cy={30} r={1.6} fill={CREAM} />
+    </Svg>
+  );
+}
+
 function CuttlefishIcon(props: IconProps) {
   return (
     <Svg {...props}>
@@ -988,6 +1098,8 @@ export const CHARACTER_ICONS: Record<string, (p: IconProps) => ReactElement> = {
   "DK-CLAW-08": CapeBuffaloIcon,
   "DK-CLAW-09": MongooseIcon,
   "DK-CLAW-10": ElectricEelIcon,
+  "DK-CLAW-11": ArmyAntIcon,
+  "DK-CLAW-12": KomodoDragonIcon,
   "DK-SHELL-01": HippopotamusIcon,
   "DK-SHELL-02": MuskOxIcon,
   "DK-SHELL-03": PangolinIcon,
@@ -996,6 +1108,9 @@ export const CHARACTER_ICONS: Record<string, (p: IconProps) => ReactElement> = {
   "DK-SHELL-06": QueenTermiteIcon,
   "DK-SHELL-07": SnappingTurtleIcon,
   "DK-SHELL-08": BoxTurtleIcon,
+  "DK-SHELL-09": LeechIcon,
+  "DK-SHELL-10": MeerkatIcon,
+  "DK-SHELL-11": BombardierBeetleIcon,
   "DK-WING-01": OspreyIcon,
   "DK-WING-02": BarnSwallowIcon,
   "DK-WING-03": HummingbirdIcon,
@@ -1006,6 +1121,8 @@ export const CHARACTER_ICONS: Record<string, (p: IconProps) => ReactElement> = {
   "DK-WING-08": AlbatrossIcon,
   "DK-WING-09": SwiftIcon,
   "DK-WING-10": FlyingSquirrelIcon,
+  "DK-WING-11": FireflyIcon,
+  "DK-WING-12": ArcherfishIcon,
   "DK-EYE-01": BarnOwlIcon,
   "DK-EYE-02": HyenaIcon,
   "DK-EYE-03": AnglerfishIcon,

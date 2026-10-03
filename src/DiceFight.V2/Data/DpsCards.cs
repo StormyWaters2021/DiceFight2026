@@ -807,17 +807,7 @@ public static class DpsCards
     // internal, not private - BonusCards.cs (Domino "Not Really A Party
     // Girl", an out-of-scope one-off) reuses this same canonical shape
     // rather than re-deriving it.
-    internal static IReadOnlyList<TriggeredAbility> Energize(EffectNode effect)
-    {
-        var checkAndRun = new Conditional(
-            new CountAtLeast(new TargetFilter(Self: true, Stat: new StatThreshold(StatKind.SymbolCount, Min: 2)), 1),
-            Then: effect);
-        return
-        [
-            new TriggeredAbility(TriggerKind.TurnStepEntered, checkAndRun, Filter: new EventFilter(Step: StepIds.Main)),
-            new TriggeredAbility(TriggerKind.DieFaceChanged, checkAndRun, Filter: new EventFilter(RequireSelf: true, ExcludeCause: FaceChangeCause.Roll)),
-        ];
-    }
+    internal static IReadOnlyList<TriggeredAbility> Energize(EffectNode effect) => KeywordAbilities.Energize(effect);
 
     public static readonly CardDef PhoenixFirepower = new(
         Id: "DPS046", Name: "Phoenix", Subtitle: "Firepower", Set: "DPS", CardType: CardType.Character,

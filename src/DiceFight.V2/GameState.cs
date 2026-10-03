@@ -187,6 +187,10 @@ public sealed class GameState
     // and resolved and cleared by TurnEngine.CleanUp.
     public Dictionary<string, HashSet<string>> DeadlyEngagedDieIds { get; } = [];
 
+    // Keyword Range - shots picked but not yet dealt (RangeShot), all
+    // dealt together by ResolveRangeShots, which clears this.
+    public List<(string SourceId, string TargetId, int Amount)> RangeShots { get; } = [];
+
     // The blocks the Inactive player declared this combat, recorded by
     // CombatEngine.DeclareBlockers and cleared when the Attack Zone
     // empties. The server's copy is authoritative: damage resolves from

@@ -71,6 +71,30 @@ public static class CombatEngine
             // Rule 2.7.1.2 - "when attacks" fires for each attacking die.
             EventBus.Fire(state, queue, new GameEvent(TriggerKind.DieAttacks, die, die.ControllerId, state.CurrentStepId));
         }
+        // Keyword Range X - "When one or more Character dice with Range
+        // attack, each active die with Range (on both sides)" picks a
+        // target, Active player first, and then every shot lands at once.
+        // Queued after the On Attack abilities just fired.
+        if (attackerDieIds.Any(id => KeywordAbilities.MaxParam(QueryEngine.GetKeywords(state, FindDie(state, id)), "Range") is not null))
+        {
+            foreach (var playerId in new[] { state.ActivePlayerId, state.OpponentOf(state.ActivePlayerId) })
+                foreach (var die in state.DiceIn(playerId, Zone.AttackZone).Concat(state.DiceIn(playerId, Zone.FieldZone)).ToList())
+                    if (KeywordAbilities.MaxParam(QueryEngine.GetKeywords(state, die), "Range") is { } range)
+                        queue.Enqueue(die.Id, die.ControllerId, TriggerKind.DieAttacks, new RangeShot(range));
+            queue.Enqueue(null, state.ActivePlayerId, TriggerKind.DieAttacks, new ResolveRangeShots(), sourceName: "Range");
+        }
+
+        // Keyword Breath Weapon X - "When a Character die with Breath
+        // Weapon X attacks, you may pay X energy. Deal X damage to your
+        // opponent and all of their Character dice." Once per unique
+        // Character in the Attack Zone, however many of its dice attack.
+        foreach (var group in attackerDieIds.Select(id => FindDie(state, id)).GroupBy(d => d.CardId ?? d.Id))
+        {
+            var breather = group.First();
+            if (KeywordAbilities.MaxParam(QueryEngine.GetKeywords(state, breather), "Breath Weapon") is { } x)
+                queue.Enqueue(breather.Id, breather.ControllerId, TriggerKind.DieAttacks, KeywordAbilities.BreathWeapon(x));
+        }
+
         state.LogEvent(state.ActivePlayerId, attackerDieIds.Count == 0
             ? $"{state.NameOf(state.ActivePlayerId)} declares no attackers."
             : $"{state.NameOf(state.ActivePlayerId)} declares {attackerDieIds.Count} {(attackerDieIds.Count == 1 ? "attacker" : "attackers")}.");
@@ -147,6 +171,36 @@ public static class CombatEngine
             }
         }
 
+        // Keyword Energy Drain X - "After blockers are assigned, spin each
+        // Character die engaged with a Character die with Energy Drain
+        // down [X] level(s)." Engagement is per lane, like Deadly. All
+        // spins are worked out first and then applied, so a drained
+        // Energy Drain die still drains (they happen together); a die
+        // engaged with several drainers takes the largest X, matching
+        // rule 1.4's "higher value" reading for repeated keywords.
+        var drains = new Dictionary<string, int>();
+        foreach (var laneGroup in AttackersByLane(state))
+        {
+            var laneAttackers = laneGroup.ToList();
+            var laneBlockers = LaneBlockerIds(assignment, laneAttackers).Select(id => FindDie(state, id)).ToList();
+            void Drain(IEnumerable<DieInstance> drainers, IEnumerable<DieInstance> victims)
+            {
+                var x = drainers.Select(d => KeywordAbilities.MaxParam(QueryEngine.GetKeywords(state, d), "Energy Drain") ?? 0).DefaultIfEmpty(0).Max();
+                if (x == 0) return;
+                foreach (var v in victims) drains[v.Id] = Math.Max(drains.GetValueOrDefault(v.Id), x);
+            }
+            Drain(laneAttackers, laneBlockers);
+            Drain(laneBlockers, laneAttackers);
+        }
+        foreach (var (id, levels) in drains)
+        {
+            var victim = FindDie(state, id);
+            var before = state.GetCurrentFace(victim)?.Character?.Level;
+            EffectInterpreter.SpinLevel(state, queue, victim, null, -levels);
+            if (state.GetCurrentFace(victim)?.Character?.Level < before)
+                state.LogEvent(victim.ControllerId, $"Energy Drain spins {(victim.CardId is { } c ? state.CardCatalog[c].Name : "a Tardigrade")} down to level {state.GetCurrentFace(victim)!.Character!.Level}.");
+        }
+
         // "Assign blockers. Resolve effects that occur due to blocking."
         EnterStep(state, queue, StepIds.BlockEffects);
 
@@ -160,6 +214,12 @@ public static class CombatEngine
             foreach (var attacker in laneGroup.Where(a => QueryEngine.GetKeywords(state, a).Contains("Infiltrate")))
                 queue.Enqueue(attacker.Id, attacker.ControllerId, TriggerKind.DieBlocks, KeywordAbilities.InfiltrateOffer);
         }
+
+        // Keyword Tag Out - every Field Zone die with it, the Active
+        // player's first (rule 3.2.2's own ordering), after Infiltrate.
+        foreach (var playerId in new[] { state.ActivePlayerId, inactiveId })
+            foreach (var die in state.DiceIn(playerId, Zone.FieldZone).Where(d => QueryEngine.GetKeywords(state, d).Contains("Tag Out")).ToList())
+                queue.Enqueue(die.Id, die.ControllerId, TriggerKind.DieBlocks, KeywordAbilities.TagOutOffer);
 
         EnterStep(state, queue, StepIds.ActionGlobalWindow);
     }
@@ -493,7 +553,8 @@ public static class CombatEngine
         var koIds = new List<string>();
         foreach (var die in state.Dice.Where(d => d.Zone == Zone.AttackZone).Concat(wavedRecipients).DistinctBy(d => d.Id).ToList())
         {
-            if (EffectInterpreter.TryResolveKO(state, queue, die))
+            // Combat damage always comes from the other side (Aftershock).
+            if (EffectInterpreter.TryResolveKO(state, queue, die, causedBy: state.OpponentOf(die.ControllerId)))
                 koIds.Add(die.Id);
         }
 

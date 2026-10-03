@@ -29,6 +29,10 @@ public sealed class PendingChoice
     // whether it helps or hurts - a "set D to A" (Archnemesis's Global) is
     // good or bad depending on the die's own stats. Bot use only.
     public Model.Effects.EffectNode? Effect { get; init; }
+    // How much damage the waiting DealDamage will deal, when that's known
+    // before the target is (a fixed amount, or a stat captured from an
+    // earlier pick - Sacrifice's "damage equal to its ATK"). Bot use only.
+    public int? DamageHint { get; init; }
 }
 
 // NameCard: the pick names a CARD, not a die (RememberCard - Blob/Drax-

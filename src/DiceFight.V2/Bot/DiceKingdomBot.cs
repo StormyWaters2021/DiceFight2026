@@ -750,8 +750,8 @@ public static class DiceKingdomBot
             // Infiltrate: 1 damage and the die stays home, or its full ATK
             // and it leaves play. Stay home unless the full hit is lethal
             // (and 1 isn't) or the full hit is big enough to be worth a die.
-            // Attune: KO the best opposing creature the ping actually kills;
-            // otherwise the damage goes to the opponent's face.
+            // Attune / Energize: KO the best opposing creature the damage
+            // actually kills; otherwise the damage goes to the opponent's face.
             case DealDamage { Target.Kind: TargetKind.CharacterDieOrOpponent, Amount: Fixed { Value: var dmg } }:
                 var kill = pending.CandidateIds.Where(id => !state.IsPlayerId(id))
                     .Select(id => state.Dice.First(d => d.Id == id))
@@ -761,6 +761,56 @@ public static class DiceKingdomBot
                 if ((kill?.Id ?? face) is { } attunePick)
                     return new(BotActionKind.ResolvePendingChoice, kill is not null ? "Attune: finish a creature." : "Attune: hit face.") { DieIds = [attunePick] };
                 break;
+            // Range: KO something if the shots already called on it plus this
+            // one finish it (they all land together); else the best target.
+            case RangeShot shot:
+                var shotPick = pending.CandidateIds.Select(id => state.Dice.First(d => d.Id == id))
+                    .Select(d => (Die: d, Left: QueryEngine.GetDefense(state, d) - d.Damage - state.RangeShots.Where(r => r.TargetId == d.Id).Sum(r => r.Amount)))
+                    .Where(x => x.Left > 0)
+                    .OrderByDescending(x => x.Left <= shot.Amount ? 1 : 0).ThenByDescending(x => DieValue(state, x.Die))
+                    .Select(x => x.Die).FirstOrDefault();
+                if (shotPick is not null)
+                    return new(BotActionKind.ResolvePendingChoice, "Range shot.") { DieIds = [shotPick.Id] };
+                break;
+
+            // Breath Weapon: worth the energy for lethal or at least one KO.
+            case MayPayEnergy breath:
+                var opp = state.OpponentOf(botId);
+                var x = breath.Amount;
+                var kills = state.DiceIn(opp, Zone.FieldZone).Concat(state.DiceIn(opp, Zone.AttackZone))
+                    .Count(d => state.GetCurrentFace(d)?.Character is not null && QueryEngine.GetDefense(state, d) - d.Damage <= x);
+                var payDice = BotEnergy.Pick(state, pending.CandidateIds.Select(id => state.Dice.First(d => d.Id == id)).ToList(), x, null);
+                var breathe = payDice is not null && (state.GetPlayer(opp).Life <= x || kills > 0);
+                return new(BotActionKind.ResolvePendingChoice, breathe ? $"Breath Weapon - {kills} KO(s)." : "Keep the energy.")
+                    { DieIds = breathe ? payDice! : [] };
+
+            // Tag Out: only with one of this player's dice in a fight, where
+            // +2/+2 can swing it - then that die gets the bonus.
+            case MayPay offer when offer == KeywordAbilities.TagOutChoice:
+                var tagOut = EngagedOwnDice(state, botId).Any();
+                return new(BotActionKind.ResolvePendingChoice, tagOut ? "Tag Out." : "No Tag Out - nothing fighting.")
+                    { DieIds = tagOut ? [pending.CandidateIds[0]] : [] };
+            case ModifyStat { AtkDelta: 2, DefDelta: 2 } when pending.Description.Contains("Tag Out")
+                && EngagedOwnDice(state, botId).Where(d => pending.CandidateIds.Contains(d.Id)).OrderByDescending(d => DieValue(state, d)).FirstOrDefault() is { } tagged:
+                return new(BotActionKind.ResolvePendingChoice, "Tag Out: boost the fighter.") { DieIds = [tagged.Id] };
+
+            // Sacrifice (Army Ant): only for a trade that comes out ahead -
+            // a creature's ATK must KO an opposing creature worth more.
+            case MayPay { Cost: Sacrifice }:
+                var plan = SacrificePlan(state, botId);
+                return new(BotActionKind.ResolvePendingChoice, plan is null ? "No good sacrifice." : "Sacrifice for a KO.")
+                    { DieIds = plan is null ? [] : [pending.CandidateIds[0]] };
+            case Sacrifice when SacrificePlan(state, botId) is { } sacrifice && pending.CandidateIds.Contains(sacrifice.Fodder.Id):
+                return new(BotActionKind.ResolvePendingChoice, "Sacrifice the cheap one.") { DieIds = [sacrifice.Fodder.Id] };
+            case DealDamage { Amount: StatOf { Binding: "sacrificed" } } when pending.DamageHint is { } hit:
+                var victim = pending.CandidateIds.Where(id => !state.IsPlayerId(id)).Select(id => state.Dice.First(d => d.Id == id))
+                    .Where(d => d.ControllerId != botId)
+                    .OrderByDescending(d => QueryEngine.GetDefense(state, d) - d.Damage <= hit ? 1 : 0).ThenByDescending(d => DieValue(state, d))
+                    .FirstOrDefault();
+                if (victim is not null)
+                    return new(BotActionKind.ResolvePendingChoice, "Sacrifice damage.") { DieIds = [victim.Id] };
+                break;
+
             case MayPay offer when offer == KeywordAbilities.InfiltrateChoice:
                 var infiltrator = state.Dice.First(d => d.Id == pending.CandidateIds[0]);
                 var oppLife = state.GetPlayer(state.OpponentOf(botId)).Life;
@@ -786,6 +836,37 @@ public static class DiceKingdomBot
         var picks = ranked.Take(pending.MinCount).Select(x => x.Id).ToList();
         picks.AddRange(ranked.Skip(pending.MinCount).Take(pending.MaxCount - pending.MinCount).Where(x => x.Score > 0).Select(x => x.Id));
         return new(BotActionKind.ResolvePendingChoice, $"Answer: {pending.Description}") { DieIds = picks };
+    }
+
+    // This player's dice in a fight right now: attackers in a blocked lane,
+    // or blockers.
+    private static IEnumerable<DieInstance> EngagedOwnDice(GameState state, string botId)
+    {
+        if (state.DeclaredBlocks is not { } blocks) return [];
+        var attackers = state.DiceIn(state.ActivePlayerId, Zone.AttackZone).ToList();
+        var blockedLanes = attackers.Where(a => blocks.BlockersOf(a.Id).Count > 0).Select(a => a.Lane).ToHashSet();
+        return state.DiceIn(botId, Zone.AttackZone)
+            .Where(d => d.ControllerId != state.ActivePlayerId || blockedLanes.Contains(d.Lane));
+    }
+
+    // Best Sacrifice trade: one of this player's creatures whose ATK KOs
+    // an opposing creature worth clearly more than it.
+    private static (DieInstance Fodder, DieInstance Victim)? SacrificePlan(GameState state, string botId)
+    {
+        var oppId = state.OpponentOf(botId);
+        var best = ((DieInstance, DieInstance)?)null;
+        var bestGain = 1.0;
+        foreach (var fodder in state.DiceIn(botId, Zone.FieldZone).Where(d => state.GetCurrentFace(d)?.Character is not null))
+        {
+            var atk = QueryEngine.GetAttack(state, fodder);
+            foreach (var victim in state.DiceIn(oppId, Zone.FieldZone).Concat(state.DiceIn(oppId, Zone.AttackZone)))
+            {
+                if (state.GetCurrentFace(victim)?.Character is null || QueryEngine.GetDefense(state, victim) - victim.Damage > atk) continue;
+                var gain = DieValue(state, victim) - DieValue(state, fodder);
+                if (gain > bestGain) { bestGain = gain; best = (fodder, victim); }
+            }
+        }
+        return best;
     }
 
     // How much locking `ownerId` out of a card (Blob/Drax-style, the
