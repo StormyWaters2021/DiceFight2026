@@ -4282,3 +4282,25 @@ but still loses to Owl 23/77 - the ramp doesn't fix that one.
 
 Web: the mobile Global rail listed Basic Actions only; it now lists any
 card in the game with a Global. (Desktop has no Global rail at all yet.)
+
+## 2026-10-04 - Bot: Hermit Crab + Rhinoceros combo fixed
+
+User question: does Armadillo force a block into Rhinoceros, using the
+forced blocker to (a) take reflected damage and (b) give the lane Overcrush?
+Owl-matchup logs (200 games): the bot did swing Rhinoceros alone into a
+forced blocker, but then used Armadillo's own shield on Rhinoceros 174
+times - preventing the very damage it reflects, so the combo did nothing.
+Fixes: the shield never goes on a retaliator (and the blocking planner no
+longer counts reflection on one it shields); with a forced blocker out,
+Rhinoceros leads ONE lane and everything else attacking stacks behind it
+(declared first, it soaks the blockers' lethal-first damage; 2+ attackers
+have Overcrush).
+
+| 600 games/matchup | Wolf | Arm | Owl | Eagle | Turn cap |
+|---|---|---|---|---|---|
+| Musk Ox Global only | 42 | 54 | 56 | 47 | 13% |
+| + combo fix | 42 | 61 | 50 | 46 | 9% |
+
+Armadillo vs Owl 23 -> 44. Armadillo now beats Wolf 75/25 and Eagle 68/32,
+so it's the strongest team - the Musk Ox ramp was partly making up for the
+bot throwing away its main combo, and may now be too much.

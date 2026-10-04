@@ -82,8 +82,11 @@ public class V2GamesControllerTests
         // (CardId null) ever start in Bag/get drawn this early - every
         // Character copy sits Unpurchased until bought - but the CardId
         // check stays explicit rather than assuming it.
-        var fieldable = session.State.DiceIn("teamA", DiceFight.V2.Model.Zone.ReservePool)
-            .First(d => d.CardId is null && session.State.GetCurrentFace(d)?.Character is not null);
+        // Since 2026-10-04 only 3 of a Tardigrade's 6 faces are creatures,
+        // so all three can miss (~1 run in 8) - then turn one to a creature face.
+        var reserve = session.State.DiceIn("teamA", DiceFight.V2.Model.Zone.ReservePool).Where(d => d.CardId is null).ToList();
+        var fieldable = reserve.FirstOrDefault(d => session.State.GetCurrentFace(d)?.Character is not null) ?? reserve[0];
+        if (session.State.GetCurrentFace(fieldable)?.Character is null) fieldable.CurrentFaceIndex = 3; // L2 1/1 + a Wild
         var afterField = V2SeatedController.Dto(teamA.Field(session.Id, new V2FieldRequest(fieldable.Id, [])));
         var fielded = afterField.Dice.Single(d => d.Id == fieldable.Id);
         Assert.Equal("FieldZone", fielded.Zone);

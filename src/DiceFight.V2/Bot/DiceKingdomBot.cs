@@ -518,13 +518,15 @@ public static class DiceKingdomBot
             + candidates.Where(d => d.CombatFlags.Contains(CombatFlagKind.Unblockable)).Except(spread).Sum(d => QueryEngine.GetAttack(state, d));
         if (unblockableDamage >= oppLife) return Declare(candidates, "All in - lethal.");
 
-        // Hermit Crab's forced block + a retaliator (Rhinoceros): swing the
-        // retaliator ALONE, so the forced blocker has nothing else to block
-        // and every point it hits for comes back at its controller.
+        // Hermit Crab's forced block + a retaliator (Rhinoceros): Rhinoceros
+        // leads ONE lane, so the forced blocker has nothing else to block and
+        // every point it hits for comes back at its controller. Whatever else
+        // attacks joins that lane (user, 2026-10-04): blockers' damage lands
+        // lethal-first in declaration order, so Rhinoceros soaks it ahead of
+        // the others, and a 2+ attacker lane has Overcrush.
         var forced = blockers.Where(b => b.CombatFlags.Contains(CombatFlagKind.MustBlock)).ToList();
         var retaliator = candidates.Where(d => IsRetaliator(state, d)).OrderByDescending(d => QueryEngine.GetDefense(state, d)).FirstOrDefault();
-        if (forced.Count > 0 && retaliator is not null && forced.Max(b => QueryEngine.GetAttack(state, b)) >= 1)
-            return Declare([retaliator], "Rhinoceros into a forced blocker.");
+        var forcedCombo = forced.Count > 0 && retaliator is not null && forced.Max(b => QueryEngine.GetAttack(state, b)) >= 1;
 
         // Crack-back: what they're likely to swing with NEXT turn - not just
         // what's on their Field now, which right after their own swing is
@@ -578,6 +580,13 @@ public static class DiceKingdomBot
             var reflected = atks.Take(retaliators).Sum();
             var through = atks.Skip(blockers.Count).Sum();
             if (reflected >= through) attackers.Clear();
+        }
+        if (forcedCombo)
+        {
+            var stack = new Dictionary<string, int> { [retaliator!.Id] = 0 }; // declared first
+            foreach (var d in attackers) stack[d.Id] = 0;
+            return new(BotActionKind.DeclareAttackers, stack.Count == 1 ? "Rhinoceros into a forced blocker."
+                : $"Rhinoceros into a forced blocker, {stack.Count - 1} more behind it.") { AttackerLanes = stack };
         }
         return Declare(attackers, attackers.Count == 0 ? "Hold back - no good attacks." : $"Attack with {attackers.Count}.");
     }
@@ -757,7 +766,7 @@ public static class DiceKingdomBot
         // A retaliating blocker sends the damage it takes to the attacker's
         // controller; a retaliating attacker sends ours back to us.
         var reflectWeight = Math.Max(0.5, 6.0 / Math.Max(1, state.GetPlayer(state.ActivePlayerId).Life));
-        if (IsRetaliator(state, b)) score += Math.Min(lane.Attack, bDef) * reflectWeight;
+        if (IsRetaliator(state, b) && !shielded) score += Math.Min(lane.Attack, bDef) * reflectWeight; // shielded, it takes nothing to reflect
         if (lane.Attackers.Any(a => IsRetaliator(state, a))) score -= bAtk * damageWeight * 1.5;
         if (killed is not null) score += DieValue(state, killed) - PrepBonus(killed);
         if (!survives) score -= DieValue(state, b) - PrepBonus(b);
@@ -864,7 +873,12 @@ public static class DiceKingdomBot
             var blocked = attackers.Where(a => blocks.BlockersOf(a.Id).Contains(die.Id)).Select(a => a.Lane).ToHashSet();
             return attackers.Where(a => blocked.Contains(a.Lane)).Sum(a => QueryEngine.GetAttack(state, a));
         }
+        // Never a retaliator (Rhinoceros): the shield prevents the very
+        // damage it would send back - it cancelled the Hermit Crab combo on
+        // ~0.9 turns a game in the Owl matchup (2026-10-04). KO'd, it goes
+        // to the Prep Area and is rolled again next turn.
         return EngagedOwnDice(state, botId)
+            .Where(d => !IsRetaliator(state, d))
             .Where(d => Incoming(d) >= QueryEngine.GetDefense(state, d) - d.Damage)
             .OrderByDescending(d => DieValue(state, d)).FirstOrDefault();
     }

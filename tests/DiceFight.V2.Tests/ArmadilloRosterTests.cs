@@ -178,4 +178,54 @@ public class ArmadilloRosterTests
         var decision = Bot.DiceKingdomBot.Decide(state, "p1")!;
         Assert.NotEqual(Bot.BotActionKind.UseGlobal, decision.Kind);
     }
+
+    // Hermit Crab + Rhinoceros (user, 2026-10-04): with a forced blocker on
+    // their side, Rhinoceros leads one lane and everything else attacking
+    // stacks behind it - the forced blocker has to block it, Rhinoceros
+    // soaks the blockers' damage first, and 2+ attackers have Overcrush.
+    [Fact]
+    public void Bot_Stacks_Its_Attack_Behind_Rhinoceros_Into_A_Forced_Blocker()
+    {
+        var state = NewGame();
+        state.MoveToStep(StepIds.SelectAttackers);
+        var rhino = Place(state, "p1", d => d.CardId == DiceKingdomConfig.Rhinoceros.Id, Zone.FieldZone, 1); // L2 2/7
+        Place(state, "p1", d => d.CardId == DiceKingdomConfig.CapeBuffalo.Id, Zone.FieldZone, 2); // L3 7/7
+        var forced = Place(state, "p2", d => d.CardId is not null && state.CardCatalog[d.CardId].CardType == CardType.Character, Zone.FieldZone, 0);
+        forced.CombatFlags.Add(CombatFlagKind.MustBlock);
+
+        var decision = Bot.DiceKingdomBot.Decide(state, "p1")!;
+
+        Assert.Equal(Bot.BotActionKind.DeclareAttackers, decision.Kind);
+        Assert.Equal(rhino.Id, decision.AttackerLanes.Keys.First()); // declared first: takes blocker damage first
+        Assert.True(decision.AttackerLanes.Count >= 2);
+        Assert.All(decision.AttackerLanes.Values, lane => Assert.Equal(decision.AttackerLanes[rhino.Id], lane));
+    }
+
+    // Armadillo's shield prevents the damage Rhinoceros would send back, so
+    // the bot doesn't spend it there - but still does on any other creature.
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Bot_Never_Shields_Rhinoceros(bool rhinoAttacks)
+    {
+        var state = NewGame();
+        var queue = new AbilityQueue();
+        var attacker = rhinoAttacks
+            ? Place(state, "p1", d => d.CardId == DiceKingdomConfig.Rhinoceros.Id, Zone.FieldZone, 0)  // L1 1/5
+            : Place(state, "p1", d => d.CardId == DiceKingdomConfig.MuskOx.Id, Zone.FieldZone, 0);      // L1 2/4
+        var blocker = Place(state, "p2", d => d.CardId is not null && state.CardCatalog[d.CardId].CardType == CardType.Character, Zone.FieldZone, 2);
+        blocker.AppliedModifiers.Add(new AppliedModifier(10, 0, 0, "test", Duration.EndOfTurn)); // lethal to either
+        state.MoveToStep(StepIds.SelectAttackers);
+        CombatEngine.DeclareAttackers(state, queue, [attacker.Id]);
+        var assignment = new CombatAssignment();
+        assignment.AssignBlocker(attacker.Id, blocker.Id);
+        CombatEngine.DeclareBlockers(state, queue, assignment, [blocker.Id]);
+        Drain(state, queue);
+        Priority.Sync(state);
+
+        var decision = Bot.DiceKingdomBot.Decide(state, "p1")!;
+
+        if (rhinoAttacks) Assert.NotEqual(Bot.BotActionKind.UseChampionPower, decision.Kind);
+        else Assert.Equal(Bot.BotActionKind.UseChampionPower, decision.Kind);
+    }
 }
