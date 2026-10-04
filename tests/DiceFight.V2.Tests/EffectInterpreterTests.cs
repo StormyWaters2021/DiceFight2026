@@ -383,6 +383,20 @@ public class EffectInterpreterTests
         Assert.Empty(state.Dice);
     }
 
+    [Fact]
+    public void Spin_LevelDelta_Skips_A_Level_The_Die_Does_Not_Have()
+    {
+        var level3 = new Face([], new CharacterFaceData(Level: 3, FieldingCost: 0, Attack: 1, Defense: 2), Kind: FaceKind.CharacterFace);
+        var card = BuildCard("T", [Level1Char, level3, FistEnergy1]);
+        var state = BuildState(card);
+        AddDie(state, card, "p1", Zone.FieldZone, 0, "self");
+        var ctx = BuildContext(state, "p1", sourceDieId: "self");
+
+        EffectInterpreter.Execute(new Spin(new TargetFilter(Self: true), LevelDelta: 1), ctx);
+
+        Assert.Equal(3, state.GetCurrentFace(state.Dice.Single())!.Character!.Level);
+    }
+
     // --- SpinToEnergy ---
 
     [Fact]
@@ -398,6 +412,19 @@ public class EffectInterpreterTests
         var face = state.GetCurrentFace(state.Dice.Single())!;
         Assert.Null(face.Character);
         Assert.Equal(2, face.Symbols.Single().Count);
+    }
+
+    [Fact]
+    public void SpinToEnergy_On_A_Die_With_No_Energy_Face_Leaves_It_Alone()
+    {
+        var card = BuildCard("T", [Level1Char, Level2Char]);
+        var state = BuildState(card);
+        AddDie(state, card, "p1", Zone.FieldZone, 0, "self");
+        var ctx = BuildContext(state, "p1", sourceDieId: "self");
+
+        EffectInterpreter.Execute(new SpinToEnergy(new TargetFilter(Self: true)), ctx);
+
+        Assert.Equal(1, state.GetCurrentFace(state.Dice.Single())!.Character!.Level);
     }
 
     [Fact]

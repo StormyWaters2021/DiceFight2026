@@ -700,7 +700,13 @@ public static class EffectInterpreter
 
         var priorFace = state.GetCurrentFace(die);
         var currentLevel = priorFace?.Character?.Level ?? levels[0];
-        var targetLevel = Math.Clamp(setLevel ?? currentLevel + (levelDelta ?? 0), levels[0], levels[^1]);
+        // A die's levels needn't be contiguous (a what-if Tardigrade with
+        // only L1 and L3 faces): a LevelDelta steps through the levels the
+        // die HAS, so "up a level" from L1 lands on L3; a SetLevel the die
+        // lacks lands on the nearest one it has (the lower on a tie).
+        var targetLevel = setLevel is { } set
+            ? levels.OrderBy(l => Math.Abs(l - set)).ThenBy(l => l).First()
+            : levels[Math.Clamp(Math.Max(0, levels.IndexOf(currentLevel)) + (levelDelta ?? 0), 0, levels.Count - 1)];
 
         var faceIndex = definition.Faces.Select((f, i) => (f, i)).First(x => x.f.Character?.Level == targetLevel).i;
         die.CurrentFaceIndex = faceIndex;
@@ -724,8 +730,9 @@ public static class EffectInterpreter
                 // qualify here as energy faces.
                 var energyFaces = definition.Faces.Select((f, i) => (f, i))
                     .Where(x => x.f.Kind == FaceKind.EnergyFace).ToList();
-                if (energyFaces.Count == 0)
-                    throw new InvalidOperationException($"Die '{die.Id}' has no energy face to spin to.");
+                // Every face carries a creature (a what-if die): nothing to
+                // spin to, so the spin does nothing to this die.
+                if (energyFaces.Count == 0) continue;
 
                 // Prefer an exact match on Amount (the physical face this
                 // effect is describing); fall back to the die's first

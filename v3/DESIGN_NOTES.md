@@ -4206,10 +4206,17 @@ New simulator knob `SIM_TARDIGRADE` rebuilds the die from a face spec
 | Only Bulwark 1/2 has stats | 54 | 49 | 49 | 47 | 6.6 | 13% | 26.7 | 6.3 |
 | Only Bulwark 1/3 has stats | 53 | 53 | 48 | 45 | 8.6 | 12% | 26.8 | 6.5 |
 
+| 1-energy faces lose stats (L1 0/1 ×2, Bulwark 1/3) | 52 | 49 | 53 | 45 | 8.6 | 13% | 27.0 | 7.1 |
+| Every face has stats (Bulwark 1/2, Wild L2 1/1) | 45 | 48 | 57 | 49 | 12.3 | 19% | 29.9 | 9.1 |
+
 200-game-only: 2-energy faces losing stats (Bulwark 1/3) gave 47/49/57/44,
-14% cap - about today's. Dropping the 1-energy faces' stats or putting stats
-on every face (incl. Wild) broke Owl's spin (it needs a level 2 face and a
-pure energy face) - those runs errored and were discarded.
+14% cap - about today's.
+
+The last two rows first errored out: two engine assumptions about dice
+shape, not Owl's power. `SpinLevel` assumed contiguous levels (an L1+L3
+die threw spinning L1 up), and `SpinToEnergy` (Cuttlefish's On Attack)
+threw on a die with no pure energy face. Now a spin steps to the next
+level the die has, and a spin-to-energy on such a die does nothing.
 
 Reading: fewer fieldable faces mostly takes Owl down (its spin has fewer
 Tardigrade bodies to work on) and cuts stalls; every 1/2-Bulwark layout
