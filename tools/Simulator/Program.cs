@@ -22,6 +22,8 @@ using DiceFight.V2.Model.Effects;
 //   SIM_WOLF_MAIN_ONLY=on  ...and only usable in Main, before attacking
 //   SIM_OWL_LEVELS=N  with SIM_POWERS=on: Owl's spin moves N levels
 //   SIM_POWERS=only  the WITH-powers pass alone
+//   SIM_ONLY=A,B     only the A-vs-B matchup (Champion ids)
+//   SIM_DUMP_ALL=1   print every game's match log
 //   SIM_POWERS=on    also run a pass WITH Champion passives (default:
 //                    powers-off only - every passive's Amount zeroed and
 //                    Foresight removed)
@@ -56,6 +58,13 @@ for (var i = 0; i < championIds.Length; i++)
     for (var j = i + 1; j < championIds.Length; j++)
         matchups.Add((championIds[i], championIds[j]));
 
+// SIM_ONLY=ChampA,ChampB - just that one matchup.
+if (Environment.GetEnvironmentVariable("SIM_ONLY") is { Length: > 0 } only)
+{
+    var pair = only.Split(',');
+    matchups.RemoveAll(m => !(pair.Contains(m.A) && pair.Contains(m.B)));
+}
+
 if (Environment.GetEnvironmentVariable("SIM_POWERS") is "on" or "only")
 {
     Console.WriteLine("############ WITH champion powers ############");
@@ -86,7 +95,7 @@ void RunAllMatchups(bool championPowersEnabled)
             try
             {
                 Stats.BeginGame(seatOneChamp, seatTwoChamp);
-                var (winner, turns) = PlayOneGame(seatOneChamp, seatTwoChamp, rng, championPowersEnabled, dump: g == dumpGame);
+                var (winner, turns) = PlayOneGame(seatOneChamp, seatTwoChamp, rng, championPowersEnabled, dump: g == dumpGame || Environment.GetEnvironmentVariable("SIM_DUMP_ALL") == "1");
                 Stats.EndGame(winner, seatOneChamp, seatTwoChamp, turns);
                 turnCounts.Add(turns);
                 if (winner == champA) winsA++;
