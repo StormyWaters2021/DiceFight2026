@@ -23,6 +23,7 @@ using DiceFight.V2.Model.Effects;
 //   SIM_OWL_LEVELS=N  with SIM_POWERS=on: Owl's spin moves N levels
 //   SIM_POWERS=only  the WITH-powers pass alone
 //   SIM_ONLY=A,B     only the A-vs-B matchup (Champion ids)
+//   SIM_MUSKOX_GLOBAL=on  Musk Ox gets Kree Captain's purchase-discount Global
 //   SIM_DUMP_ALL=1   print every game's match log
 //   SIM_POWERS=on    also run a pass WITH Champion passives (default:
 //                    powers-off only - every passive's Amount zeroed and
@@ -306,6 +307,10 @@ static class Catalog
             ? kv.Value with { Abilities = kv.Value.Abilities.Where(a => a.Trigger != TriggerKind.Global).ToList() }
             : kv.Value);
         foreach (var proto in Prototypes.All) cards[proto.Id] = proto;
+        // SIM_MUSKOX_GLOBAL=on - what-if: Musk Ox carries Kree Captain's
+        // purchase-discount Global again (on 2026-10-04, then taken off).
+        if (Environment.GetEnvironmentVariable("SIM_MUSKOX_GLOBAL") == "on")
+            cards[DiceKingdomConfig.MuskOx.Id] = DiceKingdomConfig.WithKreeCaptainGlobal(cards[DiceKingdomConfig.MuskOx.Id]);
         return cards;
     });
 }

@@ -222,13 +222,22 @@ public static class DiceKingdomConfig
         PurchaseCost: 4, EnergySymbolIds: ["Shell"],
         Die: CharacterDie("DK-SHELL-02Die", energyType: "Shell", (1, 2, 4), (1, 3, 5), (2, 3, 6)),
         DieLimit: 4, Affiliations: [], Keywords: [],
-        RawText: "While active, your creatures get +1 DEF. Global: Pay 2 Shell. Once per turn, the next creature you purchase this turn costs 3 less (minimum 1).",
-        // The Global is Dice Masters' Kree Captain's (2026-10-04, user call:
-        // Armadillo needs ramp - it's the team most starved when energy is
-        // tight, v3/DESIGN_NOTES.md "Tardigrade face layouts").
-        Abilities: [new TriggeredAbility(TriggerKind.Global, new PurchaseModifier(Delta: -3, CardKind: CardType.Character),
-            EnergyCost: new EnergyCost(2, "Shell"), OncePerTurn: true)],
+        RawText: "While active, your creatures get +1 DEF.",
+        Abilities: [],
         Continuous: [new StatAura(OwnCreatures, DefDelta: new Fixed(1))]);
+
+    // Dice Masters' Kree Captain Global, tried on Musk Ox 2026-10-04 as
+    // Armadillo ramp and taken back off the same day (user: "take the
+    // discount off for now and see how some humans play") once the bot's
+    // Hermit Crab + Rhinoceros combo fix made Armadillo the strongest team
+    // without it (v3/DESIGN_NOTES.md). Kept for the simulator
+    // (SIM_MUSKOX_GLOBAL=on) and its tests.
+    public const string KreeCaptainGlobalText = "Global: Pay 2 Shell. Once per turn, the next creature you purchase this turn costs 3 less (minimum 1).";
+    public static readonly TriggeredAbility KreeCaptainGlobal = new(TriggerKind.Global, new PurchaseModifier(Delta: -3, CardKind: CardType.Character),
+        EnergyCost: new EnergyCost(2, "Shell"), OncePerTurn: true);
+
+    public static CardDef WithKreeCaptainGlobal(CardDef card) =>
+        card with { RawText = $"{card.RawText} {KreeCaptainGlobalText}", Abilities = [.. card.Abilities, KreeCaptainGlobal] };
 
     // 6 more Shell picks (2026-09-06/07, "build out a full roster... 8
     // different animals"). CARD_INSPIRATION.md's own note on Shell:

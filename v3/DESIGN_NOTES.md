@@ -4304,3 +4304,17 @@ have Overcrush).
 Armadillo vs Owl 23 -> 44. Armadillo now beats Wolf 75/25 and Eagle 68/32,
 so it's the strongest team - the Musk Ox ramp was partly making up for the
 bot throwing away its main combo, and may now be too much.
+
+**Same day: discount taken back off Musk Ox** (user: "take the discount off
+for now and see how some humans play"). Kept as DiceKingdomConfig.
+KreeCaptainGlobal / WithKreeCaptainGlobal for the simulator
+(SIM_MUSKOX_GLOBAL=on) and its tests. Live roster, combo-fixed bot, no
+discount (600 games/matchup):
+
+| Wolf | Arm | Owl | Eagle | Spread | Turn cap |
+|---|---|---|---|---|---|
+| 48 | 54 | 48 | 49 | 5.6 | 15% |
+
+Most even spread so far. Matchups: Arm-Wolf 58/42, Arm-Owl 48/52, Arm-Eagle
+58/42, Wolf-Owl 48/52, Wolf-Eagle 54/46, Owl-Eagle 41/59. Next: real human
+games.

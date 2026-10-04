@@ -47,7 +47,7 @@ _Power: Once per turn, after blocks: prevent all combat damage to one of your cr
 |---|:-:|:-:|---|---|---|---|
 | Hermit Crab | 2 | 4 | On Field | L1: 0&#9889; / 1A / 2D<br>L2: 0&#9889; / 1A / 3D<br>L3: 1&#9889; / 1A / 3D | 2 Shell<br>2 Shell<br>1 Shell | On Field: target character die must block this turn. |
 | Pangolin | 3 | 4 | On Field | L1: 1&#9889; / 1A / 3D<br>L2: 1&#9889; / 2A / 4D<br>L3: 1&#9889; / 3A / 6D | 2 Shell<br>2 Shell<br>1 Shell | On Field: name an opposing character. While Pangolin is active, your opponent can't purchase or field it. |
-| Musk Ox | 4 | 4 |  | L1: 1&#9889; / 2A / 4D<br>L2: 1&#9889; / 3A / 5D<br>L3: 2&#9889; / 3A / 6D | 2 Shell<br>2 Shell<br>1 Shell | While active, your creatures get +1 DEF. Global: Pay 2 Shell. Once per turn, the next creature you purchase this turn costs 3 less (minimum 1). |
+| Musk Ox | 4 | 4 |  | L1: 1&#9889; / 2A / 4D<br>L2: 1&#9889; / 3A / 5D<br>L3: 2&#9889; / 3A / 6D | 2 Shell<br>2 Shell<br>1 Shell | While active, your creatures get +1 DEF. |
 | Rhinoceros | 6 | 4 |  | L1: 1&#9889; / 1A / 5D<br>L2: 2&#9889; / 2A / 7D<br>L3: 2&#9889; / 3A / 9D | 2 Shell<br>2 Shell<br>1 Shell | While active, whenever Rhinoceros takes damage, it deals that much damage to the opponent. |
 | Fox | 5 | 4 |  | L1: 1&#9889; / 2A / 5D<br>L2: 2&#9889; / 3A / 6D<br>L3: 2&#9889; / 5A / 8D | 2 Eye<br>2 Eye<br>1 Eye | While active, your creatures get +1 DEF. |
 | Cowbird | 3 | 4 | Awaken | L1: 1&#9889; / 1A / 4D<br>L2: 1&#9889; / 2A / 5D<br>L3: 2&#9889; / 3A / 6D | 2 Eye<br>2 Eye<br>1 Eye | Awaken: move an opposing die from their Prep Area back to their Bag. |

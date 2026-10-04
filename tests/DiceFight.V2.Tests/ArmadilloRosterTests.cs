@@ -10,7 +10,9 @@ public class ArmadilloRosterTests
 {
     // Armadillo (p1) vs Wolf (p2), Champion passives zeroed so stats are
     // the printed ones.
-    private static GameState NewGame()
+    // `kreeGlobal`: Musk Ox carries Kree Captain's purchase-discount Global
+    // (live 2026-10-04, then taken off; the engine and bot support stay).
+    private static GameState NewGame(bool kreeGlobal = false)
     {
         Player Build(string id, string champion)
         {
@@ -23,7 +25,9 @@ public class ArmadilloRosterTests
         {
             Champions = DiceKingdomConfig.Config.Champions.Select(c => c with { Amount = 0 }).ToList(),
         };
-        var state = GameSetup.NewGame(config, DiceKingdomConfig.Catalog, Build("p1", "Armadillo"), Build("p2", "Wolf"));
+        var catalog = DiceKingdomConfig.Catalog.ToDictionary(kv => kv.Key, kv => kv.Value);
+        if (kreeGlobal) catalog[DiceKingdomConfig.MuskOx.Id] = DiceKingdomConfig.WithKreeCaptainGlobal(DiceKingdomConfig.MuskOx);
+        var state = GameSetup.NewGame(config, catalog, Build("p1", "Armadillo"), Build("p2", "Wolf"));
         state.MoveToStep(StepIds.Main);
         return state;
     }
@@ -111,16 +115,16 @@ public class ArmadilloRosterTests
         Assert.Equal(2, mine.Damage); // ...but it still hit back
     }
 
-    // Musk Ox's Global (2026-10-04, Kree Captain's): pay 2 Shell, the next
-    // creature this turn costs 3 less (minimum 1). Ramp toward Rhinoceros.
-    private static int MuskOxGlobal => DiceKingdomConfig.MuskOx.Abilities.ToList().FindIndex(a => a.Trigger == TriggerKind.Global);
+    // Kree Captain's Global on Musk Ox (2026-10-04, since taken off the live
+    // card): pay 2 Shell, the next creature this turn costs 3 less (min 1).
+    private static int MuskOxGlobal => DiceKingdomConfig.WithKreeCaptainGlobal(DiceKingdomConfig.MuskOx).Abilities.ToList().FindIndex(a => a.Trigger == TriggerKind.Global);
 
     private static DieInstance Shell(GameState state, int face) => Place(state, "p1", d => d.CardId is null, Zone.ReservePool, face); // 0 = 2 Shell, 2 = 1 Shell
 
     [Fact]
     public void Musk_Ox_Global_Takes_3_Off_The_Next_Creature_Only()
     {
-        var state = NewGame();
+        var state = NewGame(kreeGlobal: true);
         var queue = new AbilityQueue();
         var payGlobal = Shell(state, 0);
         var pay = new[] { Shell(state, 0), Shell(state, 2) }; // 3 Shell - Rhinoceros costs 6
@@ -143,7 +147,7 @@ public class ArmadilloRosterTests
     [Fact]
     public void Musk_Ox_Global_Is_Not_Offered_To_The_Player_Who_Cant_Buy_This_Turn()
     {
-        var state = NewGame(); // p1's Main
+        var state = NewGame(kreeGlobal: true); // p1's Main
         var wilds = new[] { Place(state, "p2", d => d.CardId is null, Zone.ReservePool, 3), Place(state, "p2", d => d.CardId is null, Zone.ReservePool, 5) };
 
         Assert.Throws<InvalidOperationException>(() =>
@@ -153,7 +157,7 @@ public class ArmadilloRosterTests
     [Fact]
     public void Bot_Pays_For_The_Discount_When_It_Brings_Rhinoceros_Into_Reach()
     {
-        var state = NewGame();
+        var state = NewGame(kreeGlobal: true);
         Shell(state, 0); Shell(state, 0); Shell(state, 2); // 5 Shell: Rhinoceros (6) is one short
 
         var decision = Bot.DiceKingdomBot.Decide(state, "p1")!;
@@ -171,7 +175,7 @@ public class ArmadilloRosterTests
     [Fact]
     public void Bot_Skips_The_Discount_When_It_Buys_Nothing_More()
     {
-        var state = NewGame();
+        var state = NewGame(kreeGlobal: true);
         state.Dice.First(d => d.CardId == DiceKingdomConfig.Rhinoceros.Id && d.Zone == Zone.Unpurchased).Zone = Zone.UsedPile; // no longer racing to it
         Shell(state, 0); // 2 Shell: paying for the Global leaves nothing to buy with
 
