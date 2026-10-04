@@ -858,7 +858,7 @@ public class DiceKingdomKeywordTests
         var assignment = new CombatAssignment();
         assignment.AssignBlocker(attacker.Id, opossum.Id);
         CombatEngine.DeclareBlockers(state, queue, assignment, [opossum.Id]);
-        Assert.Contains(new DieStatus("deadly", "Fought Opossum (Deadly)", "cleanup"), DieStatuses.For(state, attacker));
+        Assert.Contains(new DieStatus("deadly", "Opossum (Deadly)", "cleanup"), DieStatuses.For(state, attacker));
 
         var state2 = NewGame();
         var queue2 = new AbilityQueue();

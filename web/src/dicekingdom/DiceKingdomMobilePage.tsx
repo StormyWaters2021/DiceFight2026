@@ -16,6 +16,8 @@ import { GameOverOverlay } from "./GameOverOverlay";
 import { OPPONENT_PICKS, OpponentPicksOption, PickYourChampion, WaitingForOpponent, resolveInvite } from "./lobby";
 import { DieCube, type CubeSpin } from "./DieCube";
 import { facesFor } from "./dieFaces";
+import { explainRows, tileCues, whereText } from "./statusCues";
+import { CueRows } from "./CueRows";
 import { useDieFlights, usePhaseHeight } from "./dieFlights";
 import { useDiceRoll, type RollTarget } from "./useDiceRoll";
 import { actionCardsInGame, activeCouldAct, botDecisionCall, decisionOwner, pickEnergy } from "./bot";
@@ -486,6 +488,10 @@ function DTile({
   flyId?: boolean;
 }) {
   const cls = ["dkm-tile", clickable ? "clickable" : "", picked ? "picked" : "", targetable ? "targetable" : ""].filter(Boolean).join(" ");
+  // Status cues (Claude Design's "face frame", 2026-10-03) on any die in
+  // play or Intimidated - drawn on the die itself; see statusCues.ts.
+  const inPlay = die.zone === "FieldZone" || die.zone === "AttackZone" || die.zone === "Intimidated";
+  const cues = inPlay ? tileCues(die, cardsById, mine) : undefined;
   return (
     <button type="button" className={cls} onClick={clickable ? onClick : undefined} disabled={!clickable} data-fly-id={flyId ? `die:${die.id}` : undefined}>
       <DieCube
@@ -495,14 +501,8 @@ function DTile({
         spin={spin}
         turnOffset={turnOffset}
         energyCorner={die.energySymbolId && die.energyAmount > 0 ? { type: die.energySymbolId, amount: die.energyAmount } : undefined}
+        cues={cues}
       />
-      {/* Forced to block this turn (Hermit Crab) - 2026-09-30: the server's
-          own rejection used to be the only sign, naming an internal id. */}
-      {die.mustBlock && die.zone === "FieldZone" && <span className="dkm-must-block">Must block</span>}
-      {/* Obscure (2026-10-03) - can't be blocked this turn. */}
-      {die.unblockable && (die.zone === "FieldZone" || die.zone === "AttackZone") && (
-        <span className="dkm-must-block dkm-unblockable">Unblockable</span>
-      )}
       {/* Damage marked on a die in play (Honey Badger's ping, a survived
           block...) - direct feedback 2026-09-30: nothing showed it. Keyed
           by the amount so a fresh hit pops again; clears at Clean Up. */}
@@ -897,7 +897,7 @@ function MatCard({
             cardsById={cardsById}
             size={mine ? 50 : 48}
             mine={mine}
-            clickable={targeting ? targeting.candidates.has(d.id) : fieldClickable(d)}
+            clickable={targeting ? targeting.candidates.has(d.id) : fieldClickable(d) || tileCues(d, cardsById, mine).any}
             picked={targeting ? targeting.picked.has(d.id) : selectedId === d.id}
             targetable={targeting?.candidates.has(d.id)}
             spin={spins[d.id]}
@@ -916,7 +916,7 @@ function MatCard({
           <span className="dkm-field-label">Intimidated · back at end of turn</span>
           <div className="dkm-tile-row wrap dkm-intimidated" data-region={mine ? "intimidated-mine" : "intimidated-opp"}>
             {intimidated.map((d) => (
-              <DTile key={d.id} die={d} cardsById={cardsById} size={40} mine={mine} />
+              <DTile key={d.id} die={d} cardsById={cardsById} size={40} mine={mine} clickable={!targeting} picked={selectedId === d.id} onClick={() => onTapDie(d.id)} />
             ))}
           </div>
         </>
@@ -1010,7 +1010,10 @@ function BuyCard({
   purchaseCostOf,
   foresightReady = false,
   virtualEnergy = 0,
+  lockedBy,
 }: {
+  /** Cards you can't buy or field right now (Pangolin), and what's locking them. */
+  lockedBy?: Map<string, string[]>;
   purchaseCostOf: (cardId: string) => number;
   /** Deck-out generic energy, spent automatically before any die. */
   virtualEnergy?: number;
@@ -1062,14 +1065,17 @@ function BuyCard({
           const Avatar = CHARACTER_ICONS[cardId];
           const dieId = dice[0].id;
           const affordable = canAfford(cardId);
+          const lockers = lockedBy?.get(cardId);
           return (
             <button
               key={cardId}
               type="button"
               data-fly-id={`card:${cardId}`}
-              className={`dkm-buy-tile${selectedId === dieId ? " picked" : ""}${affordable ? "" : " unaffordable"}`}
+              className={`dkm-buy-tile${selectedId === dieId ? " picked" : ""}${affordable ? "" : " unaffordable"}${lockers ? " dk-locked" : ""}`}
+              title={lockers ? `Locked out by ${lockers.join(", ")} - you can't buy or field it while that's active.` : undefined}
               onClick={() => onSelect(dieId)}
             >
+              {lockers && <span className="dk-locked-hatch" aria-hidden="true" />}
               <span className="dkm-buy-avatar">{Avatar ? <Avatar size={22} /> : <TardigradeIcon size={22} />}</span>
               <span className="dkm-buy-name">{card?.name ?? cardId}</span>
               <span className="dkm-buy-cost-row">
@@ -1260,13 +1266,16 @@ function AttackLanesCard({
             }
             onTapLane(lane);
           };
+          // Status cues: an unblockable attacker makes its whole lane
+          // unblockable (CombatEngine.ValidateUnblockable).
+          const laneUnblockable = attackers.some((a) => a.statuses?.some((st) => st.kind === "unblockable"));
           return (
             <div
               key={lane}
               role="button"
               tabIndex={0}
               data-lane={lane}
-              className={`dkm-lane${targeted ? " targeted" : ""}`}
+              className={`dkm-lane${targeted ? " targeted" : ""}${laneUnblockable ? " unblockable" : ""}`}
               onClick={tapLane}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") tapLane();
@@ -1297,6 +1306,7 @@ function AttackLanesCard({
                         not a color/border cue, so it reads the same
                         regardless of position/orientation or color vision. */}
                     {attackers.length > 0 && <span className="dkm-lane-role def">Blocking</span>}
+                    {laneUnblockable && blockers.length === 0 && <span className="dkm-lane-cant">can't be blocked</span>}
                     {[...blockers].reverse().map((b) => (
                       <LaneDie key={b.id} die={b} cardsById={cardsById} you={you} size={tileSize} picked={selectedId === b.id} onTap={() => onTapBlocker(attackers[0]?.id ?? "", b.id)} preview={preview.get(b.id)} targeting={targeting} />
                     ))}
@@ -1352,6 +1362,7 @@ function AttackLanesCard({
                   )}
                   <div className="dkm-lane-blockers">
                     {attackers.length > 0 && <span className="dkm-lane-role def">Blocking</span>}
+                    {laneUnblockable && blockers.length === 0 && <span className="dkm-lane-cant">can't be blocked</span>}
                     {blockers.map((b) => (
                       <LaneDie key={b.id} die={b} cardsById={cardsById} you={you} size={tileSize} picked={selectedId === b.id} onTap={() => onTapBlocker(attackers[0]?.id ?? "", b.id)} preview={preview.get(b.id)} targeting={targeting} />
                     ))}
@@ -1361,7 +1372,10 @@ function AttackLanesCard({
                   </div>
                 </>
               )}
-              <span className="dkm-lane-number">{String(lane + 1).padStart(2, "0")}</span>
+              <span className="dkm-lane-number">
+                {laneUnblockable && <span className="dkm-lane-unblock-tag">»</span>}
+                {String(lane + 1).padStart(2, "0")}
+              </span>
             </div>
           );
         })}
@@ -2948,6 +2962,7 @@ export function DiceKingdomMobilePage() {
               purchaseCostOf={purchaseCostOf}
               foresightReady={foresightReady}
               virtualEnergy={yourVirtual}
+              lockedBy={new Map((game.lockedCards ?? []).filter((l) => l.playerId === you).map((l) => [l.cardId, l.sources]))}
             />
           )}
           {phase === "attack" && (
@@ -3055,12 +3070,13 @@ export function DiceKingdomMobilePage() {
                     rule) - character always wins the label here since
                     that's the stat that actually matters for this
                     step's actions. */}
-                {selectedDie.level !== null
-                  ? "character face"
-                  : selectedDie.energySymbolId
-                    ? `${selectedDie.energySymbolId} energy`
-                    : "unrolled"}{" "}
-                · {selectedDie.zone}
+                {selectedDie.zone === "FieldZone" || selectedDie.zone === "AttackZone" || selectedDie.zone === "Intimidated"
+                  ? whereText(selectedDie, selectedDie.controllerId === you)
+                  : `${selectedDie.level !== null
+                      ? "character face"
+                      : selectedDie.energySymbolId
+                        ? `${selectedDie.energySymbolId} energy`
+                        : "unrolled"} · ${selectedDie.zone}`}
               </span>
               {selectedDie.attackModifiers && (
                 <span className="dkm-inspect-stats">
@@ -3068,6 +3084,9 @@ export function DiceKingdomMobilePage() {
                   {statBreakdown(selectedDie.baseDefense, selectedDie.defenseModifiers, selectedDie.effectiveDefense)}
                 </span>
               )}
+              {/* Status cues (2026-10-03): what's going on with this die,
+                  where it came from, and how long it lasts. */}
+              <CueRows rows={explainRows(selectedDie, selectedDie.controllerId === you)} />
             </div>
             <button type="button" className="dkm-inspect-close" onClick={() => setSelectedId(null)}>
               ×

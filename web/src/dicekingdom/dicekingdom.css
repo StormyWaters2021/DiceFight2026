@@ -2620,11 +2620,6 @@
 .dk-mobile .dkm-tile-row.wrap {
   flex-wrap: wrap;
 }
-/* Keyword Intimidate - off the Field until Clean Up: dimmed, not gone. */
-.dk-mobile .dkm-tile-row.dkm-intimidated {
-  opacity: 0.55;
-  filter: grayscale(0.5);
-}
 .dk-mobile .dkm-tile {
   padding: 0;
   border-radius: 8px;
@@ -3662,57 +3657,11 @@
   opacity: 0.75;
 }
 
-/* Forced to block this turn (Hermit Crab) - a badge on the die. */
+/* The tile is the positioning context for its badges. */
 .dk-mobile .dkm-tile {
   position: relative;
 }
-.dk-mobile .dkm-must-block {
-  position: absolute;
-  left: 50%;
-  bottom: -7px;
-  transform: translateX(-50%);
-  white-space: nowrap;
-  font: 700 8px/1 "Work Sans", var(--sans);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  padding: 3px 5px;
-  border-radius: 6px;
-  background: var(--claw);
-  color: #1a1006;
-  pointer-events: none;
-}
-.dicekingdom .dk-must-block {
-  color: var(--claw);
-  font-weight: 700;
-  text-transform: uppercase;
-  font-size: 9px;
-  letter-spacing: 0.04em;
-}
 
-/* Obscure's marker - the must-block badge, in the Eye (trickery) hue. */
-.dk-mobile .dkm-must-block.dkm-unblockable {
-  background: var(--eye);
-  /* "Unblockable" is a long word on a 50px tile - two side by side ran
-     into each other in uppercase. */
-  text-transform: none;
-  letter-spacing: 0;
-  padding: 3px 3px;
-}
-.dicekingdom .dk-must-block.dk-unblockable {
-  color: var(--eye);
-}
-
-/* Reflected damage (Rhinoceros) - its own chip, apart from "to face". */
-.dk-mobile .dkm-lane-chip.reflect {
-  background: color-mix(in srgb, var(--shell) 22%, transparent);
-  border-color: var(--shell);
-  color: var(--dkm-ink);
-}
-.dk-mobile .dkm-reflect-tag {
-  color: var(--shell);
-}
-
-/* Damage marked on a die in play (2026-09-30) - both pages. */
 .dicekingdom .dk-damage-badge {
   position: absolute;
   top: -6px;
@@ -3779,7 +3728,198 @@
 .dicekingdom .dk-intimidated {
   margin-top: 6px;
 }
-.dicekingdom .dk-intimidated .dierow {
-  opacity: 0.55;
-  filter: grayscale(0.5);
+
+/* ---- Die status cues: Claude Design's "face frame" (2026-10-03,
+   design_handoff_die_status_cues; statusCues.ts decides what shows).
+   Combat rules: the face's border (set inline by DieCube) plus this tab
+   on the lane edge. Amber is deliberately not an energy colour. Filled =
+   must/has; outline + slash = can't/off. ---- */
+.dicekingdom .dk-cue-tab {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  height: 13px;
+  min-width: 15px;
+  padding: 0 3px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  border: 1.5px solid;
+  font: 800 8px/1 "Work Sans", var(--sans, sans-serif);
+  z-index: 3;
+  overflow: hidden;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.dicekingdom .dk-cue-tab.bottom { bottom: -7px; }
+.dicekingdom .dk-cue-tab.top { top: -7px; }
+.dicekingdom .dk-cue-tab.slashed::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -2px;
+  bottom: -2px;
+  width: 1.5px;
+  background: currentColor;
+  transform: rotate(45deg);
+}
+/* A keyword it doesn't print: a cream tab on the left edge. */
+.dicekingdom .dk-cue-granted {
+  position: absolute;
+  left: -6px;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 12px;
+  padding: 0 2px;
+  display: flex;
+  align-items: center;
+  border-radius: 3px;
+  background: #fff8ec;
+  color: #14151c;
+  font: 800 7px/1 "Work Sans", var(--sans, sans-serif);
+  z-index: 3;
+  pointer-events: none;
+}
+/* Text blanked: faded art, struck through. */
+.dicekingdom .dk-cue-faded {
+  display: contents;
+}
+.dicekingdom .dk-cue-faded > * {
+  opacity: 0.28;
+}
+.dicekingdom .dk-cue-strike {
+  position: absolute;
+  left: 18%;
+  right: 18%;
+  top: 50%;
+  height: 2px;
+  margin-top: -1px;
+  background: #fff8ec;
+  transform: rotate(-24deg);
+  box-shadow: 0 0 0 1px rgba(20, 21, 28, 0.7);
+}
+/* Deadly-engaged: a red dog-ear in the free bottom-left corner. */
+.dicekingdom .dk-cue-deadly {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 0;
+  height: 0;
+  border-left-style: solid;
+  border-left-color: oklch(0.66 0.2 25);
+  border-top-style: solid;
+  border-top-color: transparent;
+}
+/* Changed stats: the number sits on a chip - cream up, red down. */
+.dicekingdom .dk-stat-up,
+.dicekingdom .dk-stat-down {
+  padding: 1px 2px;
+  border-radius: 3px;
+}
+.dicekingdom .dk-stat-up { background: #fff8ec; color: #14151c; }
+.dicekingdom .dk-stat-down { background: oklch(0.66 0.2 25); color: #fff; }
+/* Intimidated: grey dashed frame (inline), the whole die greyed. */
+.dicekingdom .dk-cue-away {
+  filter: grayscale(1);
+  opacity: 0.6;
+}
+/* Room for the lane-edge tab, kept whether or not one shows so rows
+   don't jump when a cue appears. */
+.dk-mobile [data-region="field-mine"] { padding-bottom: 7px; }
+.dk-mobile [data-region="field-opp"] { padding-top: 7px; }
+
+/* Status cue explainer rows - the mobile inspect panel and the desktop
+   die popover: [chip | title · duration / "From {source}. {rule}"]. */
+.dicekingdom .dk-cue-rows {
+  display: flex;
+  flex-direction: column;
+  margin-top: 4px;
+}
+.dicekingdom .dk-cue-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 9px;
+  align-items: start;
+  padding-top: 6px;
+  margin-top: 6px;
+  border-top: 1px solid rgba(92, 100, 132, 0.45);
+}
+.dicekingdom .dk-cue-row.overridden { opacity: 0.5; }
+.dicekingdom .dk-cue-chip {
+  position: relative;
+  min-width: 24px;
+  height: 16px;
+  padding: 0 3px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  border: 1.5px solid;
+  font: 800 8px/1 "Work Sans", var(--sans, sans-serif);
+  overflow: hidden;
+  white-space: nowrap;
+}
+.dicekingdom .dk-cue-chip.slashed::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -2px;
+  bottom: -2px;
+  width: 1.5px;
+  background: currentColor;
+  transform: rotate(45deg);
+}
+.dicekingdom .dk-cue-title { font: 600 11.5px/1.3 "Work Sans", var(--sans, sans-serif); color: var(--text-h, var(--text)); }
+.dicekingdom .dk-cue-dur { font-weight: 400; color: var(--text-dim); }
+.dicekingdom .dk-cue-body { font: 400 10.5px/1.4 "Work Sans", var(--sans, sans-serif); color: var(--text); text-align: left; }
+.dk-mobile .dk-cue-title { color: #fff; }
+.dk-mobile .dk-cue-dur { color: #9198b0; }
+.dk-mobile .dk-cue-body { color: #c7cce0; }
+
+/* Desktop: the top cue's word under the tile. */
+.dicekingdom .dk-cue-word {
+  font: 700 9px/1.2 "Work Sans", var(--sans, sans-serif);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text);
+}
+
+/* An unblockable lane: the die's own double amber border, at lane size. */
+.dk-mobile .dkm-lane.unblockable {
+  border: 3px double oklch(0.85 0.15 88);
+  background: oklch(0.85 0.15 88 / 0.06);
+}
+.dk-mobile .dkm-lane-unblock-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 11px;
+  min-width: 13px;
+  margin-right: 4px;
+  border-radius: 3px;
+  background: oklch(0.85 0.15 88);
+  color: #14151c;
+  font: 800 9px/1 "Work Sans", var(--sans, sans-serif);
+}
+.dk-mobile .dkm-lane-cant {
+  color: oklch(0.85 0.15 88);
+  font: 500 8.5px/1.2 "Work Sans", var(--sans, sans-serif);
+  text-align: center;
+}
+
+/* Card lockout (Pangolin): a hatched overlay on the card itself - the cue
+   lives on the card, not on any die. */
+.dicekingdom .dk-locked {
+  position: relative;
+  overflow: hidden;
+}
+.dicekingdom .dk-locked-hatch {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(45deg, rgba(20, 21, 28, 0.82) 0 3px, rgba(20, 21, 28, 0.45) 3px 6px);
+  pointer-events: none;
+  border-radius: inherit;
 }

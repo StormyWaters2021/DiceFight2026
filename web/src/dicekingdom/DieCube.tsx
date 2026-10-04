@@ -1,6 +1,7 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { EnergyBadge } from "./icons";
 import { FACE_TRANSFORMS, type CubeFace } from "./dieFaces";
+import { chipColors, type TileCues } from "./statusCues";
 
 // A die as a real CSS 3D cube. Motion refresh (2026-09-16) ported from
 // design_handoff_dice_kingdom_mobile/ANIMATIONS.md - a spec Claude Design
@@ -89,6 +90,8 @@ export function DieCube(props: {
   /** The die's own live energy, read straight off the DTO rather than
    *  the (rotating, face-specific) cube model - see the file header. */
   energyCorner?: { type: string; amount: number };
+  /** Status cues drawn on the die itself - see statusCues.ts. */
+  cues?: TileCues;
 }) {
   const { index, size, mine, spin } = props;
 
@@ -147,10 +150,16 @@ export function DieCube(props: {
     cubeStyle = { transform: `rotateY(${props.turnOffset ?? 0}deg)` };
   }
 
+  const cues = props.cues;
+  const frameStyle: CSSProperties | undefined = cues?.frame
+    ? { borderWidth: cues.frame.width, borderStyle: cues.frame.style, borderColor: cues.frame.color }
+    : undefined;
+  const statClass = (dir: "up" | "down" | null | undefined) => (dir ? ` dk-stat-${dir}` : "");
+
   return (
     <span
       aria-hidden="true"
-      className="die-cube-box"
+      className={`die-cube-box${cues?.intimidated ? " dk-cue-away" : ""}`}
       style={{ width: size, height: size, perspective: size * 10 }}
     >
       <span
@@ -179,6 +188,10 @@ export function DieCube(props: {
                       background: `linear-gradient(158deg, oklch(0.38 0.03 ${hue}), oklch(0.28 0.03 ${hue}) 58%, oklch(0.22 0.02 ${hue}))`,
                       borderColor: `oklch(0.5 0.05 ${hue} / 0.7)`,
                       boxShadow: `inset 0 1.5px 0 rgba(255,255,255,.18), inset 0 -3px 5px rgba(0,0,0,.45)`,
+                      // Status cues: the frame replaces the normal border,
+                      // and the face clips its own corner cue.
+                      ...frameStyle,
+                      ...(cues?.deadly ? { overflow: "hidden" } : {}),
                     }
                   : {
                       // Muted "other faces" material, glimpsed only mid-
@@ -203,7 +216,21 @@ export function DieCube(props: {
                   the corner-positioned stats/energy-type icon sit on
                   top of it, never over it, so it never competes with
                   the numbers that actually have to be read precisely. */}
-              {face.avatar && <face.avatar size={Math.round(size * (face.kind === "action" ? 0.66 : 0.48))} />}
+              {face.avatar &&
+                (isFront && cues?.blanked ? (
+                  <span className="dk-cue-faded">
+                    <face.avatar size={Math.round(size * 0.48)} />
+                  </span>
+                ) : (
+                  <face.avatar size={Math.round(size * (face.kind === "action" ? 0.66 : 0.48))} />
+                ))}
+              {isFront && cues?.blanked && <span className="dk-cue-strike" />}
+              {isFront && cues?.deadly && (
+                <span
+                  className="dk-cue-deadly"
+                  style={{ borderLeftWidth: Math.round(size * 0.3), borderTopWidth: Math.round(size * 0.3) }}
+                />
+              )}
               {face.kind === "character" && (
                 <>
                   {/* Always shown, including 0 - direct feedback
@@ -216,8 +243,8 @@ export function DieCube(props: {
                   >
                     {face.fieldingCost}
                   </span>
-                  <span className="die-cube-attack">{face.attack}</span>
-                  <span className="die-cube-defense">{face.defense}</span>
+                  <span className={`die-cube-attack${isFront ? statClass(cues?.atk) : ""}`}>{face.attack}</span>
+                  <span className={`die-cube-defense${isFront ? statClass(cues?.def) : ""}`}>{face.defense}</span>
                   {isFront && (props.damage ?? 0) > 0 && (
                     <span className="die-cube-damage">-{props.damage}</span>
                   )}
@@ -227,6 +254,15 @@ export function DieCube(props: {
           );
         })}
       </span>
+      {cues?.tab && (
+        <span
+          className={`dk-cue-tab ${cues.tabEdge}${cues.tab.slash ? " slashed" : ""}`}
+          style={chipColors(cues.tab)}
+        >
+          {cues.tab.glyph}
+        </span>
+      )}
+      {cues?.granted && <span className="dk-cue-granted">{cues.granted}</span>}
       {energyCorner && (
         <span className="pip-stack on-die">
           {Array.from({ length: Math.max(1, energyCorner.amount) }, (_, i) => (

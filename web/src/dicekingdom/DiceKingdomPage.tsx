@@ -8,6 +8,8 @@ import { OPPONENT_PICKS, OpponentPicksOption, PickYourChampion, WaitingForOppone
 import { CombatLane } from "./CombatLane";
 import { DieCube, type CubeSpin } from "./DieCube";
 import { facesFor } from "./dieFaces";
+import { explainRows, tileCues } from "./statusCues";
+import { CueRows } from "./CueRows";
 import { StepRibbon } from "./StepRibbon";
 import { MatchLog } from "./MatchLog";
 import { SettingsMenu, ThemeToggle, useTheme } from "./ThemeToggle";
@@ -307,6 +309,9 @@ function DieTile({
     return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, [showInfo]);
   const isRolled = ROLLED_ZONES.has(zone) && rolled(die);
+  const inPlay = zone === "FieldZone" || zone === "AttackZone" || zone === "Intimidated";
+  const cues = inPlay ? tileCues(die, cardsById, mine ?? true) : undefined;
+  const cueRows = inPlay ? explainRows(die, mine ?? true) : [];
   const card = die.cardId ? cardsById.get(die.cardId) : undefined;
   const name = die.cardId ? (card?.name ?? die.cardId) : "Tardigrade";
   const cls = ["dietile", clickable ? "clickable" : "", picked ? "picked" : ""].filter(Boolean).join(" ");
@@ -375,14 +380,12 @@ function DieTile({
                   ? { type: die.energySymbolId, amount: die.energyAmount }
                   : undefined
               }
+              cues={cues}
             />
             {label && <div className="lbl">{label}</div>}
-            {/* Forced to block this turn (Hermit Crab), 2026-09-30. */}
-            {die.mustBlock && zone === "FieldZone" && <div className="lbl dk-must-block">Must block</div>}
-            {/* Obscure (2026-10-03). */}
-            {die.unblockable && (zone === "FieldZone" || zone === "AttackZone") && (
-              <div className="lbl dk-must-block dk-unblockable">Unblockable</div>
-            )}
+            {/* Status cues (2026-10-03): the top cue's word, in the slot
+                "Must block" used to have. Click the die for why. */}
+            {cues?.word && <div className="lbl dk-cue-word">{cues.word}</div>}
             {/* Damage marked on a die in play - see the mobile page's
                 identical badge (2026-09-30). */}
             {(die.damage ?? 0) > 0 && (zone === "FieldZone" || zone === "AttackZone") && (
@@ -406,6 +409,8 @@ function DieTile({
               )}
             </div>
           </div>
+          {/* What's going on with this die, and why (status cues). */}
+          <CueRows rows={cueRows} />
           <div className="card-popover-levels">
             {(card ? card.levels : TARDIGRADE_SPEC).map((level, i) => (
               <div className={`card-popover-level-row${die.level === i + 1 ? " current" : ""}`} key={i}>
@@ -1431,6 +1436,8 @@ export function DiceKingdomPage() {
             const dieId = dice[0].id;
             const energyType = card?.energyTypes[0] ?? "Wild";
             const canPurchaseNow = isYourTurn && playerId === you && step === "main";
+            // Pangolin's lockout on this board's owner (status cues).
+            const lockers = (game?.lockedCards ?? []).find((l) => l.playerId === playerId && l.cardId === cardId)?.sources;
             const picked = selection.primary === dieId;
             const detailOpen = openCardId === cardId;
             return (
@@ -1443,7 +1450,8 @@ export function DiceKingdomPage() {
               <div key={cardId} className="roster-chip-wrap">
                 <button
                   type="button"
-                  className={`roster-chip${detailOpen ? " open" : ""}${picked ? " picked" : ""}`}
+                  className={`roster-chip${detailOpen ? " open" : ""}${picked ? " picked" : ""}${lockers ? " dk-locked" : ""}`}
+                  title={lockers ? `Locked out by ${lockers.join(", ")} - can't be bought or fielded while that's active.` : undefined}
                   style={accent ? ({ ["--cc" as string]: accent } as const) : undefined}
                   onClick={() => setOpenCardId((c) => (c === cardId ? null : cardId))}
                 >
@@ -1453,6 +1461,7 @@ export function DiceKingdomPage() {
                     {card?.purchaseCost} <CostIcon energyType={energyType} />
                   </span>
                   <span className="rc-left">×{dice.length} left</span>
+                  {lockers && <span className="dk-locked-hatch" aria-hidden="true" />}
                 </button>
                 {detailOpen && (
                   // Always down, not away-from-mat - direct feedback

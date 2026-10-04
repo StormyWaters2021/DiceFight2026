@@ -88,6 +88,38 @@ export interface Die {
   mustBlock?: boolean;
   /** Can't be blocked this turn (Obscure) - nor can its lane-mates. */
   unblockable?: boolean;
+  /** Every status cue on this die, with its source and duration (the
+   *  server's DieStatuses). The tile and its explainer both read this. */
+  statuses?: DieStatus[];
+  /** The latest effect-caused spin - flashed once per new seq. */
+  lastSpin?: SpinRecord | null;
+}
+
+export type DieStatusKind =
+  | "mustBlock" | "cantBlock" | "unblockable" | "mustAttack" | "cantAttack" | "onlyBlocker"
+  | "blanked" | "granted" | "deadly" | "intimidated";
+
+export interface DieStatus {
+  kind: DieStatusKind;
+  source: string | null;
+  /** "turn" | "cleanup" | "whileActive", or null when unknown. */
+  duration: string | null;
+  /** For "granted": the keyword it was given. */
+  keyword?: string | null;
+}
+
+export interface SpinRecord {
+  seq: number;
+  fromLevel: number | null;
+  /** Null when it was spun to an energy face. */
+  toLevel: number | null;
+  source: string;
+}
+
+export interface LockedCard {
+  playerId: string;
+  cardId: string;
+  sources: string[];
 }
 
 export interface PlayerState {
@@ -147,6 +179,10 @@ export interface GameState {
   /** Rule 2.9: someone's Life reached 0. winnerId null with gameOver = a tie. */
   gameOver?: boolean;
   winnerId?: string | null;
+  /** Lanes holding an unblockable attacker - nothing can block there. */
+  unblockableLanes?: number[];
+  /** Cards a player can't buy or field right now (Pangolin), and why. */
+  lockedCards?: LockedCard[];
 }
 
 export interface Seat {

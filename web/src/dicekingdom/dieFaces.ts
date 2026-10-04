@@ -109,6 +109,15 @@ function defaultFaces(die: Die, card: CardDef | undefined): CubeFace[] {
   return faces.slice(0, FACE_COUNT);
 }
 
+/** The card's printed ATK/DEF for the level this die is showing - what a
+ *  stat-change chip compares against (status cues). Null off a creature face. */
+export function printedStats(die: Die, cardsById: Map<string, CardDef>): { attack: number; defense: number } | null {
+  if (die.level === null) return null;
+  const card = die.cardId ? cardsById.get(die.cardId) : undefined;
+  const face = defaultFaces(die, card).find((f) => f.kind === "character" && f.level === die.level);
+  return face?.kind === "character" ? { attack: face.attack, defense: face.defense } : null;
+}
+
 /** The face the server says this die is showing, or null if it shows none. */
 function currentFace(die: Die): CubeFace | null {
   if (die.isActionFace) return { kind: "action" };

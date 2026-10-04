@@ -46,7 +46,7 @@ public static class DieStatuses
         {
             var names = deadlyIds.Select(id => state.Dice.FirstOrDefault(d => d.Id == id))
                 .Select(d => d?.CardId is { } c ? state.CardCatalog[c].Name : "a Tardigrade").Distinct();
-            list.Add(new DieStatus("deadly", "Fought " + string.Join(", ", names) + " (Deadly)", "cleanup"));
+            list.Add(new DieStatus("deadly", string.Join(", ", names) + " (Deadly)", "cleanup"));
         }
         return list;
     }
