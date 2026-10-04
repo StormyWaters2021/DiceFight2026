@@ -18,6 +18,8 @@ import { DieCube, type CubeSpin } from "./DieCube";
 import { facesFor } from "./dieFaces";
 import { explainRows, tileCues, whereText } from "./statusCues";
 import { CueRows } from "./CueRows";
+import { DieFramesLegend, legendSeen } from "./DieFramesLegend";
+import { SpinFlash, useSpinFlash } from "./SpinFlash";
 import { useDieFlights, usePhaseHeight } from "./dieFlights";
 import { useDiceRoll, type RollTarget } from "./useDiceRoll";
 import { actionCardsInGame, activeCouldAct, botDecisionCall, decisionOwner, pickEnergy } from "./bot";
@@ -492,6 +494,7 @@ function DTile({
   // play or Intimidated - drawn on the die itself; see statusCues.ts.
   const inPlay = die.zone === "FieldZone" || die.zone === "AttackZone" || die.zone === "Intimidated";
   const cues = inPlay ? tileCues(die, cardsById, mine) : undefined;
+  const spinFlash = useSpinFlash(die);
   return (
     <button type="button" className={cls} onClick={clickable ? onClick : undefined} disabled={!clickable} data-fly-id={flyId ? `die:${die.id}` : undefined}>
       <DieCube
@@ -503,6 +506,7 @@ function DTile({
         energyCorner={die.energySymbolId && die.energyAmount > 0 ? { type: die.energySymbolId, amount: die.energyAmount } : undefined}
         cues={cues}
       />
+      <SpinFlash flash={inPlay ? spinFlash : null} />
       {/* Damage marked on a die in play (Honey Badger's ping, a survived
           block...) - direct feedback 2026-09-30: nothing showed it. Keyed
           by the amount so a fresh hit pops again; clears at Clean Up. */}
@@ -603,11 +607,14 @@ function StepPopout({
   steps,
   index,
   onClose,
+  onOpenLegend,
 }: {
   phaseLabel: string;
   steps: ChainStep[];
   index: number;
   onClose: () => void;
+  /** Reopens the die-frames legend - mobile has no Help menu of its own. */
+  onOpenLegend: () => void;
 }) {
   return (
     <div className="dkm-overlay-backdrop" onClick={onClose}>
@@ -626,6 +633,9 @@ function StepPopout({
           </div>
         ))}
         <p className="dkm-popout-note">This chain is derived from board state each render - it can grow or shrink turn to turn.</p>
+        <button type="button" className="dkm-text-btn" onClick={onOpenLegend}>
+          Die frames: what the borders and tabs mean
+        </button>
       </div>
     </div>
   );
@@ -1784,6 +1794,13 @@ export function DiceKingdomMobilePage() {
   const blockAssignmentsRef = useRef(blockAssignments);
   blockAssignmentsRef.current = blockAssignments;
   const [stepsOpen, setStepsOpen] = useState(false);
+  // Status cues' first-time legend: opens the first time any die shows a
+  // cue (once per browser), and from the step pop-out after that.
+  const [legendOpen, setLegendOpen] = useState(false);
+  const anyCue = !!game?.dice.some((d) => (d.statuses?.length ?? 0) > 0);
+  useEffect(() => {
+    if (anyCue && !legendSeen()) setLegendOpen(true);
+  }, [anyCue]);
   // Which player's roster the sheet is showing, or null when closed -
   // NOT a bare boolean (real bug, direct feedback 2026-09-16): both
   // mats' Roster buttons used to open the exact same sheet, which always
@@ -3210,7 +3227,19 @@ export function DiceKingdomMobilePage() {
           onConfirm={(ids) => run(() => api.resolvePendingChoice(game.gameId, ids))}
         />
       )}
-      {stepsOpen && <StepPopout phaseLabel={phaseLabel} steps={chainSteps} index={chainIndex} onClose={() => setStepsOpen(false)} />}
+      {stepsOpen && (
+        <StepPopout
+          phaseLabel={phaseLabel}
+          steps={chainSteps}
+          index={chainIndex}
+          onClose={() => setStepsOpen(false)}
+          onOpenLegend={() => {
+            setStepsOpen(false);
+            setLegendOpen(true);
+          }}
+        />
+      )}
+      {legendOpen && <DieFramesLegend variant="mobile" onClose={() => setLegendOpen(false)} />}
       {rosterViewFor && (
         <RosterSheet
           title={rosterViewFor === you ? "Your Roster" : "Their Roster"}

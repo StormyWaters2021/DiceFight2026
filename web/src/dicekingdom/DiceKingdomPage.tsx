@@ -10,6 +10,8 @@ import { DieCube, type CubeSpin } from "./DieCube";
 import { facesFor } from "./dieFaces";
 import { explainRows, tileCues } from "./statusCues";
 import { CueRows } from "./CueRows";
+import { DieFramesLegend, legendSeen } from "./DieFramesLegend";
+import { SpinFlash, useSpinFlash } from "./SpinFlash";
 import { StepRibbon } from "./StepRibbon";
 import { MatchLog } from "./MatchLog";
 import { SettingsMenu, ThemeToggle, useTheme } from "./ThemeToggle";
@@ -312,6 +314,7 @@ function DieTile({
   const inPlay = zone === "FieldZone" || zone === "AttackZone" || zone === "Intimidated";
   const cues = inPlay ? tileCues(die, cardsById, mine ?? true) : undefined;
   const cueRows = inPlay ? explainRows(die, mine ?? true) : [];
+  const spinFlash = useSpinFlash(die);
   const card = die.cardId ? cardsById.get(die.cardId) : undefined;
   const name = die.cardId ? (card?.name ?? die.cardId) : "Tardigrade";
   const cls = ["dietile", clickable ? "clickable" : "", picked ? "picked" : ""].filter(Boolean).join(" ");
@@ -382,6 +385,7 @@ function DieTile({
               }
               cues={cues}
             />
+            <SpinFlash flash={inPlay ? spinFlash : null} />
             {label && <div className="lbl">{label}</div>}
             {/* Status cues (2026-10-03): the top cue's word, in the slot
                 "Must block" used to have. Click the die for why. */}
@@ -447,7 +451,7 @@ function DieTile({
 // text toggle - same content, an icon+popover instead so it can share the
 // ribbon's row (see SettingsMenu in ThemeToggle.tsx, the same pattern,
 // same reason).
-function HowToPlayMenu() {
+function HowToPlayMenu({ onOpenLegend }: { onOpenLegend: () => void }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -470,6 +474,16 @@ function HowToPlayMenu() {
             <li>Field a rolled creature (Tardigrades are free; your Character costs energy, any type) or Purchase another copy of your Character (matching type or Wild only).</li>
             <li>Proceed to Attack, pick attackers; the other seat assigns blockers, then Resolve Combat.</li>
           </ul>
+          <button
+            type="button"
+            className="btn"
+            onClick={() => {
+              setOpen(false);
+              onOpenLegend();
+            }}
+          >
+            Die frames
+          </button>
         </div>
       )}
     </div>
@@ -581,6 +595,12 @@ export function DiceKingdomPage() {
   // right now (most of the game), which selection's own clickable gate
   // would otherwise block entirely.
   const [openCardId, setOpenCardId] = useState<string | null>(null);
+  // Status cues' first-time legend - see the mobile page's twin.
+  const [legendOpen, setLegendOpen] = useState(false);
+  const anyCue = !!game?.dice.some((d) => (d.statuses?.length ?? 0) > 0);
+  useEffect(() => {
+    if (anyCue && !legendSeen()) setLegendOpen(true);
+  }, [anyCue]);
 
   // Direct feedback (2026-09-05): the popover stuck around indefinitely -
   // it needs to close once the die it was showing is actually purchased
@@ -1873,6 +1893,7 @@ export function DiceKingdomPage() {
 
   return (
     <div className="dicekingdom">
+      {legendOpen && <DieFramesLegend variant="desktop" onClose={() => setLegendOpen(false)} />}
       <GameOverOverlay
         game={game}
         you={vsComputer ? game.playerOne.id : you}
@@ -1924,7 +1945,7 @@ export function DiceKingdomPage() {
       <div className="dk-titlebar">
         <StepRibbon game={game} />
         <div className="dk-titlebar-right">
-          <HowToPlayMenu />
+          <HowToPlayMenu onOpenLegend={() => setLegendOpen(true)} />
           <SettingsMenu theme={theme} setTheme={setTheme} />
         </div>
       </div>

@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics><meta name="design_doc_mode" content="canvas"></meta><link rel="preconnect" href="https://fonts.googleapis.com"></link><link href="https://fonts.googleapis.com/css2?family=Anton&amp;family=Work+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"></link><style>body{margin:0;background:#e9ecf2;font-family:'Work Sans',system-ui,sans-serif;color:#454b5c}a{color:#b8451f}a:hover{color:#0f1117}.dv-turn{padding:40px 44px 32px;border-bottom:1px solid rgba(0,0,0,.08);scroll-margin-top:16px}.dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 20px}.dv-tid{font:600 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#1a1a1a;color:#fff;border-radius:4px;text-decoration:none}.dv-tname{font:600 13px/1.2 'Work Sans',sans-serif;color:#1a1a1a}.dv-opts{display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start}.dv-opt{flex:none;display:flex;flex-direction:column;gap:9px;scroll-margin-top:16px}.dv-oid{font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(0,0,0,.08);color:#1a1a1a;border-radius:5px;text-decoration:none}.dv-olabel{display:flex;align-items:baseline;gap:8px;font:400 11px/1.3 'Work Sans',sans-serif;color:rgba(0,0,0,.55)}.dv-opt:target .dv-oid{background:#2a78d6;color:#fff}.dv-next{margin:22px 0 0;font:12px/1.5 'Work Sans',sans-serif;color:rgba(0,0,0,.55)}@keyframes dkStatusFlash{0%{opacity:0;box-shadow:0 0 0 0 rgba(255,255,255,0)}6%{opacity:1;box-shadow:0 0 0 2px #fff,0 0 16px 5px rgba(255,255,255,.6)}25%{opacity:1;box-shadow:0 0 0 2px #fff,0 0 6px 1px rgba(255,255,255,.3)}40%,100%{opacity:0;box-shadow:0 0 0 7px rgba(255,255,255,0)}}@keyframes dkStatusChip{0%{opacity:0;transform:translate(-50%,4px) scale(.3)}8%{opacity:1;transform:translate(-50%,0) scale(1.3)}14%{transform:translate(-50%,0) scale(1)}55%{opacity:1}65%,100%{opacity:0}}@media (prefers-reduced-motion:reduce){.dk-fx-ring{animation:none!important;opacity:0}}</style></helmet>
+<section class="dv-turn" id="t2">
+  <div class="dv-thd"><a class="dv-tid" href="#t2">2</a><span class="dv-tname">Finishing <a class="dv-oid" href="#1b">1b</a> Face frame: in context, desktop, motion, legend</span></div>
+  <div class="dv-opts">
+
+    <div class="dv-opt" id="2a">
+      <div class="dv-olabel"><a class="dv-oid" href="#2a">2a</a>Mobile board: your attack, the opponent is assigning blocks</div>
+      <div style="width:400px;box-sizing:border-box;padding:16px 14px 14px;border-radius:14px;background:radial-gradient(120% 60% at 50% 0%, #2b3143 0%, #14151c 100%);color:#c7cce0;font-family:'Work Sans',sans-serif;display:flex;flex-direction:column;gap:14px;">
+        <div style="display:flex;flex-direction:column;gap:9px;">
+          <span style="font:600 9.5px/1 'Work Sans',sans-serif;letter-spacing:0.1em;text-transform:uppercase;color:#c093dd;">Opponent · Field</span>
+          <div style="display:flex;gap:7px;flex-wrap:wrap;">
+            <sc-for list="{{ ctxOpp }}" as="t" hint-placeholder-count="5">
+              <dc-import name="StatusTile" die="{{ t.die }}" sys="b" side="opp" size="{{ 48 }}" picked="{{ t.picked }}" on-tap="{{ t.tap }}" hint-size="48px,55px"></dc-import>
+            </sc-for>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:6px;padding:6px 4px 8px;border-radius:10px;border:1px solid rgba(92,100,132,.45);">
+            <span style="font:600 8.5px/1 'Work Sans',sans-serif;letter-spacing:.1em;color:#9198b0;">LANE 1</span>
+            <dc-import name="StatusTile" die="{{ ctx.blocker }}" sys="b" side="opp" size="{{ 40 }}" picked="{{ ctx.p.blocker }}" on-tap="{{ ctx.t.blocker }}" hint-size="40px,47px"></dc-import>
+            <dc-import name="StatusTile" die="{{ ctx.mongoose }}" sys="b" side="mine" size="{{ 40 }}" picked="{{ ctx.p.mongoose }}" on-tap="{{ ctx.t.mongoose }}" hint-size="40px,47px"></dc-import>
+            <span style="padding:2px 6px;border-radius:6px;font:600 9px/1 'Work Sans',sans-serif;text-transform:uppercase;color:#14151c;background:#e78a5a;white-space:nowrap;">0 to face</span>
+          </div>
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:6px;padding:6px 4px 8px;border-radius:10px;border:3px double oklch(0.85 0.15 88);background:oklch(0.85 0.15 88 / 0.06);">
+            <span style="display:flex;align-items:center;gap:4px;font:600 8.5px/1 'Work Sans',sans-serif;letter-spacing:.1em;color:oklch(0.85 0.15 88);"><span style="display:flex;align-items:center;justify-content:center;height:11px;min-width:13px;border-radius:3px;background:oklch(0.85 0.15 88);color:#14151c;font:800 8px/1 'Work Sans',sans-serif;">»</span>LANE 2</span>
+            <div style="height:47px;display:flex;align-items:center;justify-content:center;font:500 8.5px/1.25 'Work Sans',sans-serif;color:oklch(0.85 0.15 88);text-align:center;">can't be<br></br>blocked</div>
+            <dc-import name="StatusTile" die="{{ ctx.chameleon }}" sys="b" side="mine" size="{{ 40 }}" picked="{{ ctx.p.chameleon }}" on-tap="{{ ctx.t.chameleon }}" hint-size="40px,47px"></dc-import>
+            <span style="padding:2px 6px;border-radius:6px;font:600 9px/1 'Work Sans',sans-serif;text-transform:uppercase;color:#14151c;background:#e78a5a;">5 to face</span>
+          </div>
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:6px 4px;border-radius:10px;border:1px solid rgba(92,100,132,.45);">
+            <span style="font:600 8.5px/1 'Work Sans',sans-serif;letter-spacing:.1em;color:#9198b0;">LANE 3</span>
+            <span style="font:400 10px/1 'Work Sans',sans-serif;color:#7a8099;">—</span>
+          </div>
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:6px 4px;border-radius:10px;border:1px solid rgba(92,100,132,.45);">
+            <span style="font:600 8.5px/1 'Work Sans',sans-serif;letter-spacing:.1em;color:#9198b0;">LANE 4</span>
+            <span style="font:400 10px/1 'Work Sans',sans-serif;color:#7a8099;">—</span>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:9px;">
+          <span style="font:600 9.5px/1 'Work Sans',sans-serif;letter-spacing:0.1em;text-transform:uppercase;color:#e78a5a;">Your Field</span>
+          <div style="display:flex;gap:7px;flex-wrap:wrap;">
+            <sc-for list="{{ ctxMine }}" as="t" hint-placeholder-count="4">
+              <dc-import name="StatusTile" die="{{ t.die }}" sys="b" side="mine" size="{{ 50 }}" picked="{{ t.picked }}" on-tap="{{ t.tap }}" hint-size="50px,57px"></dc-import>
+            </sc-for>
+          </div>
+          <div style="display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:9px;border:1px dashed rgba(92,100,132,.6);">
+            <dc-import name="StatusTile" die="{{ ctx.intim }}" sys="b" side="mine" size="{{ 40 }}" picked="{{ ctx.p.intim }}" on-tap="{{ ctx.t.intim }}" hint-size="40px,47px"></dc-import>
+            <span style="font:500 10px/1.3 'Work Sans',sans-serif;color:#9198b0;">Intimidated · back at end of turn</span>
+          </div>
+        </div>
+        <sc-if value="{{ ctxPanel }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;flex-direction:column;gap:8px;padding:10px 11px;border-radius:10px;background:#2e3548;border:1px solid #e78a5a;">
+            <div style="display:flex;align-items:flex-start;gap:10px;">
+              <div style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0;">
+                <span style="font:400 17px/1 Anton,'Arial Narrow',sans-serif;text-transform:uppercase;color:#fff;">{{ ctxPanel.name }}</span>
+                <span style="font:400 10px/1.3 'Work Sans',sans-serif;color:#9198b0;">{{ ctxPanel.sub }}</span>
+                <sc-if value="{{ ctxPanel.mods }}"><span style="font:400 10px/1.4 'Work Sans',sans-serif;color:#9198b0;">{{ ctxPanel.mods }}</span></sc-if>
+              </div>
+            </div>
+            <sc-for list="{{ ctxPanel.rows }}" as="row" hint-placeholder-count="2">
+              <div style="display:grid;grid-template-columns:auto minmax(0,1fr);gap:9px;align-items:start;padding-top:7px;border-top:1px solid rgba(92,100,132,.45);opacity:{{ row.op }};">
+                <span style="position:relative;display:flex;align-items:center;justify-content:center;min-width:24px;height:16px;padding:0 4px;box-sizing:border-box;border-radius:4px;background:{{ row.bg }};color:{{ row.fg }};box-shadow:inset 0 0 0 1.25px {{ row.bd }};font:800 9px/1 'Work Sans',sans-serif;overflow:hidden;white-space:nowrap;">{{ row.chip }}</span>
+                <div style="display:flex;flex-direction:column;gap:2px;">
+                  <span style="font:600 11.5px/1.25 'Work Sans',sans-serif;color:#fff;">{{ row.title }} <span style="font-weight:400;color:#9198b0;">· {{ row.dur }}</span></span>
+                  <span style="font:400 10.5px/1.4 'Work Sans',sans-serif;color:#c7cce0;text-wrap:pretty;">{{ row.body }}</span>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+        <sc-if value="{{ ctxNoPanel }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:10px 12px;border-radius:10px;border:1px dashed #5c6484;font:400 11px/1.3 'Work Sans',sans-serif;color:#9198b0;text-align:center;">Tap any die to see why</div>
+        </sc-if>
+      </div>
+      <div style="width:400px;font:400 11px/1.5 'Work Sans',sans-serif;color:#6e7488;text-wrap:pretty;">The tap panel replaces today's inspect bar (<code>.dkm-inspect</code>) and keeps its actions below it. Unblockable lane: amber double border plus a » tag on the lane label, so the opponent can see why they can't drop blockers there. Same border language as the die.</div>
+    </div>
+
+    <div class="dv-opt" id="2b">
+      <div class="dv-olabel"><a class="dv-oid" href="#2b">2b</a>Desktop: 64px tiles. Hover shows the word; click pins a popover</div>
+      <div style="display:flex;flex-direction:column;gap:20px;">
+        <sc-for list="{{ themes }}" as="th" hint-placeholder-count="2">
+          <div style="width:620px;box-sizing:border-box;padding:18px;border-radius:14px;background:{{ th.page }};font-family:'Work Sans',sans-serif;">
+            <div style="display:flex;gap:16px;align-items:flex-start;">
+              <div style="flex:1;min-width:0;padding:14px;border-radius:12px;background:{{ th.panel }};border:1px solid {{ th.border }};box-shadow:0 1px 2px rgba(20,15,8,.06), 0 6px 16px -8px rgba(20,15,8,.18);">
+                <span style="display:block;font:600 10px/1 'Work Sans',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:{{ th.h }};margin-bottom:12px;">Your Field · {{ th.name }}</span>
+                <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px 10px;">
+                  <sc-for list="{{ th.desk }}" as="t" hint-placeholder-count="6">
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:3px;border-radius:10px;border:1.5px solid {{ t.ring }};">
+                      <dc-import name="StatusTile" die="{{ t.die }}" sys="b" side="mine" size="{{ 64 }}" picked="{{ false }}" hint-size="64px,71px"></dc-import>
+                      <span style="font:700 9px/1.2 'Work Sans',sans-serif;letter-spacing:.03em;text-transform:uppercase;color:{{ th.text }};text-align:center;white-space:nowrap;">{{ t.word }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+              <div style="position:relative;width:220px;flex:none;margin-top:44px;padding:12px;border-radius:10px;background:{{ th.panel }};border:1px solid {{ th.border }};box-shadow:0 12px 30px -10px rgba(0,0,0,.45);display:flex;flex-direction:column;gap:8px;">
+                <div style="position:absolute;left:-7px;top:26px;width:12px;height:12px;background:{{ th.panel }};border-left:1px solid {{ th.border }};border-bottom:1px solid {{ th.border }};transform:rotate(45deg);"></div>
+                <span style="font:400 18px/1 Anton,'Arial Narrow',sans-serif;text-transform:uppercase;color:{{ th.h }};">Tardigrade</span>
+                <span style="font:400 11px/1.3 'Work Sans',sans-serif;color:{{ th.dim }};">Your die · Field · DEF 1 +1 Armadillo</span>
+                <sc-for list="{{ deskRows }}" as="row" hint-placeholder-count="2">
+                  <div style="display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px;align-items:start;padding-top:7px;border-top:1px solid {{ th.border }};">
+                    <span style="display:flex;align-items:center;justify-content:center;min-width:22px;height:15px;padding:0 3px;box-sizing:border-box;border-radius:4px;background:{{ row.bg }};color:{{ row.fg }};font:800 8.5px/1 'Work Sans',sans-serif;white-space:nowrap;">{{ row.chip }}</span>
+                    <div style="display:flex;flex-direction:column;gap:2px;">
+                      <span style="font:600 11.5px/1.25 'Work Sans',sans-serif;color:{{ th.h }};">{{ row.title }} <span style="font-weight:400;color:{{ th.dim }};">· {{ row.dur }}</span></span>
+                      <span style="font:400 11px/1.4 'Work Sans',sans-serif;color:{{ th.text }};text-wrap:pretty;">{{ row.body }}</span>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="width:620px;font:400 11px/1.5 'Work Sans',sans-serif;color:#6e7488;text-wrap:pretty;">The die is the same dark cube in both themes, so the frame colours don't change. Only the surrounding text follows the theme. Desktop has room for a word under each tile, in the existing <code>.lbl</code> slot where "Must block" sits today; it names the top cue. The pinned popover uses the same rows as the mobile panel.</div>
+    </div>
+
+    <div class="dv-opt" id="2c">
+      <div class="dv-olabel"><a class="dv-oid" href="#2c">2c</a>Motion: instant changes flash once, ongoing states never move</div>
+      <div style="width:300px;box-sizing:border-box;padding:18px;border-radius:14px;background:radial-gradient(120% 80% at 50% 0%, #2b3143 0%, #14151c 100%);color:#c7cce0;font-family:'Work Sans',sans-serif;display:flex;flex-direction:column;gap:16px;">
+        <div style="display:flex;justify-content:center;padding:26px 0 8px;">
+          <div style="position:relative;width:50px;">
+            <dc-import name="StatusTile" die="{{ flashDie }}" sys="b" side="mine" size="{{ 50 }}" picked="{{ false }}" hint-size="50px,57px"></dc-import>
+            {{ flashFx }}
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 12px;font:400 11px/1.4 'Work Sans',sans-serif;">
+          <span style="font-weight:700;color:#fff;font-variant-numeric:tabular-nums;">0ms</span><span>Existing flip spin lands on the new face.</span>
+          <span style="font-weight:700;color:#fff;font-variant-numeric:tabular-nums;">+0–600</span><span>White ring (same weight as the targeting ring) fades out. A "▼ L2" chip pops above the die, like <code>dkDamagePop</code>.</span>
+          <span style="font-weight:700;color:#fff;font-variant-numeric:tabular-nums;">+1400</span><span>Chip fades. The die rests normally; the "why" stays in the match log and the tap panel for the rest of the turn.</span>
+          <span style="font-weight:700;color:#fff;">Reduced</span><span>No ring and no pop: just the chip, held for 1.4s.</span>
+        </div>
+        <div style="font:400 10.5px/1.45 'Work Sans',sans-serif;color:#9198b0;text-wrap:pretty;">Covers Energy Drain, Cuttlefish and Mutation spins. Frames, tabs and corners appear without animation, so nothing on the board pulses except a pending choice.</div>
+      </div>
+    </div>
+
+    <div class="dv-opt" id="2d">
+      <div class="dv-olabel"><a class="dv-oid" href="#2d">2d</a>First-time legend: shown once, the first time any frame appears</div>
+      <div style="width:400px;box-sizing:border-box;padding:10px 16px 16px;border-radius:16px 16px 14px 14px;background:#20232e;border:1px solid #5c6484;color:#c7cce0;font-family:'Work Sans',sans-serif;display:flex;flex-direction:column;gap:12px;">
+        <div style="align-self:center;width:36px;height:4px;border-radius:2px;background:#5c6484;"></div>
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <span style="font:400 22px/1 Anton,'Arial Narrow',sans-serif;text-transform:uppercase;color:#fff;">Reading a die's frame</span>
+          <span style="font:400 11.5px/1.4 'Work Sans',sans-serif;color:#9198b0;">Tap any die for what caused it and how long it lasts.</span>
+        </div>
+        <sc-for list="{{ legend }}" as="l" hint-placeholder-count="5">
+          <div style="display:grid;grid-template-columns:repeat(3,56px) minmax(0,1fr);gap:8px;align-items:center;padding-top:10px;border-top:1px solid rgba(92,100,132,.45);">
+            <sc-for list="{{ l.dice }}" as="d" hint-placeholder-count="1">
+              <dc-import name="StatusTile" die="{{ d }}" sys="b" side="mine" size="{{ 44 }}" picked="{{ false }}" hint-size="44px,51px"></dc-import>
+            </sc-for>
+            <div style="grid-column:4;display:flex;flex-direction:column;gap:2px;">
+              <span style="font:600 12px/1.25 'Work Sans',sans-serif;color:#fff;">{{ l.title }}</span>
+              <span style="font:400 10.5px/1.4 'Work Sans',sans-serif;color:#c7cce0;text-wrap:pretty;">{{ l.body }}</span>
+            </div>
+          </div>
+        </sc-for>
+        <button type="button" style="all:unset;cursor:pointer;margin-top:4px;height:40px;border-radius:9px;background:#e78a5a;color:#14151c;font:600 12px/40px 'Work Sans',sans-serif;text-transform:uppercase;text-align:center;">Got it</button>
+        <span style="font:400 10px/1.3 'Work Sans',sans-serif;color:#7a8099;text-align:center;">Also in Help (?) → Die frames</span>
+      </div>
+    </div>
+
+  </div>
+  <p class="dv-next">Try next: "make the legend row-per-category instead of per-state" · "try the unblockable lane with a hatched fill instead" · "export a handoff spec for the main session"</p>
+</section>
+<section class="dv-turn" id="t1">
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:28px;max-width:1256px;margin:0 0 34px;">
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <span style="font:400 30px/1 Anton,'Arial Narrow',sans-serif;text-transform:uppercase;color:#0f1117;">Die status cues</span>
+      <p style="margin:0;font:400 13px/1.55 'Work Sans',sans-serif;text-wrap:pretty;">Three ways to show what's going on with a die, all on the real 50px tile from <code>DieCube.tsx</code> (same gradient, corners, damage badge and picked ring). Tap any die to open the explainer at the bottom of its column.</p>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <span style="font:600 10px/1 'Work Sans',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#0f1117;">Shared by all three</span>
+      <div style="display:flex;flex-direction:column;gap:6px;font:400 12px/1.45 'Work Sans',sans-serif;">
+        <div style="display:flex;gap:8px;align-items:center;"><span style="width:28px;height:14px;border-radius:3px;background:oklch(0.85 0.15 88);flex:none;"></span><span><b>Amber: combat</b> (block / attack rules). Not an energy colour, so "Unblockable" stops reading as Eye.</span></div>
+        <div style="display:flex;gap:8px;align-items:center;"><span style="width:28px;height:14px;border-radius:3px;background:#fff8ec;box-shadow:inset 0 0 0 1px #c3c8d4;flex:none;"></span><span><b>Cream: abilities</b> (blanked, granted keyword, lockout).</span></div>
+        <div style="display:flex;gap:8px;align-items:center;"><span style="width:28px;height:14px;border-radius:3px;background:oklch(0.66 0.2 25);flex:none;"></span><span><b>Red: will be KO'd</b>, same family as the damage badge.</span></div>
+        <div style="display:flex;gap:8px;align-items:center;"><span style="width:28px;height:14px;border-radius:3px;background:#14151c;box-shadow:inset 0 0 0 1.5px oklch(0.85 0.15 88);flex:none;"></span><span><b>Filled = must / has. Outlined + slash = can't / off.</b> Each cue also has a glyph or word, so colour is never the only signal.</span></div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <span style="font:600 10px/1 'Work Sans',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#0f1117;">Permanent keywords: no tile marker</span>
+      <p style="margin:0;font:400 12px/1.5 'Work Sans',sans-serif;text-wrap:pretty;">Mark <b>changes</b>, not identity. The animal icon already tells you the card, and keywords are printed on it, so a marker on every tile would mean every die carries a badge. Then the cues that really matter (a forced block, a pending KO) stop standing out. Keywords stay in the tap explainer. A <b>granted</b> keyword gets a cue because it's a change.</p>
+      <p style="margin:0;font:400 11px/1.5 'Work Sans',sans-serif;color:#6e7488;text-wrap:pretty;">After you pick one: desktop light/dark, the unblockable-lane treatment, the spin-down flash in motion, and a first-time legend.</p>
+    </div>
+  </div>
+  <div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">Three systems, same states. Pick one to finish.</span></div>
+  <div class="dv-opts">
+    <div class="dv-opt" id="1a">
+      <div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a>Glyph rail: one slot per cue, below the tile</div>
+      <dc-import name="StatusColumn" sys="a" hint-size="400px,1900px"></dc-import>
+    </div>
+    <div class="dv-opt" id="1b">
+      <div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a>Face frame: the die itself changes</div>
+      <dc-import name="StatusColumn" sys="b" hint-size="400px,1900px"></dc-import>
+    </div>
+    <div class="dv-opt" id="1c">
+      <div class="dv-olabel"><a class="dv-oid" href="#1c">1c</a>Word tags: today's pill, capped at tile width</div>
+      <dc-import name="StatusColumn" sys="c" hint-size="400px,1900px"></dc-import>
+    </div>
+  </div>
+  <p class="dv-next">Try next: "finish <a class="dv-oid" href="#1a">1a</a> with desktop + legend" · "<a class="dv-oid" href="#1b">1b</a>'s border for combat, <a class="dv-oid" href="#1a">1a</a>'s rail for everything else" · "<a class="dv-oid" href="#1c">1c</a> but with glyphs on the opponent's side"</p>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { m: null, sel: 'chameleon', l3: false, cycle: 0 };
+  componentDidMount() {
+    import('./status-cues.js').then(m => this.setState({ m }));
+    const loop = () => {
+      this.setState(s => ({ l3: false, cycle: s.cycle + 1 }));
+      this._t2 = setTimeout(() => this.setState({ l3: true }), 2600);
+      this._t1 = setTimeout(loop, 3200);
+    };
+    this._t0 = setTimeout(loop, 600);
+    this.setState({ l3: true });
+  }
+  componentWillUnmount() { [this._t0, this._t1, this._t2].forEach(clearTimeout); }
+  renderVals() {
+    const m = this.state.m;
+    const s = (k, src, dur, x) => Object.assign({ k, src, dur }, x || {});
+    const T = 'This turn', CU = 'Until Clean Up';
+    const D = {
+      oMust: { icon: 'muskox', name: 'Musk Ox', cost: 2, atk: 1, def: 3, side: 'opp', st: [s('mustBlock', 'Hermit Crab', T)] },
+      oCant: { icon: 'fox', name: 'Fox', cost: 2, atk: 2, def: 2, side: 'opp', st: [s('cantBlock', 'Barn Owl', T)] },
+      oBlank: { icon: 'opossum', name: 'Opossum', cost: 2, atk: 1, def: 2, side: 'opp', st: [s('blanked', '(no DK card yet)', 'While source is active')] },
+      oBuff: { icon: 'tardigrade', name: 'Tardigrade', cost: 0, atk: 2, def: 2, batk: 1, bdef: 1, side: 'opp', mods: 'ATK 1 +1 · DEF 1 +1 Queen Termite', st: [] },
+      blocker: { icon: 'muskox', name: 'Musk Ox', cost: 2, atk: 1, def: 3, dmg: 3, side: 'opp', zone: 'Blocking · Lane 1', st: [s('mustBlock', 'Hermit Crab', T)] },
+      mongoose: { icon: 'mongoose', name: 'Mongoose', cost: 2, atk: 3, def: 2, dmg: 1, zone: 'Attack · Lane 1', st: [s('deadly', 'Fought Opossum (Deadly)', CU)] },
+      chameleon: { icon: null, mono: 'Ch', name: 'Chameleon', cost: 1, atk: 5, def: 1, batk: 2, zone: 'Attack · Lane 2', mods: 'ATK 2 +3 Anger Issues', st: [s('unblockable', 'Chameleon · Obscure', T), s('granted', 'Anger Issues', T, { kw: 'OC' })] },
+      mBuff: { icon: 'tardigrade', name: 'Tardigrade', cost: 0, atk: 1, def: 2, bdef: 1, mods: 'DEF 1 +1 Armadillo', st: [] },
+      mBadger: { icon: 'badger', name: 'Honey Badger', cost: 2, atk: 2, def: 2, st: [] },
+      mCant: { icon: 'fox', name: 'Fox', cost: 2, atk: 2, def: 2, st: [s('cantBlock', 'Barn Owl', T)] },
+      intim: { icon: 'grizzly', name: 'Grizzly Bear', cost: 3, atk: 4, def: 4, zone: 'Intimidated row', st: [s('intimidated', 'Frilled Lizard · Intimidate', CU)] },
+    };
+    const sel = this.state.sel;
+    const tap = k => () => this.setState(st => ({ sel: st.sel === k ? null : k }));
+    const t = {}, p = {};
+    Object.keys(D).forEach(k => { t[k] = tap(k); p[k] = sel === k; });
+    const tile = k => ({ die: D[k], picked: p[k], tap: t[k] });
+    let ctxPanel = null;
+    const rowsFor = (d, opp) => {
+      if (!m) return [];
+      const rows = m.resolve(d.st || []).map(c => {
+        const meta = m.META[c.k], cat = m.CAT[meta.cat], solid = meta.fill === 'solid';
+        const kwName = c.kw ? m.KW[c.kw] : '';
+        return { chip: c.k === 'granted' ? '+' + c.kw : meta.glyph, bg: solid ? cat.color : 'rgba(20,21,28,.92)', fg: solid ? cat.ink : cat.color, bd: cat.color,
+          title: c.k === 'granted' ? 'Has ' + kwName : meta.name, dur: c.dur, op: c.over ? .55 : 1,
+          body: 'From ' + c.src + '. ' + (c.k === 'granted' ? 'Has ' + kwName + ' this turn, though its card doesn\'t print it.' : (opp ? meta.opp : meta.mine)) };
+      });
+      if (d.dmg) rows.push({ chip: '−' + d.dmg, bg: 'oklch(0.62 0.2 25)', fg: '#fff', bd: 'oklch(0.62 0.2 25)', title: d.dmg + ' damage marked', dur: CU, op: 1, body: d.dmg >= d.def ? 'Reaches DEF ' + d.def + ': KO\'d when combat resolves.' : 'KO\'d when damage reaches DEF ' + d.def + ' (' + (d.def - d.dmg) + ' more).' });
+      return rows;
+    };
+    if (sel && D[sel]) {
+      const d = D[sel], opp = d.side === 'opp';
+      ctxPanel = { name: d.name, sub: (opp ? 'Opponent\'s die' : 'Your die') + ' · ' + (d.zone || 'Field'), mods: d.mods || null, rows: rowsFor(d, opp) };
+      if (!ctxPanel.rows.length) ctxPanel.rows = [{ chip: 'i', bg: 'transparent', fg: '#9198b0', bd: '#5c6484', title: 'No status', dur: 'Printed card', op: 1, body: 'Nothing is changing this die right now.' }];
+    }
+    const AM = 'oklch(0.85 0.15 88)';
+    const deskDice = [
+      { die: { icon: 'tardigrade', name: 'Tardigrade', cost: 0, atk: 1, def: 2, bdef: 1, dmg: 1, st: [s('mustBlock', 'Hermit Crab', T)] }, word: 'Must block', picked: true },
+      { die: { icon: 'fox', name: 'Fox', cost: 2, atk: 2, def: 2, st: [s('cantBlock', 'Barn Owl', T)] }, word: "Can't block" },
+      { die: { icon: null, mono: 'Ch', name: 'Chameleon', cost: 1, atk: 5, def: 1, batk: 2, st: [s('unblockable', 'Chameleon', T), s('granted', 'Anger Issues', T, { kw: 'OC' })] }, word: 'Unblockable' },
+      { die: { icon: 'opossum', name: 'Opossum', cost: 2, atk: 1, def: 2, st: [s('blanked', '—', T)] }, word: 'No text' },
+      { die: { icon: 'mongoose', name: 'Mongoose', cost: 2, atk: 3, def: 2, st: [s('deadly', 'Opossum', CU)] }, word: 'KO at end' },
+      { die: { icon: 'cuttlefish', name: 'Cuttlefish', cost: 3, atk: 2, def: 2, bdef: 4, st: [] }, word: 'DEF 2 (was 4)' },
+    ];
+    const themes = [
+      { name: 'Light', page: 'linear-gradient(180deg,#e9ecf2,#d6dbe4)', panel: '#ffffff', border: '#c3c8d4', text: '#454b5c', dim: '#6e7488', h: '#0f1117', pick: '#0f1117' },
+      { name: 'Dark', page: 'linear-gradient(180deg,#2b3143,#14151c)', panel: '#2e3548', border: '#5c6484', text: '#c7cce0', dim: '#9198b0', h: '#ffffff', pick: '#ffffff' },
+    ];
+    themes.forEach(th => { th.desk = deskDice.map(d => ({ die: d.die, word: d.word, ring: d.picked ? th.pick : 'transparent' })); });
+    const deskBase = deskDice[0].die;
+    const deskRows = rowsFor(deskBase, false).map(r => r);
+    const legendD = (st, x) => Object.assign({ icon: 'tardigrade', name: 'Tardigrade', cost: 0, atk: 1, def: 2, st }, x || {});
+    const legend = [
+      { title: 'Amber border = a combat rule', body: 'Solid: must. Dashed: can\'t. Double: unblockable. The tab on the lane edge says which.', dice: [legendD([s('mustBlock')]), legendD([s('cantBlock')]), legendD([s('unblockable')])] },
+      { title: 'Struck-through art = no abilities', body: 'Its text and keywords are off for now.', dice: [legendD([s('blanked')], { icon: 'opossum' })] },
+      { title: 'Red corner = KO\'d at end of turn', body: 'Whatever its damage, it\'s going.', dice: [legendD([s('deadly')], { icon: 'mongoose', atk: 3 })] },
+      { title: 'Cream tab = a keyword it doesn\'t print', body: 'Granted for this turn, e.g. +OC is Overcrush.', dice: [legendD([s('granted', '', '', { kw: 'OC' })], { icon: 'badger', atk: 2 })] },
+      { title: 'Number chip = changed stat', body: 'Cream is up, red is down. Tap for the breakdown.', dice: [legendD([], { def: 2, bdef: 1 }), legendD([], { icon: 'cuttlefish', atk: 2, def: 2, bdef: 4 })] },
+    ];
+    const l3 = this.state.l3;
+    const flashDie = { icon: 'pangolin', name: 'Pangolin', cost: 2, atk: l3 ? 2 : 1, def: l3 ? 4 : 3, st: [] };
+    const c = this.state.cycle;
+    const flashFx = React.createElement(React.Fragment, null,
+      React.createElement('div', { key: 'r' + c, className: 'dk-fx-ring', style: { position: 'absolute', left: -4, top: -4, width: 58, height: 58, borderRadius: 12, pointerEvents: 'none', animation: 'dkStatusFlash 3.2s ease-out both' } }),
+      React.createElement('span', { key: 'c' + c, style: { position: 'absolute', left: '50%', top: -19, whiteSpace: 'nowrap', font: "700 9px/1 'Work Sans',sans-serif", color: '#14151c', background: '#fff', padding: '3px 5px', borderRadius: 5, animation: 'dkStatusChip 3.2s ease-out both', boxShadow: '0 1px 3px #0006' } }, '▼ L2 · Energy Drain'));
+    return {
+      ctxOpp: ['oMust', 'oCant', 'oBlank', 'oBuff'].map(tile),
+      ctxMine: ['mBuff', 'mBadger', 'mCant'].map(tile),
+      ctx: { blocker: D.blocker, mongoose: D.mongoose, chameleon: D.chameleon, intim: D.intim, p, t },
+      ctxPanel, ctxNoPanel: !ctxPanel,
+      themes, deskRows,
+      desk: deskDice.map(d => ({ die: d.die, word: d.word, ring: d.picked ? AM : 'transparent', pickBg: 'transparent' })),
+      legend, flashDie, flashFx,
+    };
+  }
+}
+</script>
+</body>
+</html>

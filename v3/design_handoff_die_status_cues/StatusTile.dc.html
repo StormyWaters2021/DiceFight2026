@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="display:flex;flex-direction:{{ dir }};align-items:center;gap:{{ gap }}px;width:{{ S }}px;padding:{{ pad }};">
+  <button type="button" onClick="{{ onTap }}" style="all:unset;cursor:pointer;position:relative;display:block;width:{{ S }}px;height:{{ S }}px;border-radius:{{ ringR }}px;box-shadow:{{ ring }};transform:{{ lift }};transition:transform .1s ease, box-shadow .1s ease;">
+    <div style="position:absolute;inset:0;border-radius:{{ r }}px;background:{{ bg }};border:{{ border }};box-sizing:border-box;box-shadow:inset 0 1.5px 0 rgba(255,255,255,.18), inset 0 -3px 5px rgba(0,0,0,.45);font-size:{{ fs }}px;line-height:1;color:oklch(0.95 0.02 90);font-family:'Work Sans',sans-serif;font-variant-numeric:tabular-nums;overflow:hidden;filter:{{ filter }};opacity:{{ op }};">
+      <sc-if value="{{ iconSrc }}" hint-placeholder-val="{{ true }}">
+        <img src="{{ iconSrc }}" alt="" style="position:absolute;left:50%;top:50%;width:{{ iw }}px;height:{{ iw }}px;transform:translate(-50%,-50%);opacity:{{ iconOp }};"></img>
+      </sc-if>
+      <sc-if value="{{ mono }}">
+        <span style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-family:Anton,'Arial Narrow',sans-serif;font-size:{{ monoFs }}px;opacity:{{ iconOp }};">{{ mono }}</span>
+      </sc-if>
+      <span style="position:absolute;left:8%;top:5%;font-size:0.78em;opacity:0.8;">{{ d.cost }}</span>
+      <span style="position:absolute;right:8%;top:5%;font-weight:700;display:flex;align-items:center;gap:1px;">
+        <sc-if value="{{ atkMark }}"><span style="font-size:0.5em;color:{{ atkMarkColor }};">{{ atkMark }}</span></sc-if>
+        <span style="background:{{ atkBg }};color:{{ atkFg }};border-bottom:{{ atkBb }};padding:{{ atkPad }};border-radius:3px;">{{ d.atk }}</span>
+      </span>
+      <span style="position:absolute;right:8%;bottom:5%;font-weight:700;display:flex;align-items:center;gap:1px;">
+        <sc-if value="{{ defMark }}"><span style="font-size:0.5em;color:{{ defMarkColor }};">{{ defMark }}</span></sc-if>
+        <span style="background:{{ defBg }};color:{{ defFg }};border-bottom:{{ defBb }};padding:{{ defPad }};border-radius:3px;">{{ d.def }}</span>
+      </span>
+      <sc-if value="{{ bStrike }}">
+        <div style="position:absolute;left:18%;right:18%;top:50%;height:2px;margin-top:-1px;background:#fff8ec;transform:rotate(-24deg);box-shadow:0 0 0 1px rgba(20,21,28,.7);"></div>
+      </sc-if>
+      <sc-if value="{{ bDeadly }}">
+        <div style="position:absolute;left:0;bottom:0;width:0;height:0;border-left:{{ triW }}px solid oklch(0.66 0.2 25);border-top:{{ triW }}px solid transparent;"></div>
+      </sc-if>
+      <sc-if value="{{ d.locked }}">
+        <div style="position:absolute;inset:0;background:repeating-linear-gradient(45deg, rgba(20,21,28,.82) 0 3px, rgba(20,21,28,.45) 3px 6px);"></div>
+      </sc-if>
+    </div>
+    <sc-if value="{{ dmg }}">
+      <span style="position:absolute;top:-6px;left:-6px;min-width:{{ dmgW }}px;padding:2px 4px;box-sizing:border-box;border-radius:9px;background:oklch(0.62 0.2 25);color:#fff;font:700 {{ dmgFs }}px/1.1 'Work Sans',sans-serif;text-align:center;box-shadow:0 1px 3px #0006;z-index:2;">−{{ dmg }}</span>
+    </sc-if>
+    <sc-if value="{{ flash }}">
+      <div style="position:absolute;inset:-4px;border-radius:{{ ringR }}px;box-shadow:0 0 0 2px #fff, 0 0 12px 3px rgba(255,255,255,.55);pointer-events:none;"></div>
+      <span style="position:absolute;left:50%;top:-15px;transform:translateX(-50%);white-space:nowrap;font:700 8px/1 'Work Sans',sans-serif;color:#14151c;background:#fff;padding:2px 4px;border-radius:4px;">{{ flash }}</span>
+    </sc-if>
+    <sc-if value="{{ bTab }}">
+      <span style="position:absolute;left:50%;top:{{ tabTop }};bottom:{{ tabBottom }};transform:translateX(-50%);height:13px;min-width:15px;padding:0 3px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;border-radius:4px;background:{{ bTab.bg }};color:{{ bTab.fg }};border:1.5px solid {{ bTab.bd }};font:800 8px/1 'Work Sans',sans-serif;z-index:3;overflow:hidden;">{{ bTab.glyph }}<sc-if value="{{ bTab.slash }}"><span style="position:absolute;left:50%;top:-2px;bottom:-2px;width:1.5px;background:{{ bTab.fg }};transform:rotate(45deg);"></span></sc-if></span>
+    </sc-if>
+    <sc-if value="{{ bGrant }}">
+      <span style="position:absolute;left:-6px;top:50%;transform:translateY(-50%);height:12px;padding:0 2px;display:flex;align-items:center;border-radius:3px;background:#fff8ec;color:#14151c;font:800 7px/1 'Work Sans',sans-serif;z-index:3;">{{ bGrant }}</span>
+    </sc-if>
+  </button>
+  <sc-if value="{{ isA }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;gap:2px;width:{{ S }}px;height:{{ railH }}px;">
+      <sc-for list="{{ cells }}" as="c" hint-placeholder-count="0">
+        <span style="position:relative;flex:1 1 auto;min-width:0;display:flex;align-items:center;justify-content:center;border-radius:3px;background:{{ c.bg }};color:{{ c.fg }};box-shadow:inset 0 0 0 1.25px {{ c.bd }};font:800 {{ glyphFs }}px/1 'Work Sans',sans-serif;overflow:hidden;"><sc-if value="{{ c.slash }}"><span style="position:absolute;left:-10%;right:-10%;top:50%;height:1px;background:{{ c.fg }};transform:rotate(-28deg);opacity:.9;"></span></sc-if><span style="position:relative;padding:0 1px;background:inherit;">{{ c.glyph }}</span></span>
+      </sc-for>
+    </div>
+  </sc-if>
+  <sc-if value="{{ isC }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;flex-direction:{{ dir }};gap:2px;width:{{ tagW }}px;min-height:{{ tagH }}px;">
+      <sc-for list="{{ tags }}" as="c" hint-placeholder-count="0">
+        <span style="display:block;height:{{ tagH }}px;line-height:{{ tagH }}px;text-align:center;white-space:nowrap;overflow:hidden;border-radius:3px;background:{{ c.bg }};color:{{ c.fg }};box-shadow:inset 0 0 0 1.25px {{ c.bd }};font-family:Anton,'Arial Narrow',sans-serif;font-size:{{ tagFs }}px;letter-spacing:0.02em;text-decoration:{{ c.deco }};">{{ c.word }}</span>
+      </sc-for>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:80,&quot;height&quot;:90}}">
+class Component extends DCLogic {
+  state = { m: null };
+  componentDidMount() { import('./status-cues.js').then(m => this.setState({ m })); }
+  renderVals() {
+    const m = this.state.m;
+    const p = this.props;
+    const d = p.die || {};
+    const sys = p.sys || 'a';
+    const mine = p.side !== 'opp';
+    const S = p.size ?? (mine ? 50 : 48);
+    const k = S / 50;
+    const hue = mine ? 62 : 250;
+    const cues = m ? m.resolve(d.st || []).filter(c => !c.over) : [];
+    const has = key => cues.some(c => c.k === key);
+    const AMBER = 'oklch(0.85 0.15 88)', CREAM = '#fff8ec', RED = 'oklch(0.66 0.2 25)';
+    const cell = c => {
+      const meta = m.META[c.k], cat = m.CAT[meta.cat];
+      const solid = meta.fill === 'solid';
+      const kw = c.kw ? m.KW[c.kw] : '';
+      return {
+        glyph: c.k === 'granted' ? '+' + c.kw : meta.glyph,
+        word: c.k === 'granted' ? '+' + kw.toUpperCase() : meta.word,
+        bg: solid ? cat.color : 'rgba(20,21,28,.92)', fg: solid ? cat.ink : cat.color, bd: cat.color,
+        slash: !!meta.slash, deco: meta.slash && sys === 'c' ? 'none' : 'none',
+      };
+    };
+    const more = n => ({ glyph: '+' + n, word: '+' + n + ' MORE', bg: 'rgba(20,21,28,.92)', fg: '#c7cce0', bd: '#5c6484', slash: false, deco: 'none' });
+    let cells = [], tags = [];
+    if (m) {
+      cells = cues.length > 3 ? [cell(cues[0]), cell(cues[1]), more(cues.length - 2)] : cues.map(cell);
+      tags = cues.length > 2 ? [cell(cues[0]), more(cues.length - 1)] : cues.map(cell);
+    }
+    const combat = m ? cues.find(c => ['combat'].includes(m.META[c.k].cat)) : null;
+    let border = `1px solid oklch(0.5 0.05 ${hue} / 0.7)`;
+    if (sys === 'b' && combat) {
+      const style = combat.k === 'unblockable' ? 'double' : m.META[combat.k].fill === 'outline' ? 'dashed' : 'solid';
+      border = `${style === 'double' ? 3.5 : 2}px ${style} ${AMBER}`;
+    }
+    if (sys === 'b' && has('intimidated')) border = '2px dashed #9198b0';
+    const stat = (cur, base) => {
+      const up = base != null && cur > base, down = base != null && cur < base;
+      const o = { mark: null, markColor: CREAM, bg: 'transparent', fg: 'inherit', bb: 'none', pad: '0' };
+      if (!up && !down) return o;
+      if (sys === 'a') { o.mark = up ? '▲' : '▼'; o.markColor = up ? CREAM : RED; }
+      if (sys === 'b') { o.bg = up ? CREAM : RED; o.fg = up ? '#14151c' : '#fff'; o.pad = '1px 2px'; }
+      if (sys === 'c') { o.bb = `2px solid ${up ? CREAM : RED}`; }
+      return o;
+    };
+    const A = stat(d.atk, d.batk), D = stat(d.def, d.bdef);
+    const blanked = has('blanked');
+    const fs = S * 0.3;
+    const iconColor = 'oklch(0.95 0.02 90)';
+    return {
+      d, S, isA: sys === 'a', isC: sys === 'c',
+      dir: mine ? 'column' : 'column-reverse',
+      gap: sys === 'b' ? 0 : 4,
+      pad: sys === 'b' ? (mine ? '0 0 7px' : '7px 0 0') : '0',
+      r: Math.max(4, S * 0.15), ringR: Math.max(6, S * 0.2), fs,
+      bg: `linear-gradient(158deg, oklch(0.38 0.03 ${hue}), oklch(0.28 0.03 ${hue}) 58%, oklch(0.22 0.02 ${hue}))`,
+      border,
+      ring: p.picked ? '0 0 0 3px #e78a5a, 0 4px 10px rgba(0,0,0,.4)' : 'none',
+      lift: p.picked ? 'translateY(-3px)' : 'none',
+      filter: has('intimidated') ? 'grayscale(1)' : 'none',
+      op: has('intimidated') ? 0.6 : 1,
+      iconSrc: m && d.icon ? m.iconSrc(d.icon, iconColor) : null,
+      mono: d.icon ? null : d.mono, monoFs: Math.round(S * 0.34),
+      iw: Math.round(S * 0.48), iconOp: blanked ? 0.28 : 1,
+      atkMark: A.mark, atkMarkColor: A.markColor, atkBg: A.bg, atkFg: A.fg, atkBb: A.bb, atkPad: A.pad,
+      defMark: D.mark, defMarkColor: D.markColor, defBg: D.bg, defFg: D.fg, defBb: D.bb, defPad: D.pad,
+      bStrike: sys === 'b' && blanked,
+      bDeadly: sys === 'b' && has('deadly'), triW: Math.round(S * 0.3),
+      bTab: sys === 'b' && combat ? cell(combat) : null,
+      tabTop: mine ? 'auto' : '-7px', tabBottom: mine ? '-7px' : 'auto',
+      bGrant: sys === 'b' && m ? (cues.find(c => c.k === 'granted') ? '+' + cues.find(c => c.k === 'granted').kw : null) : null,
+      dmg: d.dmg || 0, dmgW: Math.round(18 * Math.min(1, k + 0.1)), dmgFs: S < 46 ? 9 : 10,
+      flash: d.flash || null,
+      cells, railH: Math.round(13 * k), glyphFs: Math.max(7, Math.round(8.5 * k)),
+      tags, tagW: S + 4, tagH: Math.round(13 * k), tagFs: Math.max(7, 8.6 * k),
+      onTap: p.onTap,
+    };
+  }
+}
+</script>
+</body>
+</html>

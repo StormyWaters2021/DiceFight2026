@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="position:relative;width:400px;box-sizing:border-box;padding:20px 18px 18px;background:radial-gradient(120% 60% at 50% 0%, #2b3143 0%, #14151c 100%);color:#c7cce0;font-family:'Work Sans',sans-serif;border-radius:14px;">
+  <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;">
+    <span style="font:400 24px/1 Anton,'Arial Narrow',sans-serif;text-transform:uppercase;color:#fff;">{{ info.name }}</span>
+    <span style="font:500 12.5px/1.45 'Work Sans',sans-serif;color:#c7cce0;text-wrap:pretty;">{{ info.principle }}</span>
+    <ul style="margin:4px 0 0;padding-left:16px;display:flex;flex-direction:column;gap:3px;font:400 11px/1.45 'Work Sans',sans-serif;color:#9198b0;">
+      <sc-for list="{{ info.rules }}" as="r" hint-placeholder-count="4"><li style="text-wrap:pretty;">{{ r }}</li></sc-for>
+    </ul>
+  </div>
+
+  <span style="display:block;font:600 9.5px/1 'Work Sans',sans-serif;letter-spacing:0.1em;text-transform:uppercase;color:#e78a5a;margin:18px 0 12px;">Your Field · 50px</span>
+  <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px 7px;">
+    <sc-for list="{{ mineSingles }}" as="t" hint-placeholder-count="12">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:5px;">
+        <dc-import name="StatusTile" die="{{ t.die }}" sys="{{ sys }}" side="mine" size="{{ t.size }}" picked="{{ t.picked }}" on-tap="{{ t.tap }}" hint-size="50px,68px"></dc-import>
+        <span style="font:400 9.5px/1.25 'Work Sans',sans-serif;color:#9198b0;text-align:center;">{{ t.label }}</span>
+      </div>
+    </sc-for>
+  </div>
+
+  <span style="display:block;font:600 9.5px/1 'Work Sans',sans-serif;letter-spacing:0.1em;text-transform:uppercase;color:#c093dd;margin:26px 0 12px;">Opponent's Field · 48px · cues face the lanes</span>
+  <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px 7px;">
+    <sc-for list="{{ oppSingles }}" as="t" hint-placeholder-count="8">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:5px;">
+        <dc-import name="StatusTile" die="{{ t.die }}" sys="{{ sys }}" side="opp" size="{{ t.size }}" picked="{{ t.picked }}" on-tap="{{ t.tap }}" hint-size="48px,66px"></dc-import>
+        <span style="font:400 9.5px/1.25 'Work Sans',sans-serif;color:#9198b0;text-align:center;">{{ t.label }}</span>
+      </div>
+    </sc-for>
+  </div>
+
+  <span style="display:block;font:600 9.5px/1 'Work Sans',sans-serif;letter-spacing:0.1em;text-transform:uppercase;color:#e78a5a;margin:26px 0 12px;">Combinations · real 7px gaps</span>
+  <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 12px;">
+    <sc-for list="{{ combos }}" as="cb" hint-placeholder-count="7">
+      <div style="grid-column:{{ cb.col }};display:flex;flex-direction:column;gap:7px;padding:10px;border-radius:10px;background:rgba(46,53,72,.55);border:1px solid rgba(92,100,132,.45);">
+        <span style="font:500 10px/1.3 'Work Sans',sans-serif;color:#c7cce0;text-wrap:pretty;">{{ cb.label }}</span>
+        <div style="display:flex;gap:7px;align-items:flex-start;padding-top:6px;padding-left:6px;">
+          <sc-for list="{{ cb.tiles }}" as="t" hint-placeholder-count="1">
+            <dc-import name="StatusTile" die="{{ t.die }}" sys="{{ sys }}" side="mine" size="{{ 50 }}" picked="{{ t.picked }}" on-tap="{{ t.tap }}" hint-size="50px,68px"></dc-import>
+          </sc-for>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+
+  <div style="position:sticky;bottom:12px;margin-top:22px;z-index:5;">
+    <sc-if value="{{ panel }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;gap:9px;padding:11px 12px;border-radius:10px;background:#2e3548;border:1px solid #e78a5a;box-shadow:0 10px 28px -8px rgba(0,0,0,.8);">
+        <div style="display:flex;align-items:flex-start;gap:10px;">
+          <div style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0;">
+            <span style="font:400 17px/1 Anton,'Arial Narrow',sans-serif;text-transform:uppercase;color:#fff;">{{ panel.name }}</span>
+            <span style="font:400 10px/1.3 'Work Sans',sans-serif;color:#9198b0;">{{ panel.sub }}</span>
+            <sc-if value="{{ panel.mods }}"><span style="font:400 10px/1.4 'Work Sans',sans-serif;color:#9198b0;">{{ panel.mods }}</span></sc-if>
+          </div>
+          <button type="button" onClick="{{ close }}" style="all:unset;cursor:pointer;font-size:18px;line-height:1;color:#9198b0;padding:2px 4px;">×</button>
+        </div>
+        <sc-for list="{{ panel.rows }}" as="row" hint-placeholder-count="1">
+          <div style="display:grid;grid-template-columns:auto minmax(0,1fr);gap:9px;align-items:start;padding-top:8px;border-top:1px solid rgba(92,100,132,.45);opacity:{{ row.op }};">
+            <span style="position:relative;display:flex;align-items:center;justify-content:center;min-width:24px;height:16px;padding:0 4px;box-sizing:border-box;border-radius:4px;background:{{ row.bg }};color:{{ row.fg }};box-shadow:inset 0 0 0 1.25px {{ row.bd }};font:{{ row.font }};overflow:hidden;white-space:nowrap;">{{ row.chip }}<sc-if value="{{ row.slash }}"><span style="position:absolute;left:50%;top:-3px;bottom:-3px;width:1.5px;background:{{ row.fg }};transform:rotate(45deg);"></span></sc-if></span>
+            <div style="display:flex;flex-direction:column;gap:2px;">
+              <span style="font:600 11.5px/1.25 'Work Sans',sans-serif;color:#fff;">{{ row.title }} <span style="font-weight:400;color:#9198b0;">· {{ row.dur }}</span></span>
+              <span style="font:400 10.5px/1.4 'Work Sans',sans-serif;color:#c7cce0;text-wrap:pretty;">{{ row.body }}</span>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+    <sc-if value="{{ noPanel }}" hint-placeholder-val="{{ true }}">
+      <div style="padding:10px 12px;border-radius:10px;background:rgba(46,53,72,.9);border:1px dashed #5c6484;font:400 11px/1.3 'Work Sans',sans-serif;color:#9198b0;text-align:center;">Tap any die to see why</div>
+    </sc-if>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:400,&quot;height&quot;:900},&quot;sys&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;a&quot;,&quot;b&quot;,&quot;c&quot;],&quot;default&quot;:&quot;a&quot;,&quot;tsType&quot;:&quot;'a'|'b'|'c'&quot;}}">
+class Component extends DCLogic {
+  state = { m: null, sel: { g: 'combo', i: 1, j: 0, side: 'mine' } };
+  componentDidMount() { import('./status-cues.js').then(m => this.setState({ m })); }
+  pick(sel) {
+    this.setState(s => ({ sel: s.sel && s.sel.g === sel.g && s.sel.i === sel.i && s.sel.j === sel.j && s.sel.side === sel.side ? null : sel }));
+  }
+  renderVals() {
+    const sys = this.props.sys || 'a';
+    const INFO = {
+      a: { name: 'Status rail', principle: 'Every die gets a tile-wide rail on its lane-facing edge. One cue = one glyph cell. Nothing ever overhangs the tile.',
+        rules: ['Up to 3 cells; a 4th collapses the last cell to +N.', 'Order: pending KO → combat → abilities.', 'Yours sit below, the opponent\'s above: both point at the lanes.', 'Changed stats get a ▲/▼ beside the number.'] },
+      b: { name: 'Face frame', principle: 'The cue becomes part of the die itself: its border, a corner, its art. No labels below, so rows stay tight.',
+        rules: ['Combat → amber border: solid = must, dashed = can\'t, double = unblockable, with a glyph tab on the lane edge.', 'Text blanked → art faded and struck through.', 'Deadly-engaged → red dog-ear bottom-left (the free corner).', 'Granted keyword → cream tab on the left edge. Changed stats → inverted number chip.'] },
+      c: { name: 'Word tags', principle: 'Plain words in condensed type, capped at tile width. Today\'s pill, kept honest about width.',
+        rules: ['Max two tags; a third collapses the second to +N MORE.', 'Same colour grammar as the others: amber combat, cream abilities, red KO.', 'Yours below, the opponent\'s above.', 'Changed stats → underline under the number.'] },
+    };
+    const m = this.state.m, sel = this.state.sel;
+    const isSel = (g, i, j, side) => !!sel && sel.g === g && sel.i === i && sel.j === j && sel.side === side;
+    const mk = (g, i, j, side) => () => this.pick({ g, i, j, side });
+    let mineSingles = [], oppSingles = [], combos = [], panel = null;
+    if (m) {
+      mineSingles = m.SINGLES.map((it, i) => ({ label: it.label, die: it.die, size: it.size ?? 50, picked: isSel('s', i, 0, 'mine'), tap: mk('s', i, 0, 'mine') }));
+      oppSingles = m.SINGLES.map((it, i) => ({ label: it.label, die: it.die, size: it.size ?? 48, picked: isSel('s', i, 0, 'opp'), tap: mk('s', i, 0, 'opp') }));
+      oppSingles = oppSingles.filter((t, i) => !['spun', 'locked', 'cantAttack', 'onlyBlocker', 'debuffed'].includes(m.SINGLES[i].key));
+      combos = m.COMBOS.map((cb, i) => ({ label: cb.label, col: cb.wide ? 'span 2' : 'auto', tiles: cb.dice.map((d, j) => ({ die: d, picked: isSel('combo', i, j, 'mine'), tap: mk('combo', i, j, 'mine') })) }));
+      if (sel) {
+        const d = sel.g === 's' ? m.SINGLES[sel.i].die : m.COMBOS[sel.i].dice[sel.j];
+        const opp = sel.side === 'opp';
+        const rows = m.resolve(d.st || []).map(c => {
+          const meta = m.META[c.k], cat = m.CAT[meta.cat], solid = meta.fill === 'solid';
+          const kwName = c.kw ? m.KW[c.kw] : '';
+          const word = c.k === 'granted' ? '+' + kwName.toUpperCase() : meta.word;
+          const glyph = c.k === 'granted' ? '+' + c.kw : meta.glyph;
+          const useWord = sys === 'c';
+          return {
+            chip: useWord ? word : glyph,
+            font: useWord ? "400 9px/1 Anton,'Arial Narrow',sans-serif" : "800 9px/1 'Work Sans',sans-serif",
+            bg: solid ? cat.color : 'rgba(20,21,28,.92)', fg: solid ? cat.ink : cat.color, bd: cat.color,
+            slash: !!meta.slash && !useWord,
+            title: c.k === 'granted' ? 'Has ' + kwName : meta.name,
+            dur: c.dur,
+            body: (c.over ? 'Overridden by Can\'t block, so it isn\'t shown on the die. ' : '') + 'From ' + c.src + '. ' + (c.k === 'granted' ? 'Has ' + kwName + ' this turn, though its card doesn\'t print it.' : (opp ? meta.opp : meta.mine)),
+            op: c.over ? 0.55 : 1,
+          };
+        });
+        if (d.dmg) rows.push({ chip: '−' + d.dmg, font: "700 10px/1 'Work Sans',sans-serif", bg: 'oklch(0.62 0.2 25)', fg: '#fff', bd: 'oklch(0.62 0.2 25)', slash: false, title: d.dmg + ' damage marked', dur: 'Until Clean Up', body: 'KO\'d when damage reaches DEF ' + d.def + ' (' + (d.def - d.dmg) + ' more).', op: 1 });
+        if (d.flash) rows.push({ chip: '▼', font: "800 9px/1 'Work Sans',sans-serif", bg: '#fff', fg: '#14151c', bd: '#fff', slash: false, title: 'Spun down ' + d.flash, dur: 'Just now', body: 'From Leech · Energy Drain. A one-off flash; the die then rests normally.', op: 1 });
+        panel = { name: d.name, sub: (opp ? 'Opponent\'s die' : 'Your die') + ' · ' + (d.zone || ((d.st || []).some(c => c.k === 'intimidated') ? 'Intimidated row' : d.locked ? 'Reserve card' : 'Field')), mods: d.mods || null, rows };
+      }
+    }
+    return { sys, info: INFO[sys], mineSingles, oppSingles, combos, panel, noPanel: !panel, close: () => this.setState({ sel: null }) };
+  }
+}
+</script>
+</body>
+</html>

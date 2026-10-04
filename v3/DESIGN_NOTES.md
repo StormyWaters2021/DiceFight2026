@@ -3955,3 +3955,69 @@ changed dice showed the landed face for 2-6 frames before moving; new
 code, 0 of 7. That only reproduced once the probe compared against each
 die's own landing frame; comparing against the final screen measured
 different tiles after the step changed.
+
+## Die status cues: Claude Design's "face frame" (2026-10-04)
+
+The design pass that `v3/STATUS_CUES_BRIEF.md` set up. Claude Design
+explored three systems and the user picked **1b, "face frame"**: every
+cue becomes part of the die itself, so nothing hangs wider than the tile.
+The handoff (README spec, the HTML mockups, cue metadata) is in
+`v3/design_handoff_die_status_cues/`; open `Die Status Cues.dc.html`
+through a local web server. Built in three commits.
+
+**1. Server data.** One `statuses` list per die (`DieStatuses`): kind,
+source, duration ("turn" / "cleanup" / "whileActive") and keyword. The
+tile and its explainer both read it, so they can't disagree. To name
+sources, the engine now records:
+- who applied each combat flag (`CombatFlagSources`);
+- `GrantedTag.Source` and `IntimidatedBy`;
+- a per-die `LastSpin`, with which drainer it was for Energy Drain;
+- a lockout's `SourceName`.
+
+The game DTO adds `UnblockableLanes` and `LockedCards`.
+
+**2. The frame**, drawn in `DieCube`:
+- Combat rules are an amber border on the cube's front face (solid =
+  must, dashed = can't, double = unblockable), so the frame tumbles with
+  the die. A glyph tab sits on the lane edge: below for yours, above for
+  theirs. Can't block beats Must block.
+- Text blanked: faded, struck-through art. A granted keyword: a cream
+  "+OC" tab. Deadly-engaged: a red bottom-left dog-ear. Changed ATK/DEF:
+  cream (up) or red (down) number chips. Intimidated: a grey dashed frame
+  and greyscale.
+- Pangolin's lockout hatches the card in the mobile buy strip and the
+  desktop roster.
+- An unblockable lane gets a double amber border, a "»" tag and a
+  "can't be blocked" note.
+- Tap to explain: any cued die is tappable. Mobile's inspect bar adds a
+  "Your die · Attack · Lane 2" line and one row per cue ("From {source}.
+  {rule}", with a duration). Desktop shows the top cue's word under the
+  tile, and the die's popover gets the same rows (`CueRows`). The old
+  "Must block"/"Unblockable" pills are gone.
+
+**3. Motion and legend.**
+- The spin flash (`SpinFlash`) is the one cue that moves: a fading white
+  ring plus a chip such as "▼ L2 · Energy Drain". The page remembers which
+  spins it has shown per *die*, not per tile. A drained attacker usually
+  changes tiles (lane back to Field) before a polling page sees it;
+  per-tile memory caught 1 of 4 spins in a bot-played check, per-die caught
+  5 of 5. The chip names only the effect: with the card name too, it ran
+  off-screen for a die at the edge.
+- The "Reading a die's frame" legend (`DieFramesLegend`) uses real
+  DieCubes. It opens the first time any cue appears (a localStorage flag)
+  and can be reopened from desktop's Help (?) and mobile's step pop-out,
+  since mobile has no Help menu.
+
+Deviations from the design, both deliberate:
+- **Stat chips ignore the Champion passive.** Wolf's +1 ATK and
+  Armadillo's +1 DEF apply to every die all game, so following the spec
+  literally chipped every die (seen on a real board) and buried the
+  changes that matter. The tap breakdown still lists the passive.
+- **Desktop tiles stay 34px.** The mockup assumed 64px. The frame values
+  work at 34, and resizing desktop tiles is a separate layout change.
+
+Verified on bot-played boards with the steered capture scripts
+(`keyword-check.js` gained `status:<kind>`, which taps the die so its
+explainer shows; `spin-flash-check.js` keeps both seats' pages open while
+the bots play). Sources came through right for Hermit Crab, Opossum,
+Chameleon, Frilled Lizard, Anger Issues and Pangolin.
