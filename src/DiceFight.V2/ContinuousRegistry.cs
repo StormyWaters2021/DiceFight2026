@@ -177,6 +177,8 @@ public static class ContinuousRegistry
 
     private sealed class LockoutModifier(CardDef card, Lockout def) : ILockoutModifier
     {
+        public string SourceName => card.Name;
+
         public bool Applies(GameState state, string playerId, string cardId, SuppressionKind kind)
         {
             if (def.Kind != kind) return false;

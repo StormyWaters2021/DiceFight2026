@@ -178,25 +178,29 @@ public static class CombatEngine
         // Energy Drain die still drains (they happen together); a die
         // engaged with several drainers takes the largest X, matching
         // rule 1.4's "higher value" reading for repeated keywords.
-        var drains = new Dictionary<string, int>();
+        var drains = new Dictionary<string, (int Levels, string Source)>();
         foreach (var laneGroup in AttackersByLane(state))
         {
             var laneAttackers = laneGroup.ToList();
             var laneBlockers = LaneBlockerIds(assignment, laneAttackers).Select(id => FindDie(state, id)).ToList();
             void Drain(IEnumerable<DieInstance> drainers, IEnumerable<DieInstance> victims)
             {
-                var x = drainers.Select(d => KeywordAbilities.MaxParam(QueryEngine.GetKeywords(state, d), "Energy Drain") ?? 0).DefaultIfEmpty(0).Max();
-                if (x == 0) return;
-                foreach (var v in victims) drains[v.Id] = Math.Max(drains.GetValueOrDefault(v.Id), x);
+                var strongest = drainers
+                    .Select(d => (Die: d, X: KeywordAbilities.MaxParam(QueryEngine.GetKeywords(state, d), "Energy Drain") ?? 0))
+                    .OrderByDescending(p => p.X).FirstOrDefault();
+                if (strongest.X == 0) return;
+                var source = (strongest.Die.CardId is { } c ? state.CardCatalog[c].Name : "Tardigrade") + " · Energy Drain";
+                foreach (var v in victims)
+                    if (strongest.X > drains.GetValueOrDefault(v.Id).Levels) drains[v.Id] = (strongest.X, source);
             }
             Drain(laneAttackers, laneBlockers);
             Drain(laneBlockers, laneAttackers);
         }
-        foreach (var (id, levels) in drains)
+        foreach (var (id, (levels, source)) in drains)
         {
             var victim = FindDie(state, id);
             var before = state.GetCurrentFace(victim)?.Character?.Level;
-            EffectInterpreter.SpinLevel(state, queue, victim, null, -levels);
+            EffectInterpreter.SpinLevel(state, queue, victim, null, -levels, source);
             if (state.GetCurrentFace(victim)?.Character?.Level < before)
                 state.LogEvent(victim.ControllerId, $"Energy Drain spins {(victim.CardId is { } c ? state.CardCatalog[c].Name : "a Tardigrade")} down to level {state.GetCurrentFace(victim)!.Character!.Level}.");
         }

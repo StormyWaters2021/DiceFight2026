@@ -191,6 +191,10 @@ public sealed class GameState
     // dealt together by ResolveRangeShots, which clears this.
     public List<(string SourceId, string TargetId, int Amount)> RangeShots { get; } = [];
 
+    // Monotonic counter for DieInstance.LastSpin, so a client can tell a
+    // new spin from one it has already flashed.
+    public int SpinSeq { get; set; }
+
     // The blocks the Inactive player declared this combat, recorded by
     // CombatEngine.DeclareBlockers and cleared when the Attack Zone
     // empties. The server's copy is authoritative: damage resolves from

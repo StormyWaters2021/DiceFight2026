@@ -438,6 +438,7 @@ public static class EffectInterpreter
                 var leftPlay = die.Zone is Zone.FieldZone or Zone.AttackZone && n.ToZone is not (Zone.FieldZone or Zone.AttackZone);
                 var controllerId = die.ControllerId;
                 MoveToZone(ctx.State, die, n.ToZone);
+                if (n.ToZone == Zone.Intimidated) die.IntimidatedBy = SourceName(ctx);
                 if (leftPlay) FireIfRemovedByOpponent(ctx.State, ctx.Queue, die, controllerId, ctx.ControllerId);
             }
             onComplete();
@@ -660,7 +661,7 @@ public static class EffectInterpreter
         ResolveTarget(ctx, n.Target, ProtectionFor(ctx.Trigger), (n.LevelDelta ?? 0) > 0 ? ChoiceIntent.Beneficial : n.LevelDelta < 0 || n.SetLevel is not null ? ChoiceIntent.Harmful : ChoiceIntent.Unknown, ids =>
         {
             foreach (var id in ids)
-                SpinLevel(ctx.State, ctx.Queue, FindDie(ctx.State, id), n.SetLevel, n.LevelDelta);
+                SpinLevel(ctx.State, ctx.Queue, FindDie(ctx.State, id), n.SetLevel, n.LevelDelta, SourceName(ctx));
             onComplete();
         });
     }
@@ -670,7 +671,9 @@ public static class EffectInterpreter
     // Energy Drain (CombatEngine), which spins without an ability.
     // Finding 12 - SetLevel/LevelDelta are mutually exclusive (an
     // authoring concern, not re-validated at runtime here).
-    public static void SpinLevel(GameState state, AbilityQueue queue, DieInstance die, int? setLevel, int? levelDelta)
+    // `source` (status cues) names what caused it, for the client's
+    // one-off "L3 -> L2 · Energy Drain" flash (DieInstance.LastSpin).
+    public static void SpinLevel(GameState state, AbilityQueue queue, DieInstance die, int? setLevel, int? levelDelta, string? source = null)
     {
         var definition = state.GetDieDefinition(die);
         var levels = definition.Faces.Where(f => f.Character is not null)
@@ -683,6 +686,8 @@ public static class EffectInterpreter
 
         var faceIndex = definition.Faces.Select((f, i) => (f, i)).First(x => x.f.Character?.Level == targetLevel).i;
         die.CurrentFaceIndex = faceIndex;
+        if (source is not null && priorFace?.Character?.Level != targetLevel)
+            die.LastSpin = new SpinRecord(++state.SpinSeq, priorFace?.Character?.Level, targetLevel, source);
 
         var payload = new DieFaceChangedPayload(priorFace, definition.Faces[faceIndex], FaceChangeCause.Spin);
         EventBus.Fire(state, queue, new GameEvent(TriggerKind.DieFaceChanged, die, die.ControllerId, state.CurrentStepId, payload));
@@ -720,6 +725,7 @@ public static class EffectInterpreter
 
                 var priorFace = ctx.State.GetCurrentFace(die);
                 die.CurrentFaceIndex = index;
+                die.LastSpin = new SpinRecord(++ctx.State.SpinSeq, priorFace?.Character?.Level, null, SourceName(ctx));
                 LogAbility(ctx, $"{SourceName(ctx)} spins {TargetName(ctx.State, id)} to an energy face.");
 
                 var payload = new DieFaceChangedPayload(priorFace, face, FaceChangeCause.Spin);
@@ -778,7 +784,7 @@ public static class EffectInterpreter
             {
                 var die = FindDie(ctx.State, id);
                 foreach (var tag in n.Tags)
-                    die.GrantedTags.Add(new GrantedTag(tag, n.Duration, grantedDuring));
+                    die.GrantedTags.Add(new GrantedTag(tag, n.Duration, grantedDuring, SourceName(ctx)));
             }
             onComplete();
         });
@@ -913,6 +919,7 @@ public static class EffectInterpreter
             foreach (var id in ids)
             {
                 FindDie(ctx.State, id).CombatFlags.Add(n.Flag);
+                FindDie(ctx.State, id).CombatFlagSources[n.Flag] = SourceName(ctx);
                 LogAbility(ctx, n.Flag == CombatFlagKind.Unblockable && ctx.Bindings.GetValueOrDefault("self") == id
                     ? $"{SourceName(ctx)} can't be blocked this turn."
                     : $"{SourceName(ctx)}: {TargetName(ctx.State, id)} gets {n.Flag} this turn.");
@@ -1152,6 +1159,7 @@ public static class EffectInterpreter
             die.GrantedAbilities.Clear();
             die.Suppressions.Clear();
             die.CombatFlags.Clear();
+            die.CombatFlagSources.Clear();
         }
         else if (enteringActive && die.CurrentFaceIndex is null)
         {

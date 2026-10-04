@@ -73,6 +73,8 @@ public interface IAbilityBlankModifier
 public interface ILockoutModifier
 {
     bool Applies(GameState state, string playerId, string cardId, SuppressionKind kind);
+    // The card doing the locking (status cues: "Locked out · From Pangolin").
+    string SourceName { get; }
 }
 
 // CombatRule's registry shape (Phase 6) - nothing queries this yet
@@ -324,6 +326,12 @@ public static class QueryEngine
     public static bool CanField(GameState state, string playerId, string cardId) =>
         !IsSuppressed(state, playerId, cardId, SuppressionKind.CantField)
         && !IsLockedOut(state, playerId, cardId, SuppressionKind.CantField);
+
+    // Which cards lock `cardId` out for `playerId` right now, if any.
+    public static IReadOnlyList<string> LockoutSources(GameState state, string playerId, string cardId) =>
+        state.Lockouts.Where(l => l.Applies(state, playerId, cardId, SuppressionKind.CantPurchase)
+                || l.Applies(state, playerId, cardId, SuppressionKind.CantField))
+            .Select(l => l.SourceName).Distinct().ToList();
 
     private static bool IsLockedOut(GameState state, string playerId, string cardId, SuppressionKind kind) =>
         state.Lockouts.Any(l => l.Applies(state, playerId, cardId, kind));

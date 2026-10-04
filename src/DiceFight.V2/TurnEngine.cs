@@ -643,6 +643,7 @@ public static class TurnEngine
         foreach (var die in state.Dice.Where(d => d.Zone == Zone.Intimidated).ToList())
         {
             die.Zone = Zone.FieldZone;
+            die.IntimidatedBy = null;
             state.LogEvent(die.ControllerId, (die.CardId is { } cid ? state.CardCatalog[cid].Name : "A Tardigrade") + " returns to the Field.");
         }
 
@@ -671,6 +672,7 @@ public static class TurnEngine
                 die.GrantedAbilities.Clear();
                 die.Suppressions.Clear();
                 die.CombatFlags.Clear();
+                die.CombatFlagSources.Clear();
             }
         }
 
@@ -710,6 +712,7 @@ public static class TurnEngine
                 s.Duration == Duration.EndOfTurn ||
                 (s.Duration == Duration.UntilYourNextTurn && s.GrantedDuringPlayerId != endingPlayerId));
             die.CombatFlags.Clear();
+            die.CombatFlagSources.Clear();
         }
 
         // Card-scoped suppression expires on the same rules. It lives on

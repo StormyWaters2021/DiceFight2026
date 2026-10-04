@@ -113,7 +113,14 @@ public sealed record V2DieDto(
     // Can't be blocked this turn (Obscure, 2026-10-03) - and neither can
     // anything sharing its lane. Same reason as MustBlock: a blocker's
     // only clue used to be the server's rejection.
-    bool Unblockable = false)
+    bool Unblockable = false,
+    // Every status cue on this die, each with its source and duration
+    // (DieStatuses - the status-cue design pass, 2026-10-03). The tile and
+    // its tap explainer both read this. MustBlock/Unblockable above stay
+    // for older clients.
+    IReadOnlyList<V2DieStatusDto>? Statuses = null,
+    // The latest effect-caused spin, for a one-off flash (DieInstance.LastSpin).
+    V2SpinDto? LastSpin = null)
 {
     private static readonly HashSet<DiceFight.V2.Model.Zone> InPlayZones =
         [DiceFight.V2.Model.Zone.FieldZone, DiceFight.V2.Model.Zone.AttackZone];
@@ -141,9 +148,21 @@ public sealed record V2DieDto(
             face?.Kind == FaceKind.ActionFace,
             hasCharacterFace ? QueryEngine.GetFieldingCost(state, die) : null,
             die.CombatFlags.Contains(CombatFlagKind.MustBlock),
-            die.CombatFlags.Contains(CombatFlagKind.Unblockable));
+            die.CombatFlags.Contains(CombatFlagKind.Unblockable),
+            DieStatuses.For(state, die).Select(V2DieStatusDto.From).ToList(),
+            die.LastSpin is { } spin ? new V2SpinDto(spin.Seq, spin.FromLevel, spin.ToLevel, spin.Source) : null);
     }
 }
+
+public sealed record V2DieStatusDto(string Kind, string? Source, string? Duration, string? Keyword)
+{
+    public static V2DieStatusDto From(DieStatus s) => new(s.Kind, s.Source, s.Duration, s.Keyword);
+}
+
+public sealed record V2SpinDto(int Seq, int? FromLevel, int? ToLevel, string Source);
+
+// A card one player can't buy or field right now (Pangolin's lockout), and why.
+public sealed record V2LockedCardDto(string PlayerId, string CardId, IReadOnlyList<string> Sources);
 
 public sealed record ChampionDto(string Id, string Name, string EnergySymbolId, string PassiveText)
 {
@@ -220,7 +239,10 @@ public sealed record V2GameStateDto(
     // Rule 2.9: the game is over once a player's Life reaches 0 - WinnerId
     // null with GameOver true is a tie.
     bool GameOver = false,
-    string? WinnerId = null)
+    string? WinnerId = null,
+    // Status cues (2026-10-03): lanes no blocker can enter, and lockouts.
+    IReadOnlyList<int>? UnblockableLanes = null,
+    IReadOnlyList<V2LockedCardDto>? LockedCards = null)
 {
     public static V2GameStateDto From(string gameId, GameState state, string? yourPlayerId = null, int version = 0) => new(
         gameId, state.ActivePlayerId, state.CurrentStep.ToString(), state.CurrentStepId,
@@ -238,7 +260,17 @@ public sealed record V2GameStateDto(
         Priority.IsWindow(state) && state.PriorityPlayerId == state.ActivePlayerId
             && Priority.CanUseAnyGlobal(state, state.OpponentOf(state.ActivePlayerId)),
         state.IsGameOver,
-        state.WinnerId);
+        state.WinnerId,
+        DieStatuses.UnblockableLanes(state),
+        LockedCardsFor(state));
+
+    private static IReadOnlyList<V2LockedCardDto> LockedCardsFor(GameState state) =>
+        (from player in new[] { state.PlayerOne, state.PlayerTwo }
+         from cardId in state.PlayerOne.TeamCardIds.Concat(state.PlayerTwo.TeamCardIds).Distinct()
+         where state.CardCatalog.ContainsKey(cardId)
+         let sources = QueryEngine.LockoutSources(state, player.Id, cardId)
+         where sources.Count > 0
+         select new V2LockedCardDto(player.Id, cardId, sources)).ToList();
 }
 
 // ---- Request bodies ----

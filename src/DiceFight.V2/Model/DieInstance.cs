@@ -91,6 +91,19 @@ public sealed class DieInstance
     // not consulted anywhere yet.
     public HashSet<CombatFlagKind> CombatFlags { get; } = [];
 
+    // Who applied each combat flag (2026-10-03, status cues: the tap
+    // explainer says "From Hermit Crab"). Same lifecycle as CombatFlags -
+    // cleared everywhere they are.
+    public Dictionary<CombatFlagKind, string> CombatFlagSources { get; } = [];
+
+    // Keyword Intimidate's source, while the die sits in Zone.Intimidated.
+    public string? IntimidatedBy { get; set; }
+
+    // The latest level/face spin an EFFECT caused (Energy Drain, Cuttlefish,
+    // Mutation) - the client flashes "L3 -> L2 · Energy Drain" once per new
+    // Seq. Not a roll, which has its own animation.
+    public SpinRecord? LastSpin { get; set; }
+
     // Which of the Attack Zone's four fixed lanes this attacker was
     // declared into - a display/UI grouping only (Dice Kingdom mobile
     // refresh, 2026-09). Several attackers may now share a lane; each
@@ -109,7 +122,11 @@ public sealed class DieInstance
     public bool IsSidekick => CardId is null;
 }
 
-public sealed record GrantedTag(string Tag, Duration Duration, string? GrantedDuringPlayerId = null);
+public sealed record GrantedTag(string Tag, Duration Duration, string? GrantedDuringPlayerId = null, string? Source = null);
+
+// FromLevel/ToLevel are null for an energy face (Cuttlefish spins a
+// creature to energy).
+public sealed record SpinRecord(int Seq, int? FromLevel, int? ToLevel, string Source);
 
 public sealed record GrantedAbility(TriggeredAbility Ability, Duration Duration, string? GrantedDuringPlayerId = null);
 

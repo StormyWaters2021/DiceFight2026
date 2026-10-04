@@ -787,4 +787,118 @@ public class DiceKingdomKeywordTests
 
         Assert.Equal(3, hippo.Damage); // the higher of Range (1) and Range 3
     }
+
+    // --- Status cues: every state reports its source and duration ---
+
+    private static void PickWhenAsked(GameState state, AbilityQueue queue, string id)
+    {
+        while (state.PendingChoice is { } pending)
+        {
+            EffectInterpreter.AnswerPendingChoice(state, [pending.CandidateIds.Contains(id) ? id : pending.CandidateIds[0]]);
+            Drain(state, queue);
+        }
+    }
+
+    private static void FieldFor(GameState state, AbilityQueue queue, string cardId, string energyType, string pick)
+    {
+        var die = AddDie(state, cardId, "p1", Zone.ReservePool, tag: "fielding");
+        var fieldingCost = state.CardCatalog[cardId].Die.Faces[0].Character!.FieldingCost;
+        TurnEngine.Field(state, queue, die.Id, fieldingCost == 0 ? [] : Energy(state, "p1", energyType, 1));
+        Drain(state, queue);
+        PickWhenAsked(state, queue, pick);
+    }
+
+    [Fact]
+    public void Statuses_Name_The_Card_Behind_Each_Combat_Rule()
+    {
+        var state = NewGame();
+        var queue = new AbilityQueue();
+        var target = AddDie(state, DiceKingdomConfig.HoneyBadger.Id, "p2", Zone.FieldZone);
+        FieldFor(state, queue, DiceKingdomConfig.HermitCrab.Id, "Shell", target.Id);
+        FieldFor(state, queue, DiceKingdomConfig.BarnOwl.Id, "Eye", target.Id);
+
+        var statuses = DieStatuses.For(state, target);
+        Assert.Contains(new DieStatus("mustBlock", "Hermit Crab", "turn"), statuses);
+        Assert.Contains(new DieStatus("cantBlock", "Barn Owl", "turn"), statuses);
+
+        state.MoveToStep(StepIds.ReturnToField);
+        TurnEngine.CleanUp(state, queue);
+        Assert.Empty(DieStatuses.For(state, target)); // this-turn rules are gone, sources too
+        Assert.Empty(target.CombatFlagSources);
+    }
+
+    [Fact]
+    public void Statuses_Cover_Obscure_And_Its_Lane_And_A_Granted_Keyword()
+    {
+        var state = NewGame();
+        var queue = new AbilityQueue();
+        var chameleon = AddDie(state, DiceKingdomConfig.Chameleon.Id, "p1", Zone.FieldZone);
+        TurnEngine.UseAction(state, queue, ActionDieReady(state).Id); // Anger Issues: +3A and Overcrush
+        Drain(state, queue);
+        PickWhenAsked(state, queue, chameleon.Id);
+
+        var statuses = DieStatuses.For(state, chameleon);
+        Assert.Contains(new DieStatus("unblockable", "Chameleon", "turn"), statuses);
+        Assert.Contains(new DieStatus("granted", "Anger Issues", "turn", "Overcrush"), statuses);
+
+        state.MoveToStep(StepIds.SelectAttackers);
+        CombatEngine.DeclareAttackers(state, queue, new Dictionary<string, int> { [chameleon.Id] = 2 });
+        Assert.Equal([2], DieStatuses.UnblockableLanes(state));
+    }
+
+    [Fact]
+    public void Statuses_Cover_Deadly_Intimidate_And_A_Blank()
+    {
+        var state = NewGame();
+        var queue = new AbilityQueue();
+        var attacker = AddDie(state, DiceKingdomConfig.Hippopotamus.Id, "p1", Zone.FieldZone);
+        var opossum = AddDie(state, DiceKingdomConfig.Opossum.Id, "p2", Zone.FieldZone);
+        state.MoveToStep(StepIds.SelectAttackers);
+        CombatEngine.DeclareAttackers(state, queue, [attacker.Id]);
+        var assignment = new CombatAssignment();
+        assignment.AssignBlocker(attacker.Id, opossum.Id);
+        CombatEngine.DeclareBlockers(state, queue, assignment, [opossum.Id]);
+        Assert.Contains(new DieStatus("deadly", "Fought Opossum (Deadly)", "cleanup"), DieStatuses.For(state, attacker));
+
+        var state2 = NewGame();
+        var queue2 = new AbilityQueue();
+        var victim = AddDie(state2, DiceKingdomConfig.Hippopotamus.Id, "p2", Zone.FieldZone);
+        FieldLizard(state2, queue2);
+        Assert.Equal([new DieStatus("intimidated", "Frilled Lizard", "cleanup")], DieStatuses.For(state2, victim));
+
+        var blanked = AddDie(state2, DiceKingdomConfig.Opossum.Id, "p2", Zone.FieldZone, tag: "blanked");
+        blanked.Suppressions.Add(new DieSuppression(Duration.EndOfTurn));
+        Assert.Contains(DieStatuses.For(state2, blanked), s => s.Kind == "blanked");
+    }
+
+    [Fact]
+    public void Energy_Drain_Records_Its_Spin_For_The_Flash()
+    {
+        var state = NewGame();
+        var queue = new AbilityQueue();
+        var attacker = AddDie(state, DiceKingdomConfig.Hippopotamus.Id, "p1", Zone.FieldZone, level: 3);
+        var leech = AddDie(state, DiceKingdomConfig.Leech.Id, "p2", Zone.FieldZone);
+        state.MoveToStep(StepIds.SelectAttackers);
+        CombatEngine.DeclareAttackers(state, queue, [attacker.Id]);
+        var assignment = new CombatAssignment();
+        assignment.AssignBlocker(attacker.Id, leech.Id);
+        CombatEngine.DeclareBlockers(state, queue, assignment, [leech.Id]);
+
+        var spin = Assert.IsType<SpinRecord>(attacker.LastSpin);
+        Assert.Equal((3, 2, "Leech · Energy Drain"), (spin.FromLevel!.Value, spin.ToLevel!.Value, spin.Source));
+        Assert.True(spin.Seq > 0);
+    }
+
+    [Fact]
+    public void A_Pangolin_Lockout_Names_Pangolin()
+    {
+        var state = NewGame();
+        var queue = new AbilityQueue();
+        AddDie(state, DiceKingdomConfig.Orca.Id, "p2", Zone.FieldZone); // something to name
+        state.PlayerTwo.TeamCardIds.Add(DiceKingdomConfig.Orca.Id);
+        FieldFor(state, queue, DiceKingdomConfig.Pangolin.Id, "Shell", "p2-DK-CLAW-04-FieldZone");
+
+        Assert.Equal(["Pangolin"], QueryEngine.LockoutSources(state, "p2", DiceKingdomConfig.Orca.Id));
+        Assert.Empty(QueryEngine.LockoutSources(state, "p1", DiceKingdomConfig.Orca.Id));
+    }
 }
