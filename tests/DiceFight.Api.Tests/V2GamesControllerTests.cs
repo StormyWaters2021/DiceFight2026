@@ -93,10 +93,10 @@ public class V2GamesControllerTests
         V2SeatedController.Dto(teamA.DeclareAttackers(session.Id, new V2DeclareAttackersRequest([new V2AttackerDeclaration(fielded.Id, 0)])));
         V2SeatedController.Dto(teamB.DeclareBlockers(session.Id, new V2DeclareBlockersRequest([])));
         // Wolf's once-per-turn power (2026-10-04, replaced its +1 ATK to
-        // everything): +1 ATK on its one creature - no choice needed - so
+        // everything): +3 ATK on its one creature - no choice needed - so
         // even a 0-ATK Tardigrade lands damage.
         var pumped = V2SeatedController.Dto(teamA.ChampionPower(session.Id));
-        Assert.Equal(printedAttack + 1, pumped.Dice.Single(d => d.Id == fielded.Id).EffectiveAttack);
+        Assert.Equal(printedAttack + 3, pumped.Dice.Single(d => d.Id == fielded.Id).EffectiveAttack);
         var afterDamage = V2SeatedController.Dto(teamA.AssignCombatDamage(session.Id, new V2AssignCombatDamageRequest([])));
         Assert.True(afterDamage.PlayerTwo.Life < 20); // unblocked attacker landed some damage
 

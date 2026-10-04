@@ -6,7 +6,7 @@ using DiceFight.V2.Model.Effects;
 namespace DiceFight.V2.Tests;
 
 // Champion once-per-turn powers (2026-10-04, replacing the always-on
-// passives): Wolf +1 ATK to one creature, Armadillo shields one creature
+// passives): Wolf +3 ATK to one creature, Armadillo shields one creature
 // from combat damage after blocks, Golden Eagle fields one creature free,
 // Great Horned Owl spins one creature (yours up, theirs down).
 public class ChampionPowersTests
@@ -58,7 +58,7 @@ public class ChampionPowersTests
     }
 
     [Fact]
-    public void Wolf_Gives_One_Creature_Plus_1_ATK_Once_Per_Turn()
+    public void Wolf_Gives_One_Creature_Plus_3_ATK_Once_Per_Turn()
     {
         var state = NewGame("Wolf", "Armadillo");
         var queue = new AbilityQueue();
@@ -68,7 +68,7 @@ public class ChampionPowersTests
         ChampionPowers.Use(state, queue, "p1");
         Drain(state, queue);
 
-        Assert.Equal(before + 1, QueryEngine.GetAttack(state, badger));
+        Assert.Equal(before + 3, QueryEngine.GetAttack(state, badger));
         Assert.Throws<InvalidOperationException>(() => ChampionPowers.Use(state, queue, "p1"));
         Assert.False(ChampionPowers.CanUse(state, "p2")); // not their turn
     }

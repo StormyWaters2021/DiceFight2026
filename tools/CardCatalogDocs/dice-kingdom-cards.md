@@ -4,7 +4,7 @@ _Generated 2026-10-04 from `src/DiceFight.V2/Data/DiceKingdomConfig.cs` by `tool
 
 ## Wolf (Claw)
 
-_Power: Once per your turn: one of your creatures gets +1 ATK this turn_
+_Power: Once per your turn: one of your creatures gets +3 ATK this turn_
 
 ### Tardigrade die ×8 (starts in the Bag; free to field)
 

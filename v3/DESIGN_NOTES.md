@@ -4174,3 +4174,18 @@ the time, down from 95%. Wolf's +1 was tuned against the race bot.
 similar place - Wolf 17, Armadillo 67 - and was replaced by this.) Balance
 numbers are dominated by bot policy; the next tuning pass should be done
 on this bot.
+
+**Follow-up, same day: Wolf back to +3.** Re-tuned on the expected-threat
+bot (200 games per matchup):
+
+| Wolf pump | Wolf | Armadillo | Owl | Eagle |
+|---|---|---|---|---|
+| +1 | 19 | 56 | 67 | 57 |
+| +2 | 37 | 53 | 62 | 47 |
+| +3 | 47 | 49 | 60 | 44 |
+
++3, the user's original number, is the most even setting yet. The +1 had
+been fit to the race bot, where every pump was free face damage. **Owl
+(~60%) is now the outlier**; its spin is used ~11 times a game under this
+bot, the next thing to look at. Turn-cap games are up to ~15%, since
+boards that keep blockers stall more.

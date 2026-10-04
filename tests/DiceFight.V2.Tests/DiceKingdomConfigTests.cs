@@ -117,7 +117,7 @@ public class DiceKingdomConfigTests
         Assert.Equal(0, QueryEngine.GetAttack(state, toField));
 
         // --- Attack step: it attacks unblocked, and Wolf's once-per-turn
-        // power (+1 ATK to one of your creatures) goes on it in the action
+        // power (+3 ATK to one of your creatures) goes on it in the action
         // window - its only creature, so no choice comes up ---
         TurnEngine.EnterAttackStep(state, queue);
         CombatEngine.DeclareAttackers(state, queue, [toField.Id]);
@@ -126,11 +126,11 @@ public class DiceKingdomConfigTests
         Assert.True(ChampionPowers.CanUse(state, "p1"));
         ChampionPowers.Use(state, queue, "p1");
         EffectInterpreter.DrainQueue(state, queue, new ScriptedRoller(0), new Random(1));
-        Assert.Equal(1, QueryEngine.GetAttack(state, toField));
+        Assert.Equal(3, QueryEngine.GetAttack(state, toField));
         Assert.False(ChampionPowers.CanUse(state, "p1")); // once per turn
         CombatEngine.AssignCombatDamage(state, queue, assignment, new Dictionary<string, IReadOnlyDictionary<string, int>>());
 
-        Assert.Equal(19, playerTwo.Life); // 20 - 1 (the pumped attack)
+        Assert.Equal(17, playerTwo.Life); // 20 - 3 (the pumped attack)
         // Rule 2.7.4.3.1 - an unblocked attacker leaves the Attack Zone
         // for Out of Play immediately (CombatEngine.cs's own citation),
         // not back to the Field Zone - that return path is only for a

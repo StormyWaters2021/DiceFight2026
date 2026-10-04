@@ -958,11 +958,12 @@ public static class DiceKingdomConfig
         // Renamed from "Lion" (2026-09-06) - a real fan-art avatar exists
         // for this one now (icons.tsx's WolfIcon), so the Claw Champion
         // became the animal the art actually is.
-        // +1, not the +3 first proposed: in the simulator +3 won 84% (+2:
-        // 76%, +1: 60%) - an unblocked attacker turns it straight into face
-        // damage, and games only see ~0.5 damage a turn. Main-only timing
-        // didn't help (84% at +3). See v3/DESIGN_NOTES.md, 2026-10-04.
-        new("Wolf", "Wolf", "Claw", ChampionPassiveKind.PumpOneAttack, Amount: 1)
+        // +3, the user's original number. Briefly +1: against the old
+        // race-everything bot +3 won 84%, but that bot never kept blockers,
+        // so every pump was free face damage. With the expected-threat bot
+        // (2026-10-04), +3 is the most even setting: Wolf 47, Armadillo 49,
+        // Owl 60, Eagle 44 (+1: Wolf 19). See v3/DESIGN_NOTES.md.
+        new("Wolf", "Wolf", "Claw", ChampionPassiveKind.PumpOneAttack, Amount: 3)
         {
             TardigradePool = [new BasicDicePoolEntry(TardigradeDie("Claw"), Count: 8)],
         },
