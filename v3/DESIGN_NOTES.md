@@ -3935,3 +3935,23 @@ UI:
   swapped in: 0 errors. Every keyword except Sacrifice and Breath Weapon
   fired in bot play; those two were covered by the steered run and unit
   tests.
+
+## Reroll showed the landed face before tumbling (2026-10-04)
+
+User report: "you can sometimes see the new die face on a reroll before
+the animation kicks in." Two causes:
+- The cube switched to the new face as soon as its tumble was scheduled,
+  so each die after the first sat flat on its landed face through its
+  70ms-per-die stagger delay.
+- On a fast machine the state update also rendered a frame before the
+  tumble started (the rAF split from the 2026-09-16 choppiness fix).
+
+The tumble now carries a `HeldFace` (the pre-roll face and energy pips).
+`DieCube` shows it until the die's delay plus 30% of the tumble, then
+switches mid-air. Rerolls also start the tumble before committing the new
+state. Measured with a per-frame probe
+(`~/.devtools/playwright/reroll-flash-probe.js`): old code, 6 of 9
+changed dice showed the landed face for 2-6 frames before moving; new
+code, 0 of 7. That only reproduced once the probe compared against each
+die's own landing frame; comparing against the final screen measured
+different tiles after the step changed.
