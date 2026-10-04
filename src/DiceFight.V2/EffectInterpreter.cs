@@ -929,6 +929,8 @@ public static class EffectInterpreter
     private static void ExecutePurchaseModifier(PurchaseModifier n, EffectContext ctx, Action onComplete)
     {
         ctx.State.PendingPurchaseModifiers.Add(new PendingPurchaseModifier(ctx.ControllerId, n.Delta, n.CardKind, n.GoesToZone));
+        if (n.Delta < 0)
+            LogAbility(ctx, $"{SourceName(ctx)}: the next {(n.CardKind == CardType.Character ? "creature" : "die")} {ctx.State.NameOf(ctx.ControllerId)} purchases this turn costs {-n.Delta} less (minimum 1).");
         onComplete();
     }
 

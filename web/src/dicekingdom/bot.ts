@@ -39,10 +39,12 @@ export function decisionOwner(game: GameState): string | null {
   return decisionSteps.has(game.currentStepId) ? game.activePlayerId : null;
 }
 
-// Every Basic Action card in this game (one per Champion) - read off the
-// dice, since the state carries no roster list.
-export function actionCardsInGame(game: GameState, cardsById: Map<string, CardDef>): CardDef[] {
-  const ids = new Set(game.dice.map((d) => d.cardId).filter((id): id is string => !!id && !!cardsById.get(id)?.isAction));
+// Every card in this game with a Global - Basic Actions, and since
+// 2026-10-04 a creature too (Musk Ox). Usable whether or not anyone owns
+// a die of it yet, as in Dice Masters. Read off the dice, since the state
+// carries no roster list.
+export function globalCardsInGame(game: GameState, cardsById: Map<string, CardDef>): CardDef[] {
+  const ids = new Set(game.dice.map((d) => d.cardId).filter((id): id is string => !!id && !!cardsById.get(id)));
   return [...ids].map((id) => cardsById.get(id)!).filter((c) => c.global);
 }
 
@@ -59,7 +61,7 @@ export function activeCouldAct(game: GameState, cardsById: Map<string, CardDef>)
   if (active.championPowerUsable) return true;
   const reserve = game.dice.filter((d) => d.controllerId === game.activePlayerId && d.zone === "ReservePool");
   if (reserve.some((d) => d.isActionFace)) return true;
-  return actionCardsInGame(game, cardsById).some((c) => pickEnergy(reserve, c.global!.cost, c.global!.energyType) !== null);
+  return globalCardsInGame(game, cardsById).some((c) => pickEnergy(reserve, c.global!.cost, c.global!.energyType) !== null);
 }
 
 // Which reserve energy dice to spend on `cost`, with at least one pip matching

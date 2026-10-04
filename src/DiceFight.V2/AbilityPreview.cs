@@ -34,6 +34,10 @@ public static class AbilityPreview
             return draw.FromZone == Zone.Bag
                 ? state.DiceIn(controllerId, Zone.Bag).Any() || state.DiceIn(controllerId, Zone.UsedPile).Any() // an empty Bag refills from the Used Pile
                 : state.DiceIn(controllerId, draw.FromZone).Any();
+        // A purchase discount only matters to the player who can still buy
+        // this turn - it's discarded at Clean Up.
+        if (effect is PurchaseModifier)
+            return controllerId == state.ActivePlayerId && state.CurrentStep == TurnStep.Main;
         if (TargetOf(effect) is not { } filter) return true;
         if (filter.Bound is not null) return false;
         if (filter.Self) return true;

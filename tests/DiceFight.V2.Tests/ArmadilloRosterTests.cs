@@ -110,4 +110,72 @@ public class ArmadilloRosterTests
         Assert.Equal(Zone.FieldZone, mine.Zone);
         Assert.Equal(2, mine.Damage); // ...but it still hit back
     }
+
+    // Musk Ox's Global (2026-10-04, Kree Captain's): pay 2 Shell, the next
+    // creature this turn costs 3 less (minimum 1). Ramp toward Rhinoceros.
+    private static int MuskOxGlobal => DiceKingdomConfig.MuskOx.Abilities.ToList().FindIndex(a => a.Trigger == TriggerKind.Global);
+
+    private static DieInstance Shell(GameState state, int face) => Place(state, "p1", d => d.CardId is null, Zone.ReservePool, face); // 0 = 2 Shell, 2 = 1 Shell
+
+    [Fact]
+    public void Musk_Ox_Global_Takes_3_Off_The_Next_Creature_Only()
+    {
+        var state = NewGame();
+        var queue = new AbilityQueue();
+        var payGlobal = Shell(state, 0);
+        var pay = new[] { Shell(state, 0), Shell(state, 2) }; // 3 Shell - Rhinoceros costs 6
+
+        TurnEngine.UseGlobal(state, queue, DiceKingdomConfig.MuskOx.Id, "p1", MuskOxGlobal, [payGlobal.Id]);
+        Drain(state, queue);
+        Assert.Equal(3, QueryEngine.GetPurchaseCostNow(state, DiceKingdomConfig.Rhinoceros, "p1"));
+        Assert.Equal(1, QueryEngine.GetPurchaseCostNow(state, DiceKingdomConfig.HermitCrab, "p1")); // 2 - 3, minimum 1
+
+        var rhino = state.Dice.First(d => d.CardId == DiceKingdomConfig.Rhinoceros.Id && d.Zone == Zone.Unpurchased);
+        TurnEngine.Purchase(state, queue, rhino.Id, pay.Select(d => d.Id).ToList());
+
+        Assert.Equal(Zone.UsedPile, rhino.Zone);
+        Assert.Equal(2, QueryEngine.GetPurchaseCostNow(state, DiceKingdomConfig.HermitCrab, "p1")); // used up
+        Assert.Contains(state.Log, l => l.Text.Contains("purchases Rhinoceros for 3 (discounted)"));
+        Assert.Throws<InvalidOperationException>(() =>
+            TurnEngine.UseGlobal(state, queue, DiceKingdomConfig.MuskOx.Id, "p1", MuskOxGlobal, [Shell(state, 0).Id])); // once per turn
+    }
+
+    [Fact]
+    public void Musk_Ox_Global_Is_Not_Offered_To_The_Player_Who_Cant_Buy_This_Turn()
+    {
+        var state = NewGame(); // p1's Main
+        var wilds = new[] { Place(state, "p2", d => d.CardId is null, Zone.ReservePool, 3), Place(state, "p2", d => d.CardId is null, Zone.ReservePool, 5) };
+
+        Assert.Throws<InvalidOperationException>(() =>
+            TurnEngine.UseGlobal(state, new AbilityQueue(), DiceKingdomConfig.MuskOx.Id, "p2", MuskOxGlobal, wilds.Select(d => d.Id).ToList()));
+    }
+
+    [Fact]
+    public void Bot_Pays_For_The_Discount_When_It_Brings_Rhinoceros_Into_Reach()
+    {
+        var state = NewGame();
+        Shell(state, 0); Shell(state, 0); Shell(state, 2); // 5 Shell: Rhinoceros (6) is one short
+
+        var decision = Bot.DiceKingdomBot.Decide(state, "p1")!;
+        Assert.Equal(Bot.BotActionKind.UseGlobal, decision.Kind);
+        Assert.Equal(DiceKingdomConfig.MuskOx.Id, decision.CardId);
+
+        var queue = new AbilityQueue();
+        TurnEngine.UseGlobal(state, queue, decision.CardId!, "p1", decision.AbilityIndex, decision.EnergyDieIds);
+        Drain(state, queue);
+        var next = Bot.DiceKingdomBot.Decide(state, "p1")!;
+        Assert.Equal(Bot.BotActionKind.Purchase, next.Kind);
+        Assert.Equal(DiceKingdomConfig.Rhinoceros.Id, state.Dice.Single(d => d.Id == next.DieId).CardId);
+    }
+
+    [Fact]
+    public void Bot_Skips_The_Discount_When_It_Buys_Nothing_More()
+    {
+        var state = NewGame();
+        state.Dice.First(d => d.CardId == DiceKingdomConfig.Rhinoceros.Id && d.Zone == Zone.Unpurchased).Zone = Zone.UsedPile; // no longer racing to it
+        Shell(state, 0); // 2 Shell: paying for the Global leaves nothing to buy with
+
+        var decision = Bot.DiceKingdomBot.Decide(state, "p1")!;
+        Assert.NotEqual(Bot.BotActionKind.UseGlobal, decision.Kind);
+    }
 }

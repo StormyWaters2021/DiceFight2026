@@ -361,10 +361,8 @@ public static class TurnEngine
         // offer consumed by the first purchase matching its own CardKind
         // (null = matches any), on top of whatever QueryEngine's own
         // continuous registry already applies.
-        var pending = state.PendingPurchaseModifiers.FirstOrDefault(m =>
-            m.PlayerId == state.ActivePlayerId && (m.CardKind is null || m.CardKind == card.CardType));
-        var cost = QueryEngine.GetPurchaseCost(state, card, state.ActivePlayerId);
-        if (pending is not null) cost = Math.Max(1, cost + pending.Delta);
+        var pending = QueryEngine.NextPurchaseModifier(state, card, state.ActivePlayerId);
+        var cost = QueryEngine.GetPurchaseCostNow(state, card, state.ActivePlayerId);
         SpendEnergy(state, energyDice, cost, card.EnergySymbolIds, payerId: state.ActivePlayerId);
 
         die.ControllerId = state.ActivePlayerId; // rule 1.1.4 - purchaser becomes controller
@@ -372,7 +370,9 @@ public static class TurnEngine
         if (pending is not null) state.PendingPurchaseModifiers.Remove(pending);
 
         state.PurchasedThisTurn.Add(state.ActivePlayerId);
-        state.LogEvent(state.ActivePlayerId, $"{state.NameOf(state.ActivePlayerId)} purchases {card.Name}.");
+        state.LogEvent(state.ActivePlayerId, pending is { Delta: < 0 }
+            ? $"{state.NameOf(state.ActivePlayerId)} purchases {card.Name} for {cost} (discounted)."
+            : $"{state.NameOf(state.ActivePlayerId)} purchases {card.Name}.");
         EventBus.Fire(state, queue, new GameEvent(TriggerKind.PurchaseMade, die, state.ActivePlayerId, state.CurrentStepId));
     }
 

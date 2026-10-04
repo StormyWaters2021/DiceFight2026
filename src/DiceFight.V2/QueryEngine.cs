@@ -178,6 +178,18 @@ public static class QueryEngine
         return Math.Max(1, card.PurchaseCost + continuous);
     }
 
+    // What `payerId` would pay for `card` right now: GetPurchaseCost plus a
+    // standing one-shot "next purchase costs N less" grant (PurchaseModifier,
+    // e.g. Musk Ox's Global), which TurnEngine.Purchase consumes. Same floor.
+    public static int GetPurchaseCostNow(GameState state, CardDef card, string payerId)
+    {
+        var cost = GetPurchaseCost(state, card, payerId);
+        return NextPurchaseModifier(state, card, payerId) is { } pending ? Math.Max(1, cost + pending.Delta) : cost;
+    }
+
+    public static PendingPurchaseModifier? NextPurchaseModifier(GameState state, CardDef card, string payerId) =>
+        state.PendingPurchaseModifiers.FirstOrDefault(m => m.PlayerId == payerId && (m.CardKind is null || m.CardKind == card.CardType));
+
     // Floor 0, unlike purchase - printed-0 fielding-cost faces and
     // free-to-field grants are both real (a 0 fielding cost is a normal
     // value, not a floor being hit).

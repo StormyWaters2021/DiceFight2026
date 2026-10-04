@@ -255,7 +255,7 @@ public sealed record V2GameStateDto(
         yourPlayerId is null ? null
             : state.PlayerOne.TeamCardIds.Concat(state.PlayerTwo.TeamCardIds).Distinct()
                 .Where(state.CardCatalog.ContainsKey)
-                .ToDictionary(id => id, id => QueryEngine.GetPurchaseCost(state, state.CardCatalog[id], yourPlayerId)),
+                .ToDictionary(id => id, id => QueryEngine.GetPurchaseCostNow(state, state.CardCatalog[id], yourPlayerId)),
         Priority.IsWindow(state) && state.PriorityPlayerId == state.ActivePlayerId
             && Priority.CanUseAnyGlobal(state, state.OpponentOf(state.ActivePlayerId)),
         state.IsGameOver,

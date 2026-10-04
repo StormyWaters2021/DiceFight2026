@@ -222,8 +222,12 @@ public static class DiceKingdomConfig
         PurchaseCost: 4, EnergySymbolIds: ["Shell"],
         Die: CharacterDie("DK-SHELL-02Die", energyType: "Shell", (1, 2, 4), (1, 3, 5), (2, 3, 6)),
         DieLimit: 4, Affiliations: [], Keywords: [],
-        RawText: "While active, your creatures get +1 DEF.",
-        Abilities: [],
+        RawText: "While active, your creatures get +1 DEF. Global: Pay 2 Shell. Once per turn, the next creature you purchase this turn costs 3 less (minimum 1).",
+        // The Global is Dice Masters' Kree Captain's (2026-10-04, user call:
+        // Armadillo needs ramp - it's the team most starved when energy is
+        // tight, v3/DESIGN_NOTES.md "Tardigrade face layouts").
+        Abilities: [new TriggeredAbility(TriggerKind.Global, new PurchaseModifier(Delta: -3, CardKind: CardType.Character),
+            EnergyCost: new EnergyCost(2, "Shell"), OncePerTurn: true)],
         Continuous: [new StatAura(OwnCreatures, DefDelta: new Fixed(1))]);
 
     // 6 more Shell picks (2026-09-06/07, "build out a full roster... 8

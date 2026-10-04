@@ -4258,3 +4258,27 @@ Live result (600 games/matchup, powers on): Wolf 48, Armadillo 43, Owl 57,
 Eagle 50 - spread 13.4, turn cap 19%. Armadillo vs Owl is 20/80, the worst
 single matchup; the other five are within 43-59. Armadillo next: a cheap
 ramp Character or a ramp Global (user, same day).
+
+## 2026-10-04 - Musk Ox gets Kree Captain's Global (Armadillo ramp)
+
+User call: Armadillo needs ramp. Musk Ox (4-cost Shell, +1 DEF aura) adds
+Dice Masters' Kree Captain Global: "Pay 2 Shell. Once per turn, the next
+creature you purchase this turn costs 3 less (minimum 1)." Built from the
+existing PurchaseModifier; buy costs shown to a player now include it
+(QueryEngine.GetPurchaseCostNow), and it's only usable by the player who
+can still buy this turn (AbilityPreview). The bot pays for it when the
+purchase plan it enables beats the plan without it (ties go to keeping the
+energy). Like every Global it's usable by either player once the card is
+in the game - opponents use it ~0.6 times a game, paying with Wilds.
+
+| | Wolf | Arm | Owl | Eagle | Turn cap |
+|---|---|---|---|---|---|
+| Before (new Tardigrade die) | 48 | 43 | 57 | 50 | 19% |
+| With Musk Ox's Global | 42 | 54 | 56 | 47 | 13% |
+
+Armadillo uses it 5.3 times a game; Rhinoceros buys 1.1 -> 1.65 a game.
+Matchups: Armadillo beats Wolf 75/25 (was 57) and Eagle 65/35 (was 55),
+but still loses to Owl 23/77 - the ramp doesn't fix that one.
+
+Web: the mobile Global rail listed Basic Actions only; it now lists any
+card in the game with a Global. (Desktop has no Global rail at all yet.)

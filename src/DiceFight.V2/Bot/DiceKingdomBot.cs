@@ -176,14 +176,17 @@ public static class DiceKingdomBot
         }
 
         // Racing to a rush card: buy its first copy the moment it's
-        // affordable, before fielding spends any of the energy.
+        // affordable, before fielding spends any of the energy - with a
+        // purchase discount first if that's what brings it into reach.
+        if (Rushing(state, botId, persona) && PurchaseDiscountGlobal(state, botId, reserve, skip, persona) is { } rushDiscount)
+            return rushDiscount;
         if (Rushing(state, botId, persona)
             && state.Dice.FirstOrDefault(d => d.CardId == persona.RushCardId && d.OwnerId == botId && d.Zone == Zone.Unpurchased && !skip.Contains(d.Id)) is { } rushDie
             && QueryEngine.CanPurchase(state, botId, persona.RushCardId!))
         {
             var card = state.CardCatalog[persona.RushCardId!];
             if (BotEnergy.PickWithVirtual(state, reserve.Where(d => BotEnergy.Pips(state, d) > 0).ToList(),
-                    QueryEngine.GetPurchaseCost(state, card, botId), card.EnergySymbolIds.FirstOrDefault(), state.VirtualEnergyOf(botId)) is { } rushPay)
+                    QueryEngine.GetPurchaseCostNow(state, card, botId), card.EnergySymbolIds.FirstOrDefault(), state.VirtualEnergyOf(botId)) is { } rushPay)
                 return new(BotActionKind.Purchase, $"Buy {card.Name} - the card this persona races for.") { DieId = rushDie.Id, EnergyDieIds = rushPay.Dice };
         }
 
@@ -211,7 +214,9 @@ public static class DiceKingdomBot
                 return new(BotActionKind.Field, $"Field {CardName(state, die)}.") { DieId = die.Id, EnergyDieIds = pay.Value.Dice };
         }
 
-        // Then spend energy on the best purchase plan.
+        // Then spend energy on the best purchase plan - first paying for a
+        // purchase discount when that buys more.
+        if (PurchaseDiscountGlobal(state, botId, reserve, skip, persona) is { } discountGlobal) return discountGlobal;
         if (PlanPurchase(state, botId, reserve, skip, persona) is { } buy) return buy;
 
         // Spare Wing energy: Resurrection's Global draws a die into Prep.
@@ -350,6 +355,32 @@ public static class DiceKingdomBot
     // Returns the plan's first step; the next call re-plans from there.
     private static BotDecision? PlanPurchase(GameState state, string botId, List<DieInstance> reserve, IReadOnlySet<string> skip, BotPersona persona)
     {
+        // A standing "next creature costs N less" (Musk Ox's Global) goes on
+        // the first creature bought in the plan.
+        var discount = state.PendingPurchaseModifiers.Where(m => m.PlayerId == botId && m.CardKind is null or CardType.Character)
+            .Select(m => -m.Delta).FirstOrDefault();
+        var (_, first) = BestPurchasePlan(state, botId, reserve, skip, persona, discount);
+        if (first is not { } step) return null;
+        return new(BotActionKind.Purchase, $"Buy {step.Card.Name}.") { DieId = step.Die.Id, EnergyDieIds = step.Pay };
+    }
+
+    // Musk Ox's Global (pay 2 Shell: the next creature costs 3 less): worth
+    // it when the plan bought with what's left after paying beats the plan
+    // without it - an expensive creature it brings into reach, or a second
+    // buy it frees energy for.
+    private static BotDecision? PurchaseDiscountGlobal(GameState state, string botId, List<DieInstance> reserve, IReadOnlySet<string> skip, BotPersona persona)
+    {
+        if (state.PendingPurchaseModifiers.Any(m => m.PlayerId == botId)) return null;
+        if (GlobalDecision(state, botId, onlyRealPips: false, g => g.Effect is PurchaseModifier { Delta: < 0 }) is not { } use) return null;
+        var discount = -((PurchaseModifier)state.CardCatalog[use.CardId!].Abilities[use.AbilityIndex].Effect).Delta;
+        var without = BestPurchasePlan(state, botId, reserve, skip, persona, 0).Value;
+        var with = BestPurchasePlan(state, botId, reserve.Where(d => !use.EnergyDieIds.Contains(d.Id)).ToList(), skip, persona, discount).Value;
+        return with > without + 0.5 ? use with { Reason = $"Use {state.CardCatalog[use.CardId!].Name}'s Global - a cheaper creature." } : null;
+    }
+
+    private static (double Value, (CardDef Card, DieInstance Die, IReadOnlyList<string> Pay)? First) BestPurchasePlan(
+        GameState state, string botId, List<DieInstance> reserve, IReadOnlySet<string> skip, BotPersona persona, int discount)
+    {
         var options = state.Dice
             .Where(d => d.Zone == Zone.Unpurchased && d.CardId is not null && !skip.Contains(d.Id))
             .Where(d => state.CardCatalog[d.CardId!].CardType.IsCommunity() || d.OwnerId == botId)
@@ -357,7 +388,7 @@ public static class DiceKingdomBot
             .Select(g => (Card: state.CardCatalog[g.Key], Dice: g.ToList()))
             .Where(x => QueryEngine.CanPurchase(state, botId, x.Card.Id))
             .ToList();
-        if (options.Count == 0) return null;
+        if (options.Count == 0) return (0, null);
 
         var owned = state.Dice.Where(d => d.ControllerId == botId && d.CardId is not null && d.Zone != Zone.Unpurchased)
             .GroupBy(d => d.CardId!).ToDictionary(g => g.Key, g => g.Count());
@@ -366,7 +397,7 @@ public static class DiceKingdomBot
         (double Value, (CardDef Card, DieInstance Die, IReadOnlyList<string> Pay)? First) best = (0, null);
 
         void Search(List<DieInstance> pool, int virtualLeft, Dictionary<string, int> copies, double value, int depth,
-            (CardDef, DieInstance, IReadOnlyList<string>)? first)
+            (CardDef, DieInstance, IReadOnlyList<string>)? first, int discountLeft)
         {
             if (value > best.Value) best = (value, first);
             if (depth == 3) return;
@@ -377,18 +408,19 @@ public static class DiceKingdomBot
                 var gain = PurchaseValue(state, botId, card, copies.GetValueOrDefault(card.Id), offType)
                     + (card.Id == persona.RushCardId && copies.GetValueOrDefault(card.Id) == 0 ? persona.RushBonus : 0);
                 if (gain < 2.0) continue; // not worth diluting the bag for
+                var discounted = discountLeft > 0 && card.CardType == CardType.Character;
                 var cost = QueryEngine.GetPurchaseCost(state, card, botId);
+                if (discounted) cost = Math.Max(1, cost - discountLeft);
                 if (BotEnergy.PickWithVirtual(state, pool, cost, card.EnergySymbolIds.FirstOrDefault(), virtualLeft) is not { } pay) continue;
                 var nextCopies = new Dictionary<string, int>(copies) { [card.Id] = copies.GetValueOrDefault(card.Id) + 1 };
                 Search(pool.Where(d => !pay.Dice.Contains(d.Id)).ToList(), virtualLeft - pay.VirtualUsed, nextCopies, value + gain, depth + 1,
-                    first ?? (card, dice[bought], pay.Dice));
+                    first ?? (card, dice[bought], pay.Dice), discounted ? 0 : discountLeft);
             }
         }
 
         Search(reserve.Where(d => BotEnergy.Pips(state, d) > 0).ToList(), state.VirtualEnergyOf(botId),
-            new Dictionary<string, int>(owned), 0, 0, null);
-        if (best.First is not { } step) return null;
-        return new(BotActionKind.Purchase, $"Buy {step.Card.Name}.") { DieId = step.Die.Id, EnergyDieIds = step.Pay };
+            new Dictionary<string, int>(owned), 0, 0, null, discount);
+        return best;
     }
 
     // How much one more copy of `card` is worth. Purchase cost is the

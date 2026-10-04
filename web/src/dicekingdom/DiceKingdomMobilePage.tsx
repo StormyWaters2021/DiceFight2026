@@ -22,7 +22,7 @@ import { DieFramesLegend, legendSeen } from "./DieFramesLegend";
 import { SpinFlash, useSpinFlash } from "./SpinFlash";
 import { useDieFlights, usePhaseHeight } from "./dieFlights";
 import { useDiceRoll, type RollTarget } from "./useDiceRoll";
-import { actionCardsInGame, activeCouldAct, botDecisionCall, decisionOwner, pickEnergy } from "./bot";
+import { globalCardsInGame, activeCouldAct, botDecisionCall, decisionOwner, pickEnergy } from "./bot";
 import type { BotDecision, CardDef, Die, GameState, GlobalAbility, LobbyStatus, PendingChoice, PlayerState, StatModifier } from "./types";
 
 // Dice Kingdom - mobile refresh (2026-09). A GENUINELY SEPARATE front end
@@ -2564,7 +2564,7 @@ export function DiceKingdomMobilePage() {
       : game.priorityPlayerId
         ? isYourTurn ? "Your opponent has priority" : "You'll get priority when they pass"
         : "Main Step or the attack window only";
-  const railGlobals: RailGlobal[] = actionCardsInGame(game, cardsById).map((card) => {
+  const railGlobals: RailGlobal[] = globalCardsInGame(game, cardsById).map((card) => {
     const g = card.global!;
     const affordable = pickEnergyForCost(yourReserve, g.cost, g.energyType, yourVirtual) !== null;
     return {
