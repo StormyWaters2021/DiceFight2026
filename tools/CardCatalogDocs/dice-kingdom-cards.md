@@ -1,10 +1,10 @@
 # Dice Kingdom — Card Reference
 
-_Generated 2026-10-03 from `src/DiceFight.V2/Data/DiceKingdomConfig.cs` by `tools/CardCatalogDocs` — every field is read straight from the live CardDef/ChampionDef records. Re-run the tool after any card change; don't hand-edit this file._
+_Generated 2026-10-04 from `src/DiceFight.V2/Data/DiceKingdomConfig.cs` by `tools/CardCatalogDocs` — every field is read straight from the live CardDef/ChampionDef records. Re-run the tool after any card change; don't hand-edit this file._
 
 ## Wolf (Claw)
 
-_Passive: +1 ATK to all your dice_
+_Power: Once per your turn: one of your creatures gets +1 ATK this turn_
 
 ### Tardigrade die ×8 (starts in the Bag; free to field)
 
@@ -30,7 +30,7 @@ _Passive: +1 ATK to all your dice_
 
 ## Armadillo (Shell)
 
-_Passive: +1 DEF to all your dice_
+_Power: Once per turn, after blocks: prevent all combat damage to one of your creatures in combat_
 
 ### Tardigrade die ×8 (starts in the Bag; free to field)
 
@@ -56,7 +56,7 @@ _Passive: +1 DEF to all your dice_
 
 ## Golden Eagle (Wing)
 
-_Passive: -1 Fielding cost for your dice_
+_Power: Once per your turn: field one creature without paying its fielding cost_
 
 ### Tardigrade die ×8 (starts in the Bag; free to field)
 
@@ -82,7 +82,7 @@ _Passive: -1 Fielding cost for your dice_
 
 ## Great Horned Owl (Eye)
 
-_Passive: Foresight - once per turn during your Main Step, reroll one die in your Reserve Pool_
+_Power: Once per your turn: spin one creature a level - yours up, theirs down_
 
 ### Tardigrade die ×8 (starts in the Bag; free to field)
 

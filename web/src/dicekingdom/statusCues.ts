@@ -53,6 +53,8 @@ const META: Record<DieStatusKind, Meta> = {
     mine: "Abilities and keywords are off: a vanilla body.", opp: "Abilities and keywords are off: a vanilla body." },
   granted: { name: "Granted keyword", cat: "ability", glyph: "+", word: "+", fill: "solid", prio: 9,
     mine: "Has a keyword its card doesn't print.", opp: "Has a keyword its card doesn't print." },
+  protected: { name: "Shielded", cat: "ability", glyph: "SH", word: "SHIELDED", fill: "solid", prio: 8,
+    mine: "Combat damage to it is prevented this turn.", opp: "Combat damage to it is prevented this turn - fighting it won't hurt it." },
   intimidated: { name: "Intimidated", cat: "away", glyph: "↩", word: "AWAY", fill: "outline", prio: 2,
     mine: "Off the Field: can't block or be targeted, while-active effects are off. Returns on the same face.",
     opp: "Off the Field: can't block or be targeted, while-active effects are off. Returns on the same face." },
@@ -157,7 +159,8 @@ export function tileCues(die: Die, cardsById: Map<string, CardDef>, mine: boolea
     tab: combat ? chipFor(combat) : null,
     tabEdge: mine ? "bottom" : "top",
     blanked: has("blanked"),
-    granted: grantedStatus?.keyword ? "+" + keywordCode(grantedStatus.keyword) : null,
+    // Armadillo's shield shares the cream side tab when no keyword needs it.
+    granted: grantedStatus?.keyword ? "+" + keywordCode(grantedStatus.keyword) : has("protected") ? "SH" : null,
     deadly: has("deadly"),
     intimidated: has("intimidated"),
     atk,

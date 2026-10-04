@@ -49,7 +49,7 @@ public class V2GamesControllerTests
     }
 
     [Fact]
-    public void Full_Turn_Cycle_Works_Through_The_Controller_With_Champion_Passive_Applied()
+    public void Full_Turn_Cycle_Works_Through_The_Controller_With_A_Champion_Power()
     {
         var (store, session) = CreateGame("Wolf", "Armadillo");
         var teamA = V2SeatedController.For(store, session, "teamA");
@@ -87,14 +87,16 @@ public class V2GamesControllerTests
         var afterField = V2SeatedController.Dto(teamA.Field(session.Id, new V2FieldRequest(fieldable.Id, [])));
         var fielded = afterField.Dice.Single(d => d.Id == fieldable.Id);
         Assert.Equal("FieldZone", fielded.Zone);
-        // Wolf's passive is +1 ATK to all your dice, and every Tardigrade
-        // face's base ATK is >= 0, so the buffed value is always >= 1 -
-        // a die showing 0 here would mean the Champion passive never applied.
-        Assert.True(fielded.EffectiveAttack >= 1);
+        var printedAttack = fielded.EffectiveAttack!.Value; // a Tardigrade: 0 or 1
 
         V2SeatedController.Dto(teamA.EnterAttackStep(session.Id));
         V2SeatedController.Dto(teamA.DeclareAttackers(session.Id, new V2DeclareAttackersRequest([new V2AttackerDeclaration(fielded.Id, 0)])));
         V2SeatedController.Dto(teamB.DeclareBlockers(session.Id, new V2DeclareBlockersRequest([])));
+        // Wolf's once-per-turn power (2026-10-04, replaced its +1 ATK to
+        // everything): +1 ATK on its one creature - no choice needed - so
+        // even a 0-ATK Tardigrade lands damage.
+        var pumped = V2SeatedController.Dto(teamA.ChampionPower(session.Id));
+        Assert.Equal(printedAttack + 1, pumped.Dice.Single(d => d.Id == fielded.Id).EffectiveAttack);
         var afterDamage = V2SeatedController.Dto(teamA.AssignCombatDamage(session.Id, new V2AssignCombatDamageRequest([])));
         Assert.True(afterDamage.PlayerTwo.Life < 20); // unblocked attacker landed some damage
 
@@ -138,8 +140,11 @@ public class V2GamesControllerTests
         var attackersView = V2SeatedController.Dto(teamA.Get(session.Id));
         Assert.Equal([new V2BlockAssignment(attacker.Id, blocker.Id)], attackersView.Blocks);
 
-        // The attacker's client sends nothing - the server still knows.
-        var afterDamage = V2SeatedController.Dto(teamA.AssignCombatDamage(session.Id, new V2AssignCombatDamageRequest([])));
+        // The attacker's client sends nothing - the server still knows. The
+        // defender (Armadillo, a die in combat) is offered its shield power
+        // after the attacker passes, and passes too.
+        teamA.AssignCombatDamage(session.Id, new V2AssignCombatDamageRequest([]));
+        var afterDamage = V2SeatedController.Dto(teamB.Pass(session.Id));
         Assert.Equal(20, afterDamage.PlayerTwo.Life);
         Assert.Empty(afterDamage.Blocks!);
     }

@@ -141,7 +141,10 @@ function groupDice(dice: Die[], zone: string): DieGroup[] {
 // "Active" is now a highlight on whichever side is live, not separate
 // text - the column's own You/Opp labels already say which side is
 // which, so a color cue says the rest.
-function ScoreboardSide({ player, mine, isActivePlayer }: { player: PlayerState; mine: boolean; isActivePlayer: boolean }) {
+// The Champion power button's label (2026-10-04) - see the mobile page's twin.
+const POWER_LABELS: Record<string, string> = { Wolf: "Pump", Armadillo: "Shield", GreatHornedOwl: "Spin" };
+
+function ScoreboardSide({ player, mine, isActivePlayer, onUsePower }: { player: PlayerState; mine: boolean; isActivePlayer: boolean; onUsePower?: () => void }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -172,6 +175,11 @@ function ScoreboardSide({ player, mine, isActivePlayer }: { player: PlayerState;
         {champion && <EnergyBadge type={champion.energySymbolId} size={14} />}
         <span className="scoreboard-life">{player.life}</span>
       </button>
+      {onUsePower && champion && (
+        <button type="button" className="btn dk-power-btn" onClick={onUsePower} title={champion.passiveText}>
+          {champion.name}: {POWER_LABELS[champion.id] ?? "Power"}
+        </button>
+      )}
       {open && champion && (
         <div className="scoreboard-popover">
           <div className="scoreboard-popover-name">{champion.name}</div>
@@ -196,7 +204,9 @@ function Scoreboard({
   mine,
   opponentActive,
   mineActive,
+  onUsePower,
 }: {
+  onUsePower?: () => void;
   opponent: PlayerState;
   mine: PlayerState;
   opponentActive: boolean;
@@ -205,7 +215,7 @@ function Scoreboard({
   return (
     <div className="scoreboard">
       <ScoreboardSide player={opponent} mine={false} isActivePlayer={opponentActive} />
-      <ScoreboardSide player={mine} mine={true} isActivePlayer={mineActive} />
+      <ScoreboardSide player={mine} mine={true} isActivePlayer={mineActive} onUsePower={onUsePower} />
     </div>
   );
 }
@@ -1690,6 +1700,10 @@ export function DiceKingdomPage() {
       return { label: "Purchase", run: () => api.purchase(game!.gameId, primaryDie.id, secondaryIds) };
     }
     if (step === "main" && primaryDie.zone === "ReservePool" && rolled(primaryDie) && primaryDie.effectiveAttack !== null) {
+      // Golden Eagle (2026-10-04): with no energy picked, field it free.
+      const me = you === game!.playerOne.id ? game!.playerOne : game!.playerTwo; // (yourPlayer is declared further down)
+      if (secondaryIds.length === 0 && me.freeFieldAvailable && (primaryDie.fieldingCost ?? 0) > 0)
+        return { label: "Field free (Golden Eagle)", run: () => api.field(game!.gameId, primaryDie.id, [], true) };
       return { label: "Field", run: () => api.field(game!.gameId, primaryDie.id, secondaryIds) };
     }
     return null;
@@ -1931,6 +1945,11 @@ export function DiceKingdomPage() {
         mine={yourPlayer}
         opponentActive={game.activePlayerId === opponentId}
         mineActive={game.activePlayerId === you}
+        onUsePower={
+          yourPlayer.championPowerUsable && game.priorityPlayerId === you && !game.pendingChoice && !busy
+            ? () => run(() => api.championPower(game.gameId))
+            : undefined
+        }
       />
 
       {/* Once a game is live, /game shows almost no chrome above the

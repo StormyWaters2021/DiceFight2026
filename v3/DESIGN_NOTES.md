@@ -4021,3 +4021,76 @@ Verified on bot-played boards with the steered capture scripts
 explainer shows; `spin-flash-check.js` keeps both seats' pages open while
 the bots play). Sources came through right for Hermit Crab, Opossum,
 Chameleon, Frilled Lizard, Anger Issues and Pangolin.
+
+## Champion powers: once per turn instead of always on (2026-10-04)
+
+User direction: replace the always-on passives with once-per-turn powers
+("instead of Wolf giving everyone +1A, it could grant +3A to one die once
+per your turn"). Baseline first (simulator, 200 games per matchup, same
+bot both sides):
+
+| Champion | No powers | Old passives | Effect of the old one |
+|---|---|---|---|
+| Wolf (+1 ATK to all) | 38.8 | 68.3 | +29.5 |
+| Armadillo (+1 DEF to all) | 58.3 | 50.5 | -7.8 |
+| Golden Eagle (-1 fielding) | 58.3 | 52.5 | -5.8 |
+| Great Horned Owl (Foresight) | 43.3 | 27.3 | -16.0 |
+
+The user picked one power per Champion (`ChampionPowers`, new
+`ChampionPassiveKind`s):
+- **Wolf**: once per your turn, one of your creatures gets +N ATK.
+- **Armadillo**: once per turn (either turn), after blocks, prevent all
+  combat damage to one of its creatures that's in a fight (new
+  `CombatFlagKind.PreventCombatDamage`; ability damage and Deadly still
+  apply).
+- **Golden Eagle**: once per your turn, field one creature free
+  (`TurnEngine.Field(free: true)`).
+- **Great Horned Owl**: once per your turn, spin one creature a level -
+  yours up, theirs down (new `SpinByOwner` effect). Replaces Foresight.
+
+Wolf, Armadillo and Owl are used like a free, owner-only Global: a new
+`champion-power` endpoint queues the effect, and its target is an
+ordinary pending choice (the pick UI and bot already handle it). The
+Inactive player gets priority for Armadillo's shield only when it could
+matter (after blocks, with one of its dice actually fighting), so an
+Armadillo player isn't asked to pass every window.
+
+**Tuning: Wolf's +3 became +1.** As proposed, +3 won 84% (+2: 76%, +1:
+60%). An unblocked attacker turns it straight into face damage, and this
+game's combat is low-damage (~0.5 damage a turn). Making it Main-only, so
+the opponent can block around the pumped die, didn't help (84% at +3). Owl
+spinning 2 levels gave about the same overall rate but made matchups
+lopsided (Owl beat Armadillo 81%, lost to Wolf 75%), so it stays at 1.
+The simulator has knobs for all of this: `SIM_LEGACY_POWERS`,
+`SIM_WOLF_PUMP`, `SIM_WOLF_MAIN_ONLY`, `SIM_OWL_LEVELS`.
+
+The bot uses every power:
+- Wolf pumps an unblocked attacker in the window, else a blocked one.
+- Armadillo shields a die combat would KO, and plans one "free wall"
+  block around its shield.
+- Owl spins the opponent's best L2+ creature down, else its own up.
+- Eagle fields its costliest creature free.
+
+**Result (300 games per matchup, defaults):**
+
+| | Old passives | New powers |
+|---|---|---|
+| Wolf | 68.3 | 61.0 |
+| Eagle | 52.5 | 57.0 |
+| Armadillo | 50.5 | 40.7 |
+| Owl | 27.3 | 40.4 |
+
+The spread is tighter, but matchups are still lopsided: Wolf beats Owl 81%,
+Eagle beats Owl 76% (both existed before), and Owl now beats Armadillo 79%
+by spinning down its walls. Armadillo's shield only comes up about once a
+game. All of this is bot-measured, so treat it as direction, not truth.
+
+UI: a "Pump" / "Shield" / "Spin" button next to your Champion's name
+(mobile mat head; desktop scoreboard) while the power is usable, and
+"Field free (Golden Eagle)" on the field action. A shielded die shows a
+cream "SH" tab and explains itself ("Shielded"). **A bug found in the
+browser:** the client auto-passes the action window when nothing was
+blocked and the active player "couldn't act" (`activeCouldAct`). It
+didn't know about Champion powers, so Wolf's best play - pumping an
+unblocked attacker - got skipped on the web. Fixed, and verified that the
+window now waits with the button showing.

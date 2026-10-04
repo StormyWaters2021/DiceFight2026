@@ -950,26 +950,33 @@ public static class DiceKingdomConfig
     // without an early Used-Pile reshuffle, matching the "traditional
     // deck-building starter hand" the user asked for rather than a bag
     // that's already thin by turn two.
+    // Once-per-turn powers since 2026-10-04 (ChampionPowers), replacing
+    // the always-on passives (+1 ATK, +1 DEF, -1 fielding, Foresight). The
+    // simulator's SIM_LEGACY_POWERS=on puts the old ones back for comparison.
     public static readonly IReadOnlyList<ChampionDef> Champions =
     [
         // Renamed from "Lion" (2026-09-06) - a real fan-art avatar exists
         // for this one now (icons.tsx's WolfIcon), so the Claw Champion
         // became the animal the art actually is.
-        new("Wolf", "Wolf", "Claw", ChampionPassiveKind.AttackBuff, Amount: 1)
+        // +1, not the +3 first proposed: in the simulator +3 won 84% (+2:
+        // 76%, +1: 60%) - an unblocked attacker turns it straight into face
+        // damage, and games only see ~0.5 damage a turn. Main-only timing
+        // didn't help (84% at +3). See v3/DESIGN_NOTES.md, 2026-10-04.
+        new("Wolf", "Wolf", "Claw", ChampionPassiveKind.PumpOneAttack, Amount: 1)
         {
             TardigradePool = [new BasicDicePoolEntry(TardigradeDie("Claw"), Count: 8)],
         },
-        new("Armadillo", "Armadillo", "Shell", ChampionPassiveKind.DefenseBuff, Amount: 1)
+        new("Armadillo", "Armadillo", "Shell", ChampionPassiveKind.ShieldOneFromCombat, Amount: 0)
         {
             TardigradePool = [new BasicDicePoolEntry(TardigradeDie("Shell"), Count: 8)],
         },
-        new("GoldenEagle", "Golden Eagle", "Wing", ChampionPassiveKind.FieldingCostDiscount, Amount: 1)
+        new("GoldenEagle", "Golden Eagle", "Wing", ChampionPassiveKind.FieldOneFree, Amount: 0)
         {
             TardigradePool = [new BasicDicePoolEntry(TardigradeDie("Wing"), Count: 8)],
         },
         // Foresight replaced a -1 purchase discount (2026-09-27 playtest:
         // "probably too much").
-        new("GreatHornedOwl", "Great Horned Owl", "Eye", ChampionPassiveKind.Foresight, Amount: 1)
+        new("GreatHornedOwl", "Great Horned Owl", "Eye", ChampionPassiveKind.SpinOne, Amount: 1)
         {
             TardigradePool = [new BasicDicePoolEntry(TardigradeDie("Eye"), Count: 8)],
         },

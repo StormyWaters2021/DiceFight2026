@@ -46,6 +46,7 @@ public static class AbilityPreview
         Ko n => n.Target,
         MoveDie n => n.Target,
         Sacrifice n => n.Target,
+        SpinByOwner n => n.Target,
         FieldDie n => n.Target,
         Reroll n => n.Target,
         Spin n => n.Target,

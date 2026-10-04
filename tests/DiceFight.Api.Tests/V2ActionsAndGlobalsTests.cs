@@ -80,7 +80,7 @@ public class V2ActionsAndGlobalsTests
     {
         var (_, session, teamA, teamB) = StartInMain();
         var state = session.State;
-        var body = Tardigrade(state, "teamA", Zone.FieldZone, 2); // 1/1, +1A from Wolf = 2
+        var body = Tardigrade(state, "teamA", Zone.FieldZone, 2); // 1/1
         var claw = Tardigrade(state, "teamA", Zone.ReservePool, 0); // 2 Claw
         var angerIssues = DiceKingdomConfig.AngerIssues;
         var globalIndex = angerIssues.Abilities.ToList().FindIndex(a => a.Trigger == TriggerKind.Global);
@@ -94,7 +94,7 @@ public class V2ActionsAndGlobalsTests
 
         var dto = V2SeatedController.Dto(teamA.UseGlobal(session.Id, new V2UseGlobalRequest(angerIssues.Id, globalIndex, [claw.Id])));
 
-        Assert.Equal(3, dto.Dice.Single(d => d.Id == body.Id).EffectiveAttack);
+        Assert.Equal(2, dto.Dice.Single(d => d.Id == body.Id).EffectiveAttack); // +1A from the Global
         Assert.Equal(1, dto.Dice.Single(d => d.Id == claw.Id).EnergyAmount); // 2 Claw, 1 spent - spun down to its 1-Claw face
         Assert.Contains(dto.Log, l => l.Text.Contains("Anger Issues's Global"));
     }
@@ -197,7 +197,7 @@ public class V2ActionsAndGlobalsTests
     {
         var (_, session, teamA, _) = StartInMain();
         var state = session.State;
-        var body = Tardigrade(state, "teamA", Zone.FieldZone, 2); // 2A with Wolf
+        var body = Tardigrade(state, "teamA", Zone.FieldZone, 2); // L2: 1A
         var action = state.Dice.First(d => d.OwnerId == "teamA" && d.CardId == DiceKingdomConfig.AngerIssues.Id);
         action.Zone = Zone.ReservePool;
         action.CurrentFaceIndex = 3; // an energy face
@@ -208,7 +208,7 @@ public class V2ActionsAndGlobalsTests
         action.CurrentFaceIndex = 0; // an action face
         var dto = V2SeatedController.Dto(teamA.UseAction(session.Id, new V2UseActionRequest(action.Id)));
 
-        Assert.Equal(5, dto.Dice.Single(d => d.Id == body.Id).EffectiveAttack); // +3A
+        Assert.Equal(4, dto.Dice.Single(d => d.Id == body.Id).EffectiveAttack); // +3A
         Assert.Contains("Overcrush", QueryEngine.GetKeywords(state, body));
         Assert.Equal(Zone.OutOfPlay, action.Zone);
     }
@@ -259,12 +259,20 @@ public class V2ActionsAndGlobalsTests
     }
 
     [Fact]
-    public void Discounted_Costs_Reach_The_Client()
+    public void Golden_Eagle_Fields_One_Creature_Free_Once_Per_Turn_And_Costs_Reach_The_Client()
     {
-        // Golden Eagle: -1 fielding on its own dice.
+        // Golden Eagle's power (2026-10-04, was -1 fielding): once per turn,
+        // field one creature without paying.
         var (eagleGame, eagle, _) = StartInMainAs("GoldenEagle", "Wolf");
         var creature = CharacterAtCost(eagleGame.State, "teamA", 1);
-        Assert.Equal(0, V2SeatedController.Dto(eagle.Get(eagleGame.Id)).Dice.Single(d => d.Id == creature.Id).FieldingCost);
+        var second = CharacterAtCost(eagleGame.State, "teamA", 1);
+        var view = V2SeatedController.Dto(eagle.Get(eagleGame.Id));
+        Assert.Equal(1, view.Dice.Single(d => d.Id == creature.Id).FieldingCost); // printed - no discount any more
+        Assert.True(view.PlayerOne.FreeFieldAvailable);
+        var after = V2SeatedController.Dto(eagle.Field(eagleGame.Id, new V2FieldRequest(creature.Id, [], Free: true)));
+        Assert.Equal("FieldZone", after.Dice.Single(d => d.Id == creature.Id).Zone);
+        Assert.False(after.PlayerOne.FreeFieldAvailable);
+        Assert.Throws<InvalidOperationException>(() => eagle.Field(eagleGame.Id, new V2FieldRequest(second.Id, [], Free: true)));
 
         // Purchase costs come through per player too - at printed price now
         // that Owl's purchase discount is gone (replaced by Foresight).
@@ -273,25 +281,29 @@ public class V2ActionsAndGlobalsTests
         Assert.Equal(owlGame.State.CardCatalog[anyCard].PurchaseCost, V2SeatedController.Dto(owl.Get(owlGame.Id)).PurchaseCosts![anyCard]);
     }
 
-    // Great Horned Owl's Foresight (2026-09-27): once per turn, in Main,
-    // reroll one die in your Reserve Pool.
+    // Great Horned Owl's power (2026-10-04, replaced Foresight): once per
+    // your turn, spin one creature a level - yours up, theirs down. Used
+    // through the champion-power endpoint; the target is a pending choice.
     [Fact]
-    public void Foresight_Rerolls_One_Reserve_Die_Once_Per_Turn()
+    public void Owl_Spins_A_Creature_Through_The_Champion_Power_Endpoint()
     {
         var (session, owl, wolf) = StartInMainAs("GreatHornedOwl", "Wolf");
         var state = session.State;
-        var first = Tardigrade(state, "teamA", Zone.ReservePool, 0);
-        var second = Tardigrade(state, "teamA", Zone.ReservePool, 0);
-        Assert.True(V2SeatedController.Dto(owl.Get(session.Id)).PlayerOne.ForesightAvailable);
-        Assert.False(V2SeatedController.Dto(owl.Get(session.Id)).PlayerTwo.ForesightAvailable); // Wolf has no Foresight
+        var mine = Tardigrade(state, "teamA", Zone.FieldZone, 0); // L1
+        var theirs = Tardigrade(state, "teamB", Zone.FieldZone, 2); // L2
+        Assert.True(V2SeatedController.Dto(owl.Get(session.Id)).PlayerOne.ChampionPowerUsable);
+        Assert.False(V2SeatedController.Dto(owl.Get(session.Id)).PlayerTwo.ChampionPowerUsable); // not Wolf's turn
 
-        var dto = V2SeatedController.Dto(owl.Foresight(session.Id, new V2UseActionRequest(first.Id)));
+        var dto = V2SeatedController.Dto(owl.ChampionPower(session.Id));
+        Assert.NotNull(dto.PendingChoice);
+        Assert.Contains("Great Horned Owl", dto.PendingChoice!.Description);
+        dto = V2SeatedController.Dto(owl.ResolvePendingChoice(session.Id, new V2ResolvePendingChoiceRequest([theirs.Id])));
 
-        Assert.False(dto.PlayerOne.ForesightAvailable);
-        Assert.Contains(dto.Log, l => l.Text == "Great Horned Owl uses Foresight to reroll a Tardigrade.");
-        Assert.NotNull(first.CurrentFaceIndex);
-        Assert.Throws<InvalidOperationException>(() => owl.Foresight(session.Id, new V2UseActionRequest(second.Id)));
-        Assert.Throws<NotYourTurnException>(() => wolf.Foresight(session.Id, new V2UseActionRequest(second.Id)));
+        Assert.Equal(1, state.GetCurrentFace(theirs)!.Character!.Level); // theirs spins down
+        Assert.Equal(1, state.GetCurrentFace(mine)!.Character!.Level);
+        Assert.Equal("Great Horned Owl", dto.Dice.Single(d => d.Id == theirs.Id).LastSpin!.Source);
+        Assert.False(dto.PlayerOne.ChampionPowerUsable); // once per turn
+        Assert.Throws<InvalidOperationException>(() => owl.ChampionPower(session.Id));
     }
 
     // Direct feedback (2026-09-27): Resurrection's Global "did not work" -
@@ -319,8 +331,9 @@ public class V2ActionsAndGlobalsTests
     {
         var (session, a, b) = StartInMainAs("Wolf", "GreatHornedOwl");
         var state = session.State;
-        var twoA = Tardigrade(state, "teamA", Zone.FieldZone, 2); // L2 1/1 +1A Wolf = 2A
-        var oneA = Tardigrade(state, "teamA", Zone.FieldZone, 0); // L1 0/1 +1A Wolf = 1A
+        var twoA = Tardigrade(state, "teamA", Zone.FieldZone, 2); // L2 1/1, +1A below = 2A
+        twoA.AppliedModifiers.Add(new AppliedModifier(1, 0, 0, "test", Duration.EndOfTurn));
+        var oneA = Tardigrade(state, "teamA", Zone.FieldZone, 2); // L2 1/1 = 1A
         var wall = Tardigrade(state, "teamB", Zone.FieldZone, 4); // Bulwark 1/3
 
         a.EnterAttackStep(session.Id);

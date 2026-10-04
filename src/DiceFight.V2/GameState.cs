@@ -250,6 +250,11 @@ public sealed class GameState
     // Players who've used their Champion's Foresight this turn
     // (TurnEngine.UseForesight); cleared at Clear and Draw.
     public HashSet<string> ForesightUsedThisTurn { get; } = [];
+
+    // Players who've used their Champion's once-per-turn power this turn
+    // (ChampionPowers); cleared at each Clear and Draw, so Armadillo's -
+    // usable on either turn - comes back for the opponent's turn too.
+    public HashSet<string> ChampionPowerUsedThisTurn { get; } = [];
     public string? PriorityWindowStepId { get; set; }
     public bool SkipAttackWhenMainEnds { get; set; }
     // Whether the Inactive player has used a Global in this window - an

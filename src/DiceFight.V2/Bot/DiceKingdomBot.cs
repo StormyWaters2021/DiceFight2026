@@ -148,6 +148,24 @@ public static class DiceKingdomBot
                 return new(BotActionKind.Foresight, "Foresight: reroll a weak die.") { DieId = target.Id };
         }
 
+        // Golden Eagle: the free field goes on the die that costs the most to field.
+        if (ChampionPowers.CanFieldFree(state, botId)
+            && reserve.Where(d => state.GetCurrentFace(d)?.Character is not null && (d.CardId is not { } c || QueryEngine.CanField(state, botId, c)))
+                .OrderByDescending(d => QueryEngine.GetFieldingCost(state, d)).FirstOrDefault() is { } freebie
+            && QueryEngine.GetFieldingCost(state, freebie) > 0)
+            return new(BotActionKind.Field, $"Field {CardName(state, freebie)} free.") { DieId = freebie.Id, Free = true };
+
+        // Wolf, when its pump is Main-only: on the creature most worth
+        // swinging with, before attackers are declared.
+        if (ChampionPowers.CanUse(state, botId) && ChampionPowers.Of(state, botId) is { PassiveKind: ChampionPassiveKind.PumpOneAttack, PowerBeforeBlocksOnly: true }
+            && PotentialAttackersOrAny(state, botId) is not null)
+            return new(BotActionKind.UseChampionPower, "Wolf: pump before attacking.");
+
+        // Great Horned Owl: spin before fielding and attacking.
+        if (ChampionPowers.CanUse(state, botId) && ChampionPowers.Of(state, botId)?.PassiveKind == ChampionPassiveKind.SpinOne
+            && SpinTarget(state, botId) is not null)
+            return new(BotActionKind.UseChampionPower, "Owl: spin.");
+
         // Basic Actions that pay off in Main (a combat pump waits for the
         // Attack Step's window - see ActiveWindow).
         foreach (var die in reserve.Where(d => IsActionFace(state, d) && ActionCouldHaveResult(state, d)))
@@ -575,6 +593,12 @@ public static class DiceKingdomBot
         // How much a point of damage matters, rising as life falls.
         double DamageWeight() => persona.ChumpThreshold / Math.Max(1, myLife) * 0.5;
 
+        // Armadillo's shield (prevent combat damage to one of its creatures,
+        // after blocks) makes one block a free wall: plan for it here, and
+        // ShieldTarget protects that blocker in the action window.
+        var shieldLeft = ChampionPowers.Of(state, botId)?.PassiveKind == ChampionPassiveKind.ShieldOneFromCombat
+            && !state.ChampionPowerUsedThisTurn.Contains(botId);
+
         foreach (var lane in lanes)
         {
             if (available.Count == 0) break;
@@ -584,6 +608,16 @@ public static class DiceKingdomBot
             {
                 var score = BlockScore(state, b, lane, DamageWeight());
                 if (best is null || score > best.Value.Score) best = (b, score);
+            }
+            if (shieldLeft && !lane.Deadly)
+            {
+                var shielded = available.Select(b => (Blocker: b, Score: BlockScore(state, b, lane, DamageWeight(), shielded: true)))
+                    .OrderByDescending(x => x.Score).First();
+                if (shielded.Score > Math.Max(0, best?.Score ?? 0) + 0.5)
+                {
+                    best = shielded;
+                    shieldLeft = false;
+                }
             }
             if (best is not { } pick) break;
             if (pick.Score <= 0 && !mustBlock) continue;
@@ -614,15 +648,16 @@ public static class DiceKingdomBot
     // Outcome of putting `b` in front of a lane: its attackers' value if
     // it kills one, minus its own if it dies, plus the damage it keeps off
     // this player's life (weighted by how much life matters right now).
-    private static double BlockScore(GameState state, DieInstance b, Lane lane, double damageWeight)
+    // `shielded`: Armadillo will prevent the combat damage to it.
+    private static double BlockScore(GameState state, DieInstance b, Lane lane, double damageWeight, bool shielded = false)
     {
         var bAtk = QueryEngine.GetAttack(state, b);
         var bDef = QueryEngine.GetDefense(state, b) - b.Damage;
-        var survives = bDef > lane.Attack && !lane.Deadly;
+        var survives = (shielded || bDef > lane.Attack) && !lane.Deadly;
         var bDeadly = QueryEngine.GetKeywords(state, b).Contains("Deadly");
         var killed = lane.Attackers.Where(a => bDeadly || QueryEngine.GetDefense(state, a) - a.Damage <= bAtk)
             .OrderByDescending(a => DieValue(state, a)).FirstOrDefault();
-        var prevented = lane.Overcrush ? Math.Min(lane.Attack, bDef) : lane.Attack;
+        var prevented = lane.Overcrush && !shielded ? Math.Min(lane.Attack, bDef) : lane.Attack;
 
         var score = prevented * damageWeight;
         // A retaliating blocker sends the damage it takes to the attacker's
@@ -653,6 +688,8 @@ public static class DiceKingdomBot
 
         if (SetDefenseGlobal(state, botId) is { } setDef) return setDef;
 
+        if (ChampionPowerInWindow(state, botId) is { } power) return power;
+
         // +ATK Globals on an unblocked attacker are straight extra damage.
         if (unblocked.Count > 0 && GlobalDecision(state, botId, onlyRealPips: false, g => g.Effect is ModifyStat { AtkDelta: > 0 }) is { } g)
             return g;
@@ -669,7 +706,71 @@ public static class DiceKingdomBot
                 g => g.Effect is MoveDie { Target.AttackersOnly: true }) is { } send)
             return send;
         if (SetDefenseGlobal(state, botId) is { } setDef) return setDef;
+        if (ChampionPowerInWindow(state, botId) is { } power) return power;
         return new(BotActionKind.Pass, "Pass.");
+    }
+
+    // Wolf's pump and Armadillo's shield, in the action window after blocks.
+    private static BotDecision? ChampionPowerInWindow(GameState state, string botId)
+    {
+        if (!ChampionPowers.CanUse(state, botId)) return null;
+        return ChampionPowers.Of(state, botId)?.PassiveKind switch
+        {
+            ChampionPassiveKind.PumpOneAttack when PumpTarget(state, botId) is not null => new(BotActionKind.UseChampionPower, "Wolf: pump."),
+            ChampionPassiveKind.ShieldOneFromCombat when ShieldTarget(state, botId) is not null => new(BotActionKind.UseChampionPower, "Armadillo: shield."),
+            _ => null,
+        };
+    }
+
+    // Wolf in Main (pump before attacking): the strongest creature that
+    // can attack, else any of its creatures.
+    private static DieInstance? PotentialAttackersOrAny(GameState state, string botId) =>
+        state.DiceIn(botId, Zone.FieldZone).Where(d => state.GetCurrentFace(d)?.Character is not null
+                && !d.CombatFlags.Contains(CombatFlagKind.CantAttack) && !d.CombatFlags.Contains(CombatFlagKind.OnlyBlocker))
+            .OrderByDescending(d => QueryEngine.GetAttack(state, d) + QueryEngine.GetDefense(state, d)).FirstOrDefault();
+
+    // Wolf: an unblocked attacker turns +ATK straight into face damage;
+    // failing that, a blocked attacker (it may now win its fight).
+    private static DieInstance? PumpTarget(GameState state, string botId)
+    {
+        if (state.CurrentStepId == StepIds.Main) return PotentialAttackersOrAny(state, botId);
+        var unblocked = UnblockedAttackers(state).Where(d => d.ControllerId == botId).ToList();
+        if (unblocked.Count > 0) return unblocked.OrderByDescending(d => DieValue(state, d)).First();
+        return EngagedOwnDice(state, botId).Where(d => d.ControllerId == state.ActivePlayerId)
+            .OrderByDescending(d => DieValue(state, d)).FirstOrDefault();
+    }
+
+    // Armadillo: the most valuable of this player's dice that combat would
+    // otherwise KO - incoming is the other side of its lane's whole ATK.
+    private static DieInstance? ShieldTarget(GameState state, string botId)
+    {
+        if (state.DeclaredBlocks is not { } blocks) return null;
+        var attackers = state.DiceIn(state.ActivePlayerId, Zone.AttackZone).ToList();
+        int Incoming(DieInstance die)
+        {
+            if (die.ControllerId == state.ActivePlayerId)
+            {
+                var lane = attackers.Where(a => a.Lane == die.Lane).ToList();
+                return lane.SelectMany(a => blocks.BlockersOf(a.Id)).Distinct()
+                    .Select(id => state.Dice.First(d => d.Id == id)).Sum(b => QueryEngine.GetAttack(state, b));
+            }
+            var blocked = attackers.Where(a => blocks.BlockersOf(a.Id).Contains(die.Id)).Select(a => a.Lane).ToHashSet();
+            return attackers.Where(a => blocked.Contains(a.Lane)).Sum(a => QueryEngine.GetAttack(state, a));
+        }
+        return EngagedOwnDice(state, botId)
+            .Where(d => Incoming(d) >= QueryEngine.GetDefense(state, d) - d.Damage)
+            .OrderByDescending(d => DieValue(state, d)).FirstOrDefault();
+    }
+
+    // Owl: spin down the opponent's most valuable creature at L2+, else spin
+    // up one of this player's below L3.
+    private static DieInstance? SpinTarget(GameState state, string botId)
+    {
+        var inPlay = state.Dice.Where(d => d.Zone is Zone.FieldZone or Zone.AttackZone && state.GetCurrentFace(d)?.Character is not null).ToList();
+        return inPlay.Where(d => d.ControllerId != botId && state.GetCurrentFace(d)!.Character!.Level >= 2)
+                .OrderByDescending(d => DieValue(state, d)).FirstOrDefault()
+            ?? inPlay.Where(d => d.ControllerId == botId && state.GetCurrentFace(d)!.Character!.Level < 3)
+                .OrderByDescending(d => DieValue(state, d)).FirstOrDefault();
     }
 
     // Archnemesis's Global ("target creature's D becomes its A this turn"),
@@ -750,6 +851,16 @@ public static class DiceKingdomBot
             // Infiltrate: 1 damage and the die stays home, or its full ATK
             // and it leaves play. Stay home unless the full hit is lethal
             // (and 1 isn't) or the full hit is big enough to be worth a die.
+            // Champion powers: the same target the decision to use it was based on.
+            case ModifyStat { AtkDelta: > 0 } when ChampionPowers.Of(state, botId) is { PassiveKind: ChampionPassiveKind.PumpOneAttack } wolf
+                && pending.Description.StartsWith(wolf.Name + ":")
+                && PumpTarget(state, botId) is { } pumped && pending.CandidateIds.Contains(pumped.Id):
+                return new(BotActionKind.ResolvePendingChoice, "Pump it.") { DieIds = [pumped.Id] };
+            case CombatFlag { Flag: CombatFlagKind.PreventCombatDamage } when ShieldTarget(state, botId) is { } shielded && pending.CandidateIds.Contains(shielded.Id):
+                return new(BotActionKind.ResolvePendingChoice, "Shield it.") { DieIds = [shielded.Id] };
+            case SpinByOwner when SpinTarget(state, botId) is { } spun && pending.CandidateIds.Contains(spun.Id):
+                return new(BotActionKind.ResolvePendingChoice, "Spin it.") { DieIds = [spun.Id] };
+
             // Attune / Energize: KO the best opposing creature the damage
             // actually kills; otherwise the damage goes to the opponent's face.
             case DealDamage { Target.Kind: TargetKind.CharacterDieOrOpponent, Amount: Fixed { Value: var dmg } }:

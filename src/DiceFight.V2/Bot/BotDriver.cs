@@ -48,7 +48,7 @@ public sealed class BotDriver(GameState state, Random random)
                 break;
             case BotActionKind.Field:
                 Priority.RequireHolder(state, playerId);
-                TurnEngine.Field(state, queue, decision.DieId!, decision.EnergyDieIds);
+                TurnEngine.Field(state, queue, decision.DieId!, decision.EnergyDieIds, decision.Free);
                 break;
             case BotActionKind.Purchase:
                 Priority.RequireHolder(state, playerId);
@@ -61,6 +61,12 @@ public sealed class BotDriver(GameState state, Random random)
             case BotActionKind.UseGlobal:
                 Priority.RequireHolder(state, playerId);
                 TurnEngine.UseGlobal(state, queue, decision.CardId!, playerId, decision.AbilityIndex, decision.EnergyDieIds);
+                Drain(queue);
+                Priority.AfterGlobal(state, playerId);
+                Priority.Sync(state);
+                return;
+            case BotActionKind.UseChampionPower:
+                ChampionPowers.Use(state, queue, playerId);
                 Drain(queue);
                 Priority.AfterGlobal(state, playerId);
                 Priority.Sync(state);

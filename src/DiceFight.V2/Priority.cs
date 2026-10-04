@@ -64,7 +64,7 @@ public static class Priority
         {
             if (state.CurrentStepId == StepIds.Main) state.SkipAttackWhenMainEnds = skipAttack;
             var inactiveId = state.OpponentOf(playerId);
-            if (CanUseAnyGlobal(state, inactiveId))
+            if (CanUseAnyGlobal(state, inactiveId) || ChampionPowers.CanUse(state, inactiveId))
             {
                 state.PriorityPlayerId = inactiveId;
                 return;

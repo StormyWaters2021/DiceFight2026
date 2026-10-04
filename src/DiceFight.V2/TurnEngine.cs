@@ -54,6 +54,7 @@ public static class TurnEngine
         state.LogEvent(state.ActivePlayerId, $"{state.NameOf(state.ActivePlayerId)}'s turn", isTurnStart: true);
         state.GlobalsUsedThisTurn.Clear();
         state.ForesightUsedThisTurn.Clear();
+        state.ChampionPowerUsedThisTurn.Clear();
         state.PurchasedThisTurn.Clear();
         state.FieldedCharacterThisTurn.Clear();
         state.CharacterDiceKOdThisTurn.Clear();
@@ -379,7 +380,9 @@ public static class TurnEngine
     // any energy type (2.6.3.2) - no type-matching requirement, unlike
     // Purchase. Sources only from the Reserve Pool, showing a character
     // face (a die must be rolled to be fielded).
-    public static void Field(GameState state, AbilityQueue queue, string dieId, IReadOnlyList<string> energyDieIdsToSpend)
+    // `free`: Golden Eagle's once-per-turn Champion power - no fielding cost
+    // (ChampionPowers.CanFieldFree).
+    public static void Field(GameState state, AbilityQueue queue, string dieId, IReadOnlyList<string> energyDieIdsToSpend, bool free = false)
     {
         RequireStep(state, TurnStep.Main);
 
@@ -396,14 +399,25 @@ public static class TurnEngine
         if (die.CardId is { } fieldCardId && !QueryEngine.CanField(state, die.ControllerId, fieldCardId))
             throw new InvalidOperationException($"'{state.CardCatalog[fieldCardId].Name}' cannot be fielded right now.");
 
-        var energyDice = ResolveOwnReservePoolEnergy(state, energyDieIdsToSpend);
-        var cost = QueryEngine.GetFieldingCost(state, die);
-        SpendEnergy(state, energyDice, cost, requiredSymbolIds: [], payerId: state.ActivePlayerId);
+        if (free)
+        {
+            if (!ChampionPowers.CanFieldFree(state, die.ControllerId))
+                throw new InvalidOperationException("Your Champion can't field a die for free right now.");
+            state.ChampionPowerUsedThisTurn.Add(die.ControllerId);
+        }
+        else
+        {
+            var energyDice = ResolveOwnReservePoolEnergy(state, energyDieIdsToSpend);
+            var cost = QueryEngine.GetFieldingCost(state, die);
+            SpendEnergy(state, energyDice, cost, requiredSymbolIds: [], payerId: state.ActivePlayerId);
+        }
 
         die.Zone = Zone.FieldZone;
         state.FieldedCharacterThisTurn.Add(die.ControllerId);
         var fieldedName = die.CardId is { } fieldedCardId ? state.CardCatalog[fieldedCardId].Name : "a Tardigrade";
-        state.LogEvent(die.ControllerId, $"{state.NameOf(die.ControllerId)} fields {fieldedName}.");
+        state.LogEvent(die.ControllerId, free
+            ? $"{state.NameOf(die.ControllerId)} fields {fieldedName} for free ({ChampionPowers.Of(state, die.ControllerId)?.Name})."
+            : $"{state.NameOf(die.ControllerId)} fields {fieldedName}.");
 
         // Rule 2.6.3.6 - "when fielded" fires immediately upon entering
         // the Field Zone, which is why this die is already eligible to

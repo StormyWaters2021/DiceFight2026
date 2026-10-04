@@ -172,15 +172,7 @@ public sealed record ChampionDto(string Id, string Name, string EnergySymbolId, 
     // Plain-language rendering of the closed ChampionPassiveKind enum -
     // matches the four passives the "Dice Kingdom" artifact prototype
     // already established this same wording for.
-    private static string PassiveTextOf(ChampionDef c) => c.PassiveKind switch
-    {
-        ChampionPassiveKind.AttackBuff => $"+{c.Amount} ATK to all your dice",
-        ChampionPassiveKind.DefenseBuff => $"+{c.Amount} DEF to all your dice",
-        ChampionPassiveKind.FieldingCostDiscount => $"Your dice cost {c.Amount} less to field (min 0)",
-        ChampionPassiveKind.PurchaseCostDiscount => $"Your Character purchases cost {c.Amount} less (min 1)",
-        ChampionPassiveKind.Foresight => "Foresight: once per turn, in your Main Step, reroll one die in your Reserve Pool",
-        _ => "",
-    };
+    private static string PassiveTextOf(ChampionDef c) => ChampionPowers.Describe(c);
 }
 
 // ForesightAvailable: this player's Champion has Foresight and it's still
@@ -188,7 +180,12 @@ public sealed record ChampionDto(string Id, string Name, string EnergySymbolId, 
 // VirtualEnergy: generic energy from dice they couldn't draw this turn
 // (GameState.VirtualEnergy) - spent automatically before any die, gone
 // at the end of their Main Step.
-public sealed record V2PlayerDto(string Id, string Name, int Life, ChampionDto? Champion, bool ForesightAvailable = false, int VirtualEnergy = 0)
+// ChampionPowerUsable: Wolf/Armadillo/Owl's once-per-turn power can be
+// used right now (ChampionPowers.CanUse - priority is still checked when
+// it's used). FreeFieldAvailable: Golden Eagle's free field is unused and
+// it's this player's Main Step.
+public sealed record V2PlayerDto(string Id, string Name, int Life, ChampionDto? Champion, bool ForesightAvailable = false, int VirtualEnergy = 0,
+    bool ChampionPowerUsable = false, bool FreeFieldAvailable = false)
 {
     public static V2PlayerDto From(GameState state, Player player) => new(
         player.Id, player.Name, player.Life,
@@ -196,7 +193,9 @@ public sealed record V2PlayerDto(string Id, string Name, int Life, ChampionDto? 
             ? ChampionDto.From(champion)
             : null,
         TurnEngine.HasForesight(state, player.Id) && !state.ForesightUsedThisTurn.Contains(player.Id),
-        state.VirtualEnergyOf(player.Id));
+        state.VirtualEnergyOf(player.Id),
+        ChampionPowers.CanUse(state, player.Id),
+        ChampionPowers.CanFieldFree(state, player.Id));
 }
 
 // Intent: what the pick does to what's picked (PendingChoice.Intent) -
@@ -280,7 +279,7 @@ public sealed record V2GameStateDto(
 // CharactersByChampion[championId] automatically.
 public sealed record CreateV2GameRequest(string PlayerOneChampionId, string PlayerTwoChampionId);
 public sealed record V2PurchaseRequest(string DieId, IReadOnlyList<string> EnergyDieIds);
-public sealed record V2FieldRequest(string DieId, IReadOnlyList<string> EnergyDieIds);
+public sealed record V2FieldRequest(string DieId, IReadOnlyList<string> EnergyDieIds, bool Free = false);
 public sealed record V2RerollRequest(IReadOnlyList<string> DieIds);
 // Lane is which of the Attack Zone's four fixed lanes (0-3) the die is
 // declared into - mobile refresh (2026-09), see DieInstance.Lane's own
@@ -315,7 +314,9 @@ public sealed record V2BotDecisionDto(
     int AbilityIndex,
     bool SkipAttack,
     IReadOnlyList<V2AttackerDeclaration> Attackers,
-    IReadOnlyList<V2BlockAssignment> Assignments)
+    IReadOnlyList<V2BlockAssignment> Assignments,
+    // Field with Golden Eagle's free field.
+    bool Free = false)
 {
     public static V2BotDecisionDto From(DiceFight.V2.Bot.BotDecision d) => new(
         char.ToLowerInvariant(d.Kind.ToString()[0]) + d.Kind.ToString()[1..],
@@ -327,7 +328,8 @@ public sealed record V2BotDecisionDto(
         d.AbilityIndex,
         d.SkipAttack,
         d.AttackerLanes.Select(kv => new V2AttackerDeclaration(kv.Key, kv.Value)).ToList(),
-        d.Blocks.Select(b => new V2BlockAssignment(b.AttackerId, b.BlockerId)).ToList());
+        d.Blocks.Select(b => new V2BlockAssignment(b.AttackerId, b.BlockerId)).ToList(),
+        d.Free);
 }
 
 // ---- Open games: host picks only their own Champion (2026-09-30) ----

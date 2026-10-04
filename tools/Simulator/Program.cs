@@ -16,6 +16,11 @@ using DiceFight.V2.Model.Effects;
 //
 // Run (from this folder): dotnet run -c Release
 // Environment switches:
+//   SIM_LEGACY_POWERS=on  with SIM_POWERS=on: the pre-2026-10-04 always-on
+//                    passives instead of the once-per-turn powers
+//   SIM_WOLF_PUMP=N  with SIM_POWERS=on: Wolf's pump is +N ATK instead
+//   SIM_WOLF_MAIN_ONLY=on  ...and only usable in Main, before attacking
+//   SIM_OWL_LEVELS=N  with SIM_POWERS=on: Owl's spin moves N levels
 //   SIM_POWERS=on    also run a pass WITH Champion passives (default:
 //                    powers-off only - every passive's Amount zeroed and
 //                    Foresight removed)
@@ -103,7 +108,18 @@ void RunAllMatchups(bool championPowersEnabled)
 static (string WinnerChampionIdOrSentinel, int Turns) PlayOneGame(
     string championOne, string championTwo, Random rng, bool championPowersEnabled, bool dump)
 {
-    var config = championPowersEnabled ? DiceKingdomConfig.Config : StripChampionPowers(DiceKingdomConfig.Config);
+    var config = championPowersEnabled
+        ? (Environment.GetEnvironmentVariable("SIM_LEGACY_POWERS") == "on" ? WithLegacyPowers(DiceKingdomConfig.Config) : DiceKingdomConfig.Config)
+        : StripChampionPowers(DiceKingdomConfig.Config);
+    // SIM_WOLF_PUMP=N - what-if: Wolf's once-per-turn pump is +N ATK.
+    if (championPowersEnabled && int.TryParse(Environment.GetEnvironmentVariable("SIM_WOLF_PUMP"), out var pump))
+        config = config with { Champions = config.Champions.Select(c => c.Id == "Wolf" ? c with { Amount = pump } : c).ToList() };
+    // SIM_OWL_LEVELS=N - what-if: Owl's spin moves N levels.
+    if (championPowersEnabled && int.TryParse(Environment.GetEnvironmentVariable("SIM_OWL_LEVELS"), out var owlLevels))
+        config = config with { Champions = config.Champions.Select(c => c.Id == "GreatHornedOwl" ? c with { Amount = owlLevels } : c).ToList() };
+    // SIM_WOLF_MAIN_ONLY=on - what-if: Wolf's pump only before attacking.
+    if (championPowersEnabled && Environment.GetEnvironmentVariable("SIM_WOLF_MAIN_ONLY") == "on")
+        config = config with { Champions = config.Champions.Select(c => c.Id == "Wolf" ? c with { PowerBeforeBlocksOnly = true } : c).ToList() };
     if (int.TryParse(Environment.GetEnvironmentVariable("SIM_BULWARK_DEF"), out var bulwarkDef))
         config = WithBulwarkDefense(config, bulwarkDef);
     var state = GameSetup.NewGame(config, Catalog.Cards, BuildPlayer("p1", championOne), BuildPlayer("p2", championTwo));
@@ -170,17 +186,27 @@ static Player BuildPlayer(string id, string championId)
     return player;
 }
 
-// Neutralizes every Champion's passive without touching team shape
+// Neutralizes every Champion's power without touching team shape
 // (TardigradePool and EnergySymbolId stay, so own-energy Characters are
-// bought and fielded exactly as before). The stat/cost buffs key off
-// Amount; Foresight isn't Amount-gated, so it's swapped for a zero buff.
+// bought and fielded exactly as before): every kind becomes a +0 ATK buff.
 static GameConfig StripChampionPowers(GameConfig config) =>
     config with
     {
-        Champions = config.Champions.Select(c => c with
+        Champions = config.Champions.Select(c => c with { Amount = 0, PassiveKind = ChampionPassiveKind.AttackBuff }).ToList(),
+    };
+
+// SIM_LEGACY_POWERS=on - the always-on passives the once-per-turn powers
+// replaced on 2026-10-04, for an old-vs-new comparison.
+static GameConfig WithLegacyPowers(GameConfig config) =>
+    config with
+    {
+        Champions = config.Champions.Select(c => c.Id switch
         {
-            Amount = 0,
-            PassiveKind = c.PassiveKind == ChampionPassiveKind.Foresight ? ChampionPassiveKind.AttackBuff : c.PassiveKind,
+            "Wolf" => c with { PassiveKind = ChampionPassiveKind.AttackBuff, Amount = 1 },
+            "Armadillo" => c with { PassiveKind = ChampionPassiveKind.DefenseBuff, Amount = 1 },
+            "GoldenEagle" => c with { PassiveKind = ChampionPassiveKind.FieldingCostDiscount, Amount = 1 },
+            "GreatHornedOwl" => c with { PassiveKind = ChampionPassiveKind.Foresight, Amount = 1 },
+            _ => c,
         }).ToList(),
     };
 
@@ -284,12 +310,14 @@ static class Stats
         {
             case BotActionKind.Purchase: Inc(Buys, (C(pid), Name(d.DieId))); break;
             case BotActionKind.Field:
+                if (d.Free) Inc(Uses, (C(pid), "champion power (free field)"));
                 Inc(Fields, (C(pid), Name(d.DieId)));
                 _fieldedThisGame.Add((pid, Name(d.DieId)));
                 break;
             case BotActionKind.UseAction: Inc(Uses, (C(pid), $"action: {Name(d.DieId)}")); break;
             case BotActionKind.UseGlobal: Inc(Uses, (C(pid), $"global: {s.CardCatalog[d.CardId!].Name}")); break;
             case BotActionKind.Foresight: Inc(Uses, (C(pid), "Foresight")); break;
+            case BotActionKind.UseChampionPower: Inc(Uses, (C(pid), "champion power")); break;
             case BotActionKind.Reroll: Inc(Rerolls, C(pid), d.DieIds.Count); break;
         }
 

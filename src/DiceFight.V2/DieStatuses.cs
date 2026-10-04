@@ -66,6 +66,7 @@ public static class DieStatuses
         CombatFlagKind.MustAttack => "mustAttack",
         CombatFlagKind.CantAttack => "cantAttack",
         CombatFlagKind.OnlyBlocker => "onlyBlocker",
+        CombatFlagKind.PreventCombatDamage => "protected",
         _ => flag.ToString(),
     };
 

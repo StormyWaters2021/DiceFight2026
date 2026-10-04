@@ -53,6 +53,10 @@ export function actionCardsInGame(game: GameState, cardsById: Map<string, CardDe
 // skip effects (user call, 2026-09-28: never auto-pass while a Global is
 // usable - desktop used to pass regardless).
 export function activeCouldAct(game: GameState, cardsById: Map<string, CardDef>): boolean {
+  // A Champion power counts too (2026-10-04): Wolf's best play is pumping an
+  // attacker nobody blocked - exactly the window this would otherwise skip.
+  const active = game.activePlayerId === game.playerOne.id ? game.playerOne : game.playerTwo;
+  if (active.championPowerUsable) return true;
   const reserve = game.dice.filter((d) => d.controllerId === game.activePlayerId && d.zone === "ReservePool");
   if (reserve.some((d) => d.isActionFace)) return true;
   return actionCardsInGame(game, cardsById).some((c) => pickEnergy(reserve, c.global!.cost, c.global!.energyType) !== null);
@@ -168,7 +172,9 @@ export function botDecisionCall(
     case "foresight":
       return client.foresight(gameId, d.dieId!);
     case "field":
-      return client.field(gameId, d.dieId!, d.energyDieIds);
+      return client.field(gameId, d.dieId!, d.energyDieIds, d.free ?? false);
+    case "useChampionPower":
+      return client.championPower(gameId);
     case "purchase":
       return client.purchase(gameId, d.dieId!, d.energyDieIds);
     case "useAction":

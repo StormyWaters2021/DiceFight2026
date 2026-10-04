@@ -65,8 +65,8 @@ function makeClient(tokenOverride?: string | null) {
 
     purchase: (id: string, dieId: string, energyDieIds: string[]) =>
       request<GameState>(`/${id}/purchase`, { method: "POST", body: JSON.stringify({ dieId, energyDieIds }) }, tokenOverride),
-    field: (id: string, dieId: string, energyDieIds: string[]) =>
-      request<GameState>(`/${id}/field`, { method: "POST", body: JSON.stringify({ dieId, energyDieIds }) }, tokenOverride),
+    field: (id: string, dieId: string, energyDieIds: string[], free = false) =>
+      request<GameState>(`/${id}/field`, { method: "POST", body: JSON.stringify({ dieId, energyDieIds, free }) }, tokenOverride),
 
     enterAttackStep: (id: string) => request<GameState>(`/${id}/enter-attack-step`, { method: "POST" }, tokenOverride),
     skipAttackStep: (id: string) => request<GameState>(`/${id}/skip-attack-step`, { method: "POST" }, tokenOverride),
@@ -82,6 +82,7 @@ function makeClient(tokenOverride?: string | null) {
     // Pass priority - the Inactive player's "no Global" (Priority.cs).
     pass: (id: string) => request<GameState>(`/${id}/pass`, { method: "POST" }, tokenOverride),
     // Great Horned Owl: reroll one Reserve Pool die, once per turn.
+    championPower: (id: string) => request<GameState>(`/${id}/champion-power`, { method: "POST" }, tokenOverride),
     foresight: (id: string, dieId: string) =>
       request<GameState>(`/${id}/foresight`, { method: "POST", body: JSON.stringify({ dieId }) }, tokenOverride),
     useAction: (id: string, dieId: string) =>

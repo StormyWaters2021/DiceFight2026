@@ -153,10 +153,10 @@ public class DiceKingdomNewCharactersTests
         Drain(state, queue);
 
         // base 1 ATK (rebalanced 2026-09-27, was 0) + Cape Buffalo's own +1
-        // aura + Wolf's own Champion passive (+1 ATK to all your dice,
-        // ChampionRegistry) - both apply to every one of p1's dice, this
-        // one included.
-        Assert.Equal(3, QueryEngine.GetAttack(state, honeyBadger));
+        // aura, which applies to every one of p1's dice. (Wolf's old +1 ATK
+        // passive is gone - Champions have once-per-turn powers since
+        // 2026-10-04.)
+        Assert.Equal(2, QueryEngine.GetAttack(state, honeyBadger));
     }
 
     // The actual point of the whole 2026-09-07 face-layout change: a
@@ -240,9 +240,8 @@ public class DiceKingdomNewCharactersTests
         var blocker2 = ActiveCharacter(state, DiceKingdomConfig.MuskOx.Id, "p2");
 
         // Before any block is declared, GameState.DeclaredBlocks is null,
-        // so BlockedByAtLeast reads false - only Wolf's own +1 ATK
-        // champion aura is live.
-        Assert.Equal(7, QueryEngine.GetAttack(state, silverback)); // 6 base + 1 Wolf aura
+        // so BlockedByAtLeast reads false - just the base attack.
+        Assert.Equal(6, QueryEngine.GetAttack(state, silverback));
 
         TurnEngine.EnterAttackStep(state, queue);
         Drain(state, queue);
@@ -256,12 +255,10 @@ public class DiceKingdomNewCharactersTests
         Drain(state, queue);
 
         // Gang-blocked by 2 now - MultipleOf("self", Attack, 1) adds
-        // Silverback's own BASE attack (6, not the Wolf-buffed 7 -
-        // MultipleOf reads base only, same rule StatOf documents,
-        // precisely so this doesn't recurse into its own not-yet-
-        // computed total) as a second delta alongside Wolf's own +1:
-        // 6 (base) + 1 (Wolf aura) + 6 (this aura, now active) = 13.
-        Assert.Equal(13, QueryEngine.GetAttack(state, silverback));
+        // Silverback's own BASE attack (MultipleOf reads base only, same
+        // rule StatOf documents, precisely so this doesn't recurse into its
+        // own not-yet-computed total): 6 (base) + 6 (this aura) = 12.
+        Assert.Equal(12, QueryEngine.GetAttack(state, silverback));
     }
 
     // Direct feedback (2026-09-28): doubling-only made Silverback a
@@ -277,8 +274,8 @@ public class DiceKingdomNewCharactersTests
         var state = NewGame(); // p1 = Wolf, p2 = Armadillo
         var queue = new AbilityQueue();
 
-        var silverback = ActiveCharacter(state, DiceKingdomConfig.Silverback.Id, "p1"); // 7A (6 base + Wolf's +1)
-        var blocker = ActiveCharacter(state, DiceKingdomConfig.HermitCrab.Id, "p2"); // 2D (+1 Armadillo aura = 3D)
+        var silverback = ActiveCharacter(state, DiceKingdomConfig.Silverback.Id, "p1"); // 6A
+        var blocker = ActiveCharacter(state, DiceKingdomConfig.HermitCrab.Id, "p2"); // 2D
 
         TurnEngine.EnterAttackStep(state, queue);
         Drain(state, queue);
@@ -290,14 +287,14 @@ public class DiceKingdomNewCharactersTests
         CombatEngine.DeclareBlockers(state, queue, assignment, [blocker.Id]);
         Drain(state, queue);
 
-        Assert.Equal(7, QueryEngine.GetAttack(state, silverback)); // NOT doubled - only 1 blocker
+        Assert.Equal(6, QueryEngine.GetAttack(state, silverback)); // NOT doubled - only 1 blocker
 
         var lifeBefore = state.PlayerTwo.Life;
         CombatEngine.AssignCombatDamage(state, queue, assignment, new Dictionary<string, IReadOnlyDictionary<string, int>>());
         Drain(state, queue);
 
-        Assert.Equal(Zone.PrepArea, blocker.Zone); // the single blocker dies (3D < 7A)...
-        Assert.Equal(lifeBefore - 4, state.PlayerTwo.Life); // ...and Overcrush carries the leftover (7 - 3) straight through
+        Assert.Equal(Zone.PrepArea, blocker.Zone); // the single blocker dies (2D < 6A)...
+        Assert.Equal(lifeBefore - 4, state.PlayerTwo.Life); // ...and Overcrush carries the leftover (6 - 2) straight through
     }
 
     [Fact]
@@ -306,8 +303,8 @@ public class DiceKingdomNewCharactersTests
         var state = NewGame(); // p1 = Wolf, p2 = Armadillo
         var queue = new AbilityQueue();
 
-        var rhino = ActiveCharacter(state, DiceKingdomConfig.Rhinoceros.Id, "p2"); // L1: 1A/5D(+1 Armadillo aura = 6D)
-        var attacker = ActiveCharacter(state, DiceKingdomConfig.HoneyBadger.Id, "p1", level: 3); // 2A(+1 Wolf aura = 3A) - well under Rhino's 6D, so it survives
+        var rhino = ActiveCharacter(state, DiceKingdomConfig.Rhinoceros.Id, "p2"); // L1: 1A/5D
+        var attacker = ActiveCharacter(state, DiceKingdomConfig.HoneyBadger.Id, "p1", level: 3); // 2A - well under Rhino's 5D, so it survives
 
         TurnEngine.EnterAttackStep(state, queue);
         Drain(state, queue);

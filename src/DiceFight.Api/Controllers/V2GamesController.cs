@@ -192,7 +192,7 @@ public sealed class V2GamesController(V2GameStore store) : ControllerBase
         var state = RequireTurn(gameId, V2Actor.Active);
         Priority.RequireHolder(state, state.ActivePlayerId);
         var queue = new AbilityQueue();
-        TurnEngine.Field(state, queue, request.DieId, request.EnergyDieIds);
+        TurnEngine.Field(state, queue, request.DieId, request.EnergyDieIds, request.Free);
         Drain(state, queue);
         return Ok(Result(gameId, state));
     }
@@ -256,6 +256,23 @@ public sealed class V2GamesController(V2GameStore store) : ControllerBase
         var queue = new AbilityQueue();
         Priority.Pass(state, queue, state.ActivePlayerId);
         Drain(state, queue);
+        return Ok(Result(gameId, state));
+    }
+
+    // Wolf / Armadillo / Owl's once-per-turn power (ChampionPowers). Its
+    // target comes back as a pending choice. Like a Global, the Inactive
+    // player using it hands priority back (Armadillo's, after blocks).
+    [HttpPost("{gameId}/champion-power")]
+    public ActionResult<V2GameStateDto> ChampionPower(string gameId)
+    {
+        var (session, playerId) = RequireSeat(gameId);
+        var state = session.State;
+        if (state.PendingChoice is not null)
+            throw new InvalidOperationException("Resolve the pending choice before taking another action.");
+        var queue = new AbilityQueue();
+        ChampionPowers.Use(state, queue, playerId);
+        Drain(state, queue);
+        Priority.AfterGlobal(state, playerId);
         return Ok(Result(gameId, state));
     }
 

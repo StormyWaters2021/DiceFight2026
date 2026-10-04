@@ -30,6 +30,22 @@ public enum ChampionPassiveKind
     // too strong). An action the player takes (TurnEngine.UseForesight),
     // not a modifier, so ChampionRegistry registers nothing for it.
     Foresight,
+
+    // Once-per-turn powers (2026-10-04, user's redesign: the always-on
+    // anthems were wildly uneven - Wolf's +1 ATK to everything was worth
+    // ~30 points of win rate, Owl's Foresight -16). Each is one decision a
+    // turn with a bounded effect (ChampionPowers).
+    // Wolf: once per your turn, one of your creatures gets +Amount ATK.
+    PumpOneAttack,
+    // Armadillo: once per turn, after blocks, prevent all combat damage to
+    // one of your creatures in combat this turn.
+    ShieldOneFromCombat,
+    // Golden Eagle: once per your turn, field one creature without paying
+    // its fielding cost.
+    FieldOneFree,
+    // Great Horned Owl: once per your turn, spin one creature a level -
+    // yours up, theirs down.
+    SpinOne,
 }
 
 public sealed record ChampionDef(
@@ -39,6 +55,11 @@ public sealed record ChampionDef(
     ChampionPassiveKind PassiveKind,
     int Amount)
 {
+    // Wolf's pump only in the Main Step - before attackers are declared, so
+    // the opponent can block around the pumped creature - not after blocks
+    // (2026-10-04 what-if: after blocks it's 3 guaranteed face damage).
+    public bool PowerBeforeBlocksOnly { get; init; }
+
     // A second, genuinely new thing GameConfig.BasicDicePool couldn't
     // express: that list is ONE shared pool seeded identically for BOTH
     // players (GameSetup.SeedBasicDicePool's own loop), which is exactly

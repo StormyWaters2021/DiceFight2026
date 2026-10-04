@@ -1,3 +1,4 @@
+using DiceFight.V2;
 using System.Net;
 using System.Text;
 using DiceFight.V2.Data;
@@ -67,7 +68,7 @@ html.AppendLine($"<p class=\"generated\">Generated {DateTime.UtcNow:yyyy-MM-dd} 
 foreach (var champion in config.Champions)
 {
     html.AppendLine($"<h2>{Enc(champion.Name)} <small>({Enc(champion.EnergySymbolId)})</small></h2>");
-    html.AppendLine($"<p class=\"passive\">Passive: {Enc(DescribePassive(champion))}</p>");
+    html.AppendLine($"<p class=\"passive\">Power: {Enc(DescribePassive(champion))}</p>");
 
     // The starting dice: not cards, so they only live on the ChampionDef.
     foreach (var pool in champion.TardigradePool)
@@ -155,7 +156,7 @@ string BuildMarkdown()
         md.AppendLine();
         md.AppendLine($"## {champion.Name} ({champion.EnergySymbolId})");
         md.AppendLine();
-        md.AppendLine($"_Passive: {Md(DescribePassive(champion))}_");
+        md.AppendLine($"_Power: {Md(DescribePassive(champion))}_");
         foreach (var pool in champion.TardigradePool)
         {
             md.AppendLine();
@@ -254,14 +255,6 @@ static string DescribeEnergy(Face f) => string.Join(" + ", f.Symbols.Select(s =>
 static List<(string Face, int Count)> GroupFaces(DieDefinition die) =>
     die.Faces.Select(DescribeFace).GroupBy(s => s).Select(g => (g.Key, g.Count())).ToList();
 
-static string DescribePassive(ChampionDef c) => c.PassiveKind switch
-{
-    ChampionPassiveKind.AttackBuff => $"+{c.Amount} ATK to all your dice",
-    ChampionPassiveKind.DefenseBuff => $"+{c.Amount} DEF to all your dice",
-    ChampionPassiveKind.FieldingCostDiscount => $"-{c.Amount} Fielding cost for your dice",
-    ChampionPassiveKind.PurchaseCostDiscount => $"-{c.Amount} Purchase cost",
-    ChampionPassiveKind.Foresight => "Foresight - once per turn during your Main Step, reroll one die in your Reserve Pool",
-    _ => c.PassiveKind.ToString(),
-};
+static string DescribePassive(ChampionDef c) => ChampionPowers.Describe(c);
 
 static string Enc(string s) => WebUtility.HtmlEncode(s);

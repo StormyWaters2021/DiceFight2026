@@ -30,6 +30,10 @@ public sealed record MoveDie(TargetFilter Target, Zone ToZone) : EffectNode;
 // its stats for the rest of the ability ("damage equal to its ATK").
 public sealed record Sacrifice(TargetFilter Target) : EffectNode;
 
+// Great Horned Owl's Champion power (2026-10-04): the chosen creature spins
+// up a level if it's the chooser's own, down a level if it's an opponent's.
+public sealed record SpinByOwner(TargetFilter Target, int Levels = 1) : EffectNode;
+
 // "You may pay X energy. If you do, [Then]" (2026-10-03, Breath Weapon).
 // One choice: the payer taps Reserve Pool energy dice to cover Amount, or
 // picks none to decline. Paid like a Global (TurnEngine.PayAbilityEnergy -
@@ -147,6 +151,10 @@ public enum CombatFlagKind
     CantAttack,
     OnlyBlocker,
     Unblockable, // Finding 14 - Falcon "Recon"
+    // Armadillo's Champion power (2026-10-04): combat damage to this die is
+    // prevented this turn (EffectInterpreter.MarkDamage). Ability damage
+    // and Deadly still get through.
+    PreventCombatDamage,
 }
 public sealed record CombatFlag(TargetFilter Target, CombatFlagKind Flag) : EffectNode;
 

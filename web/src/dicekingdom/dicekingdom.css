@@ -4020,3 +4020,20 @@
   .dicekingdom .dk-spin-ring { display: none; }
   .dicekingdom .dk-spin-chip { animation: none; }
 }
+
+/* Champion once-per-turn power button (2026-10-04) - next to the badge,
+   only while usable. Amber like the combat cues: a decision for this turn. */
+.dk-mobile .dkm-power-btn {
+  background: oklch(0.85 0.15 88);
+  color: #14151c;
+  border-color: oklch(0.85 0.15 88);
+  font-weight: 800;
+}
+.dicekingdom .dk-power-btn {
+  margin-top: 4px;
+  font-size: 11px;
+  padding: 3px 8px;
+  background: oklch(0.85 0.15 88);
+  color: #14151c;
+  border-color: oklch(0.7 0.13 88);
+}

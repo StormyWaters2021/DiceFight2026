@@ -1,3 +1,4 @@
+using DiceFight.V2;
 using DiceFight.V2.Data;
 using DiceFight.V2.Model;
 using DiceFight.V2.Model.Effects;
@@ -65,7 +66,7 @@ public class DiceKingdomConfigTests
     }
 
     [Fact]
-    public void Full_Turn_Cycle_Runs_With_Champion_Passive_Applied()
+    public void Full_Turn_Cycle_Runs_With_A_Champion_Power()
     {
         var config = DiceKingdomConfig.Config;
         var catalog = DiceKingdomConfig.Catalog;
@@ -112,18 +113,24 @@ public class DiceKingdomConfigTests
         TurnEngine.Field(state, queue, toField.Id, []);
         Assert.Equal(Zone.FieldZone, toField.Zone);
 
-        // --- Wolf's passive (+1 ATK to all your dice) is live: base 0 -> 1 ---
-        Assert.Equal(0, state.GetCurrentFace(toField)!.Character!.Attack);
-        Assert.Equal(1, QueryEngine.GetAttack(state, toField));
+        // --- No always-on passive any more: the Tardigrade is its printed 0 ATK ---
+        Assert.Equal(0, QueryEngine.GetAttack(state, toField));
 
-        // --- Attack step: the buffed Tardigrade attacks unblocked ---
+        // --- Attack step: it attacks unblocked, and Wolf's once-per-turn
+        // power (+1 ATK to one of your creatures) goes on it in the action
+        // window - its only creature, so no choice comes up ---
         TurnEngine.EnterAttackStep(state, queue);
         CombatEngine.DeclareAttackers(state, queue, [toField.Id]);
         var assignment = new CombatAssignment();
         CombatEngine.DeclareBlockers(state, queue, assignment, []);
+        Assert.True(ChampionPowers.CanUse(state, "p1"));
+        ChampionPowers.Use(state, queue, "p1");
+        EffectInterpreter.DrainQueue(state, queue, new ScriptedRoller(0), new Random(1));
+        Assert.Equal(1, QueryEngine.GetAttack(state, toField));
+        Assert.False(ChampionPowers.CanUse(state, "p1")); // once per turn
         CombatEngine.AssignCombatDamage(state, queue, assignment, new Dictionary<string, IReadOnlyDictionary<string, int>>());
 
-        Assert.Equal(19, playerTwo.Life); // 20 - 1 (the Champion-buffed attack)
+        Assert.Equal(19, playerTwo.Life); // 20 - 1 (the pumped attack)
         // Rule 2.7.4.3.1 - an unblocked attacker leaves the Attack Zone
         // for Out of Play immediately (CombatEngine.cs's own citation),
         // not back to the Field Zone - that return path is only for a

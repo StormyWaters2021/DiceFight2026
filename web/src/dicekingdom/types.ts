@@ -97,7 +97,7 @@ export interface Die {
 
 export type DieStatusKind =
   | "mustBlock" | "cantBlock" | "unblockable" | "mustAttack" | "cantAttack" | "onlyBlocker"
-  | "blanked" | "granted" | "deadly" | "intimidated";
+  | "blanked" | "granted" | "deadly" | "intimidated" | "protected";
 
 export interface DieStatus {
   kind: DieStatusKind;
@@ -127,8 +127,12 @@ export interface PlayerState {
   name: string;
   life: number;
   champion: Champion | null;
-  /** Great Horned Owl's Foresight is theirs and unused this turn. */
+  /** Great Horned Owl's Foresight is theirs and unused this turn (retired 2026-10-04). */
   foresightAvailable?: boolean;
+  /** Their Champion's once-per-turn power (Wolf/Armadillo/Owl) can be used now. */
+  championPowerUsable?: boolean;
+  /** Golden Eagle's free field is unused and it's their Main Step. */
+  freeFieldAvailable?: boolean;
   /** Generic energy from dice they couldn't draw this turn (deck-out) -
    *  the server spends it automatically before any die; gone after Main. */
   virtualEnergy?: number;
@@ -234,8 +238,11 @@ export interface BotDecision {
     | "declareAttackers"
     | "declareBlockers"
     | "resolvePendingChoice"
-    | "cleanUp";
+    | "cleanUp"
+    | "useChampionPower";
   reason: string;
+  /** field: use Golden Eagle's free field. */
+  free?: boolean;
   dieId: string | null;
   dieIds: string[];
   energyDieIds: string[];

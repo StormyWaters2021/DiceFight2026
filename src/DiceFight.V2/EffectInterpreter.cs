@@ -145,6 +145,7 @@ public static class EffectInterpreter
             case Ko n: ExecuteKo(n, ctx, onComplete); break;
             case MoveDie n: ExecuteMoveDie(n, ctx, onComplete); break;
             case Sacrifice n: ExecuteSacrifice(n, ctx, onComplete); break;
+            case SpinByOwner n: ExecuteSpinByOwner(n, ctx, onComplete); break;
             case MayPayEnergy n: ExecuteMayPayEnergy(n, ctx, onComplete); break;
             case RangeShot n: ExecuteRangeShot(n, ctx, onComplete); break;
             case ResolveRangeShots: ExecuteResolveRangeShots(ctx, onComplete); break;
@@ -327,6 +328,8 @@ public static class EffectInterpreter
         if (state.IsPlayerId(id)) { state.GetPlayer(id).Life -= amount; state.CheckGameOver(); return null; }
 
         var die = FindDie(state, id);
+        // Armadillo's Champion power.
+        if (source == DamageSource.Combat && die.CombatFlags.Contains(CombatFlagKind.PreventCombatDamage)) return null;
         var interceptors = state.DamageInterceptors.Where(m => m.AppliesTo(state, die, source)).ToList();
 
         if (interceptors.Any(m => m.Mode == DamageModifierMode.PreventNonCombat && source != DamageSource.Combat))
@@ -440,6 +443,21 @@ public static class EffectInterpreter
                 MoveToZone(ctx.State, die, n.ToZone);
                 if (n.ToZone == Zone.Intimidated) die.IntimidatedBy = SourceName(ctx);
                 if (leftPlay) FireIfRemovedByOpponent(ctx.State, ctx.Queue, die, controllerId, ctx.ControllerId);
+            }
+            onComplete();
+        });
+    }
+
+    private static void ExecuteSpinByOwner(SpinByOwner n, EffectContext ctx, Action onComplete)
+    {
+        ResolveTarget(ctx, n.Target, ProtectionFor(ctx.Trigger), ChoiceIntent.Unknown, n, ids =>
+        {
+            foreach (var id in ids)
+            {
+                var die = FindDie(ctx.State, id);
+                var up = die.ControllerId == ctx.ControllerId;
+                LogAbility(ctx, $"{SourceName(ctx)} spins {TargetName(ctx.State, id)} {(up ? "up" : "down")} {(n.Levels == 1 ? "a level" : $"{n.Levels} levels")}.");
+                SpinLevel(ctx.State, ctx.Queue, die, null, up ? n.Levels : -n.Levels, SourceName(ctx));
             }
             onComplete();
         });
@@ -920,9 +938,12 @@ public static class EffectInterpreter
             {
                 FindDie(ctx.State, id).CombatFlags.Add(n.Flag);
                 FindDie(ctx.State, id).CombatFlagSources[n.Flag] = SourceName(ctx);
-                LogAbility(ctx, n.Flag == CombatFlagKind.Unblockable && ctx.Bindings.GetValueOrDefault("self") == id
-                    ? $"{SourceName(ctx)} can't be blocked this turn."
-                    : $"{SourceName(ctx)}: {TargetName(ctx.State, id)} gets {n.Flag} this turn.");
+                LogAbility(ctx, n.Flag switch
+                {
+                    CombatFlagKind.Unblockable when ctx.Bindings.GetValueOrDefault("self") == id => $"{SourceName(ctx)} can't be blocked this turn.",
+                    CombatFlagKind.PreventCombatDamage => $"{SourceName(ctx)} shields {TargetName(ctx.State, id)} from combat damage this turn.",
+                    _ => $"{SourceName(ctx)}: {TargetName(ctx.State, id)} gets {n.Flag} this turn.",
+                });
             }
             onComplete();
         });

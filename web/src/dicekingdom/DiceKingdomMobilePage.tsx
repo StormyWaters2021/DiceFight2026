@@ -741,6 +741,10 @@ function GlobalRail({
 
 // ---- Mat card (opponent / you) ----
 
+// The Champion power button's label (2026-10-04); the badge's tap text
+// explains it in full.
+const POWER_LABELS: Record<string, string> = { Wolf: "Pump", Armadillo: "Shield", GreatHornedOwl: "Spin" };
+
 function MatCard({
   mine,
   player,
@@ -757,7 +761,10 @@ function MatCard({
   fieldClickable,
   onTapDie,
   targeting,
+  onUsePower,
 }: {
+  /** Your Champion's once-per-turn power is usable now (2026-10-04). */
+  onUsePower?: () => void;
   mine: boolean;
   player: PlayerState;
   dice: Die[];
@@ -805,6 +812,11 @@ function MatCard({
           <button type="button" className="dkm-champion-badge" onClick={() => setChampionOpen((v) => !v)}>
             {ChampIcon && <ChampIcon size={16} />}
             <span>{player.champion.name}</span>
+          </button>
+        )}
+        {onUsePower && player.champion && (
+          <button type="button" className="dkm-chip-btn dkm-power-btn" onClick={onUsePower} title={player.champion.passiveText}>
+            {POWER_LABELS[player.champion.id] ?? "Power"}
           </button>
         )}
         <span className="dkm-mat-life">
@@ -2592,6 +2604,13 @@ export function DiceKingdomMobilePage() {
       // dice to spend.
       const spendable = yourReserve.filter((d) => d.energyAmount > 0 && d.id !== selectedDie.id);
       const noChoice = spendable.reduce((n, d) => n + d.energyAmount, 0) === amount;
+      // Golden Eagle (2026-10-04): once per turn, field one creature free.
+      if (youPlayer.freeFieldAvailable && amount > 0) {
+        inspectActions.push({
+          label: "Field free (Golden Eagle)",
+          run: () => run(() => api.field(game.gameId, selectedDie.id, [], true)),
+        });
+      }
       inspectActions.push({
         label: ids === null ? "Can't afford" : "Field this creature",
         run: () => {
@@ -3005,6 +3024,11 @@ export function DiceKingdomMobilePage() {
 
         <MatCard
           mine
+          onUsePower={
+            youPlayer.championPowerUsable && game.priorityPlayerId === you && !game.pendingChoice && !busy
+              ? () => run(() => api.championPower(game.gameId))
+              : undefined
+          }
           player={youPlayer}
           dice={yourFieldVisibleDice}
           cardsById={cardsById}

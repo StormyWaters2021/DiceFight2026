@@ -23,6 +23,7 @@ public enum BotActionKind
     DeclareBlockers,    // Blocks
     ResolvePendingChoice, // DieIds (candidate ids - may include a player id)
     CleanUp,
+    UseChampionPower,   // Wolf / Armadillo / Owl's once-per-turn power; its target is a pending choice after
 }
 
 public sealed record BotDecision(BotActionKind Kind, string Reason)
@@ -33,6 +34,8 @@ public sealed record BotDecision(BotActionKind Kind, string Reason)
     public string? CardId { get; init; }
     public int AbilityIndex { get; init; }
     public bool SkipAttack { get; init; }
+    /// <summary>Field: use Golden Eagle's free field.</summary>
+    public bool Free { get; init; }
     public IReadOnlyDictionary<string, int> AttackerLanes { get; init; } = new Dictionary<string, int>();
     public IReadOnlyList<(string AttackerId, string BlockerId)> Blocks { get; init; } = [];
 }
