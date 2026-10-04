@@ -39,6 +39,7 @@ namespace DiceFight.V2.Bot;
 //     helpful ones at its own best (PendingChoice.Intent).
 public static class DiceKingdomBot
 {
+
     private const int MaxLanes = 4;
 
     // `skip`: dice the caller already saw rejected this turn (a legality
@@ -493,9 +494,10 @@ public static class DiceKingdomBot
         if (forced.Count > 0 && retaliator is not null && forced.Max(b => QueryEngine.GetAttack(state, b)) >= 1)
             return Declare([retaliator], "Rhinoceros into a forced blocker.");
 
-        // Crack-back: whatever stays home has to keep their next swing
-        // below our life (home dice block their biggest attackers).
-        var theirAttack = PotentialAttackers(state, oppId).Select(d => QueryEngine.GetAttack(state, d)).OrderByDescending(a => a).ToList();
+        // Crack-back: what they're likely to swing with NEXT turn - not just
+        // what's on their Field now, which right after their own swing is
+        // usually nothing (that read made every game a pure race, 2026-10-04).
+        var theirAttack = ExpectedThreats(state, oppId);
 
         // An on-attack draw pulls a die out of the Bag into Prep, which
         // doesn't help next turn's draw - don't let those swings push the
@@ -520,6 +522,16 @@ public static class DiceKingdomBot
             var home = PotentialBlockers(state, botId).Count(d => d != die && !attackers.Contains(d));
             var crackBack = theirAttack.Skip(home).Sum();
             if (crackBack >= myLife) continue;
+            // The trade (user, 2026-10-04: "keep enough blockers so that I can
+            // block the higher attack characters I expect my opponent to have
+            // next turn"): swung, this die deals its ATK now and leaves play;
+            // kept home, it blocks the next-biggest threat they're likely to
+            // bring. Each weighed against the life it comes off, so a low
+            // opponent pulls toward swinging and a low self toward holding.
+            var absorbed = home < theirAttack.Count ? theirAttack[home] : 0;
+            var swing = (double)QueryEngine.GetAttack(state, die) / Math.Max(1, oppLife);
+            var hold = absorbed / Math.Max(1, myLife);
+            if (hold > swing * (0.75 + 0.25 * persona.Aggression)) continue;
             attackers.Add(die);
         }
         // Retaliating blockers (Rhinoceros): each can block one attacker and
@@ -536,6 +548,37 @@ public static class DiceKingdomBot
             if (reflected >= through) attackers.Clear();
         }
         return Declare(attackers, attackers.Count == 0 ? "Hold back - no good attacks." : $"Attack with {attackers.Count}.");
+    }
+
+    // What `playerId` is likely to attack with next turn, biggest first:
+    // their Field creatures exactly, plus every die that may come up -
+    // the Prep Area for sure, the Bag at its draw odds, the Used Pile and
+    // Out of Play only for whatever the Bag can't cover - each weighted by
+    // its chance of rolling a creature face and that face's average ATK.
+    // Every die's zone is public, so this is information a player has too.
+    // Ignores whether they can afford to field it, and rerolls.
+    private static List<double> ExpectedThreats(GameState state, string playerId)
+    {
+        var threats = PotentialAttackers(state, playerId).Select(d => (double)QueryEngine.GetAttack(state, d)).ToList();
+        double Expected(DieInstance d)
+        {
+            var faces = state.GetDieDefinition(d).Faces;
+            var bodies = faces.Where(f => f.Character is not null).ToList();
+            return bodies.Count == 0 ? 0 : (double)bodies.Count / faces.Count * bodies.Average(f => f.Character!.Attack);
+        }
+        var draws = state.Config.Rules.DrawCount;
+        var bag = state.DiceIn(playerId, Zone.Bag).ToList();
+        var refill = state.DiceIn(playerId, Zone.UsedPile).Concat(state.DiceIn(playerId, Zone.OutOfPlay)).ToList();
+        var bagOdds = bag.Count == 0 ? 0 : Math.Min(1.0, (double)draws / bag.Count);
+        var refillOdds = bag.Count >= draws || refill.Count == 0 ? 0 : Math.Min(1.0, (double)(draws - bag.Count) / refill.Count);
+        threats.AddRange(state.DiceIn(playerId, Zone.PrepArea).Select(Expected));
+        threats.AddRange(bag.Select(d => bagOdds * Expected(d)));
+        threats.AddRange(refill.Select(d => refillOdds * Expected(d)));
+        threats = threats.Where(t => t > 0.05).OrderByDescending(t => t).ToList();
+        // Their Wolf's pump lands on one attacker.
+        if (threats.Count > 0 && ChampionPowers.Of(state, playerId) is { PassiveKind: ChampionPassiveKind.PumpOneAttack } wolf)
+            threats[0] += wolf.Amount;
+        return threats;
     }
 
     // Would the defender's best response to this attacker be bad for us?
@@ -599,6 +642,13 @@ public static class DiceKingdomBot
         var shieldLeft = ChampionPowers.Of(state, botId)?.PassiveKind == ChampionPassiveKind.ShieldOneFromCombat
             && !state.ChampionPowerUsedThisTurn.Contains(botId);
 
+        // Wolf's pump comes after blocks (2026-10-04): assume it's coming
+        // while unused - one attacker gets +N, so +N to what's incoming and
+        // to what any blocker has to survive.
+        var pump = ChampionPowers.Of(state, activeId) is { PassiveKind: ChampionPassiveKind.PumpOneAttack } wolf
+            && !state.ChampionPowerUsedThisTurn.Contains(activeId) ? wolf.Amount : 0;
+        incoming += pump;
+
         foreach (var lane in lanes)
         {
             if (available.Count == 0) break;
@@ -606,12 +656,12 @@ public static class DiceKingdomBot
             (DieInstance Blocker, double Score)? best = null;
             foreach (var b in available)
             {
-                var score = BlockScore(state, b, lane, DamageWeight());
+                var score = BlockScore(state, b, lane, DamageWeight(), pump: pump);
                 if (best is null || score > best.Value.Score) best = (b, score);
             }
             if (shieldLeft && !lane.Deadly)
             {
-                var shielded = available.Select(b => (Blocker: b, Score: BlockScore(state, b, lane, DamageWeight(), shielded: true)))
+                var shielded = available.Select(b => (Blocker: b, Score: BlockScore(state, b, lane, DamageWeight(), shielded: true, pump: pump)))
                     .OrderByDescending(x => x.Score).First();
                 if (shielded.Score > Math.Max(0, best?.Score ?? 0) + 0.5)
                 {
@@ -648,12 +698,24 @@ public static class DiceKingdomBot
     // Outcome of putting `b` in front of a lane: its attackers' value if
     // it kills one, minus its own if it dies, plus the damage it keeps off
     // this player's life (weighted by how much life matters right now).
-    // `shielded`: Armadillo will prevent the combat damage to it.
-    private static double BlockScore(GameState state, DieInstance b, Lane lane, double damageWeight, bool shielded = false)
+    // `shielded`: Armadillo will prevent the combat damage to it. `pump`:
+    // Wolf's +N may still land on the attacker after blocks.
+    //
+    // Dice Kingdom is a bag-builder, so where a die ENDS UP matters, not just
+    // whether it survives (user, 2026-10-04 - the Dice Masters "let the
+    // sidekick through / chump with the sidekick" calculation):
+    //   - a KO'd die goes to its owner's Prep Area and is rolled ON TOP of
+    //     next turn's draw - an extra die, mostly energy for a Tardigrade
+    //     (PrepBonus). So a dying blocker isn't a full loss, and KO'ing an
+    //     attacker hands its owner that extra die;
+    //   - an unblocked attacker leaves play for the Used Pile and then the
+    //     Bag - a fielded Tardigrade is effectively culled, and letting one
+    //     through un-culls it into the attacker's draws (UncullBonus).
+    private static double BlockScore(GameState state, DieInstance b, Lane lane, double damageWeight, bool shielded = false, int pump = 0)
     {
         var bAtk = QueryEngine.GetAttack(state, b);
         var bDef = QueryEngine.GetDefense(state, b) - b.Damage;
-        var survives = (shielded || bDef > lane.Attack) && !lane.Deadly;
+        var survives = (shielded || bDef > lane.Attack + pump) && !lane.Deadly;
         var bDeadly = QueryEngine.GetKeywords(state, b).Contains("Deadly");
         var killed = lane.Attackers.Where(a => bDeadly || QueryEngine.GetDefense(state, a) - a.Damage <= bAtk)
             .OrderByDescending(a => DieValue(state, a)).FirstOrDefault();
@@ -665,11 +727,24 @@ public static class DiceKingdomBot
         var reflectWeight = Math.Max(0.5, 6.0 / Math.Max(1, state.GetPlayer(state.ActivePlayerId).Life));
         if (IsRetaliator(state, b)) score += Math.Min(lane.Attack, bDef) * reflectWeight;
         if (lane.Attackers.Any(a => IsRetaliator(state, a))) score -= bAtk * damageWeight * 1.5;
-        if (killed is not null) score += DieValue(state, killed);
-        if (!survives) score -= DieValue(state, b);
+        if (killed is not null) score += DieValue(state, killed) - PrepBonus(killed);
+        if (!survives) score -= DieValue(state, b) - PrepBonus(b);
         if (survives && killed is null) score += 0.5; // a free wall
+        // Blocking keeps the lane's surviving Tardigrade attackers on the
+        // Field (still culled) instead of sending them back to their Bag.
+        score -= lane.Attackers.Count(a => a.CardId is null && a != killed) * UncullBonus(state, lane.Attackers[0].ControllerId);
         return score;
     }
+
+    // An extra die rolled next turn: mostly energy for a Tardigrade (5 of 6
+    // faces carry it); a Character has to be fielded again, so less.
+    private static double PrepBonus(DieInstance die) => die.CardId is null ? 1.0 : 0.5;
+
+    // A Tardigrade back in `ownerId`'s rotation dilutes their draws - but
+    // only once they own something better to draw instead.
+    private static double UncullBonus(GameState state, string ownerId) =>
+        state.Dice.Any(d => d.OwnerId == ownerId && d.CardId is { } c && !state.CardCatalog[c].CardType.IsActionDie() && d.Zone != Zone.Unpurchased)
+            ? 0.5 : 0;
 
     // ------------------------------------------------------------------
     // Attack Step's Action/Global window

@@ -4125,3 +4125,52 @@ attackers): a shielded blocker takes no combat damage and stays in the
 lane, so carry-through never triggers. Pinned by two tests in
 `ChampionPowersTests` - the unshielded case deals the expected 4, the
 shielded one 0.
+
+### The bot learns the bag: chump value, un-culling, expected threats (2026-10-04)
+
+User input, from Dice Masters: letting a weak sidekick through un-culls it
+into the attacker's bag (it clogs their draws), and a chump block is often
+good because the KO'd die is rolled again next turn. Also: "keep enough
+blockers so that I can block the higher attack characters I expect my
+opponent to have next turn" - all zones are public, so the odds are known.
+
+**Blocking** (`BlockScore`):
+- A dying blocker isn't a full loss: `PrepBonus`, since a KO'd die goes to
+  Prep and is rolled on top of next turn's draw. That's worth more for a
+  Tardigrade, whose faces nearly all carry energy (one way the Tardigrade
+  redesign shifted this math from DM's sidekicks).
+- KO'ing an attacker hands its owner that same extra die.
+- Blocking a Tardigrade that survives forfeits un-culling it (`UncullBonus`,
+  once its owner has bought Characters).
+- Wolf's unused pump is assumed to be coming.
+
+**Measured: almost no effect**, because Wolf's attacks met NO available
+blocker 95% of the time. The real issue was the attack side: the bot's
+crack-back check read only the opponent's current Field, which right after
+their own swing is usually empty. So every game was a mutual all-in race:
+unblocked attackers leave play, which empties the Field again.
+
+**Attacking** (`DecideAttackers`): the crack-back now uses
+`ExpectedThreats`: their Field creatures plus every die likely to come up
+next turn (Prep certain, Bag at draw odds, Used/Out of Play for whatever
+the Bag can't cover), each weighted by its creature-face odds and average
+ATK, plus their Wolf pump. Each creature swings only if its ATK, as a share
+of the opponent's life, beats the threat it would block next turn, as a
+share of its own life (tilted by persona Aggression).
+
+**Results (300 games per matchup, current powers):**
+
+| | Race bot | Expected-threat bot |
+|---|---|---|
+| Wolf | 61 | 19 |
+| Armadillo | 41 | 56 |
+| Owl | 40 | 67 |
+| Eagle | 57 | 57 |
+| Turn-cap games | ~7% | 14% |
+
+Defenders now have blockers when Wolf attacks: no blocker available 43% of
+the time, down from 95%. Wolf's +1 was tuned against the race bot.
+(Earlier, a blunt "never swing a 1-ATK Tardigrade" experiment landed in a
+similar place - Wolf 17, Armadillo 67 - and was replaced by this.) Balance
+numbers are dominated by bot policy; the next tuning pass should be done
+on this bot.

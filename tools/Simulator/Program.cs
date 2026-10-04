@@ -329,6 +329,17 @@ static class Stats
             Inc(Combat, (C(pid), "#attackers"), d.AttackerLanes.Count);
             Inc(Combat, (C(pid), "#lanes with 2+ attackers (auto-Overcrush)"), d.AttackerLanes.GroupBy(kv => kv.Value).Count(g => g.Count() >= 2));
         }
+        // The defender's side of each attack: blockers it had vs used, keyed
+        // by the ATTACKER's Champion ("vs" = what that Champion's attacks met).
+        if (d.Kind == BotActionKind.DeclareBlockers && s.DiceIn(s.ActivePlayerId, Zone.AttackZone).Any())
+        {
+            var attacker = C(s.ActivePlayerId);
+            var able = s.DiceIn(pid, Zone.FieldZone).Count(x => s.GetCurrentFace(x)?.Character is not null && !x.CombatFlags.Contains(CombatFlagKind.CantBlock));
+            Inc(Combat, (attacker, "#attacks met"));
+            Inc(Combat, (attacker, "#attacks met with no blocker available"), able == 0 ? 1 : 0);
+            Inc(Combat, (attacker, "#blockers available"), able);
+            Inc(Combat, (attacker, "#blocks made"), d.Blocks.Select(b => b.BlockerId).Distinct().Count());
+        }
         if (d.Kind == BotActionKind.UseChampionPower && ChampionPowers.Of(s, pid)?.PassiveKind == ChampionPassiveKind.PumpOneAttack)
         {
             var blocks = s.DeclaredBlocks;
@@ -414,6 +425,9 @@ static class Stats
                 (Combat.ContainsKey((champ, "#pump on an unblocked attacker")) || Combat.ContainsKey((champ, "#pump on a blocked attacker"))
                     ? $"; pumps: {(double)Combat.GetValueOrDefault((champ, "#pump on an unblocked attacker")) / games:F2} unblocked, {(double)Combat.GetValueOrDefault((champ, "#pump on a blocked attacker")) / games:F2} blocked /game"
                     : ""));
+            var met = Math.Max(1, Combat.GetValueOrDefault((champ, "#attacks met")));
+            Console.WriteLine($"  its attacks met: no blocker available {100.0 * Combat.GetValueOrDefault((champ, "#attacks met with no blocker available")) / met:F0}% of the time; " +
+                $"{(double)Combat.GetValueOrDefault((champ, "#blockers available")) / met:F1} blockers available, {(double)Combat.GetValueOrDefault((champ, "#blocks made")) / met:F1} used");
             foreach (var kv in Uses.Where(k => k.Key.Champ == champ).OrderByDescending(k => k.Value))
                 Console.WriteLine($"  {kv.Key.What}: {(double)kv.Value / games:F2}/game");
             Console.WriteLine($"  {"card",-18}{"buys/g",8}{"fields/g",10}{"%games fielded",16}{"win% when fielded",20}");

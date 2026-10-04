@@ -114,4 +114,45 @@ public class DiceKingdomBotTests
         Assert.Equal(BotActionKind.Reroll, decision.Kind);
         Assert.Contains(badger.Id, decision.DieIds);
     }
+
+    // Crack-back by what the opponent is likely to bring next turn, not just
+    // what's on their Field now (user, 2026-10-04: "keep enough blockers so
+    // that I can block the higher attack characters I expect my opponent to
+    // have next turn"). Their Field is empty in both cases.
+    private static (GameState State, DieInstance Tardigrade) AboutToAttack()
+    {
+        var state = NewGame("Armadillo", "GreatHornedOwl");
+        state.ActivePlayerId = "p1";
+        state.MoveToStep(StepIds.SelectAttackers);
+        var die = new DieInstance
+        {
+            Id = "p1-swinger", PoolDieId = "TardigradeShell", OwnerId = "p1", ControllerId = "p1",
+            Zone = Zone.FieldZone, CurrentFaceIndex = 2, // L2: 1/1
+        };
+        state.Dice.Add(die);
+        return (state, die);
+    }
+
+    [Fact]
+    public void Swings_When_The_Opponent_Has_Only_Tardigrades_Coming()
+    {
+        var (state, die) = AboutToAttack(); // their Bag: 8 Tardigrades, nothing else
+        var decision = DiceKingdomBot.Decide(state, "p1")!;
+        Assert.Equal(BotActionKind.DeclareAttackers, decision.Kind);
+        Assert.Contains(die.Id, decision.AttackerLanes.Keys);
+    }
+
+    [Fact]
+    public void Keeps_A_Blocker_Home_When_A_Big_Creature_Is_Coming_Back_From_Prep()
+    {
+        var (state, die) = AboutToAttack();
+        // A Silverback KO'd last turn: certain to be rolled next turn.
+        state.Dice.Add(new DieInstance
+        {
+            Id = "p2-silverback", CardId = DiceKingdomConfig.Silverback.Id, OwnerId = "p2", ControllerId = "p2", Zone = Zone.PrepArea,
+        });
+        var decision = DiceKingdomBot.Decide(state, "p1")!;
+        Assert.Equal(BotActionKind.DeclareAttackers, decision.Kind);
+        Assert.DoesNotContain(die.Id, decision.AttackerLanes.Keys);
+    }
 }
