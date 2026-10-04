@@ -1899,7 +1899,12 @@ export function DiceKingdomMobilePage() {
         was.energySymbolId !== die.energySymbolId || was.energyAmount !== die.energyAmount;
       if (!explicit.has(die.id) && !changedFace) continue;
       const { index } = facesFor(die, cardsById);
-      (explicit.has(die.id) ? rolledTargets : spunTargets).push({ dieId: die.id, faceIndex: index });
+      // What the die showed before the roll stays up until it's in the air.
+      const held = {
+        face: facesFor(was, cardsById).faces[0],
+        energy: was.energySymbolId && was.energyAmount > 0 ? { type: was.energySymbolId, amount: was.energyAmount } : undefined,
+      };
+      (explicit.has(die.id) ? rolledTargets : spunTargets).push({ dieId: die.id, faceIndex: index, held });
     }
     launchRoll(rolledTargets);
     spinDie(spunTargets);
@@ -1932,6 +1937,17 @@ export function DiceKingdomMobilePage() {
       // local state (pending attackers, selection...) a frame BEFORE the new
       // game - e.g. declared attackers briefly snapped back to Field - and the
       // dice-flight layer animated that bounce. Same-batch = one clean commit.
+      // The tumble starts FIRST (2026-10-03, direct feedback: "you can
+      // sometimes see the new die face on a reroll before the animation
+      // kicks in"). It used to start a frame AFTER the data commit (the
+      // rAF below the choppiness note), so the landed face showed, still,
+      // for a frame or more before spinning. Now the cheap spin update
+      // commits first, on the die's OLD face, and the heavy data commit
+      // lands while it's already tumbling - the new face only ever
+      // appears in motion. The choppiness fix still holds: the animation
+      // still doesn't start inside the expensive commit's frame, and a
+      // running CSS transform animation isn't stalled by it.
+      if (previous) animateRolledDice(previous, next, rolledDieIds);
       startTransition(() => {
         setGame(next);
         setSelectedId(null);
@@ -1946,7 +1962,6 @@ export function DiceKingdomMobilePage() {
         // unblocked (so nothing is ever KO'd).
         if (next.currentStepId !== "assign-blockers" && next.currentStepId !== "action-global-window") setBlockAssignments({});
       });
-      if (previous) requestAnimationFrame(() => animateRolledDice(previous, next, rolledDieIds));
       return next;
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -1983,9 +1998,9 @@ export function DiceKingdomMobilePage() {
         setGame(next);
         return next;
       }
+      // Tumble first, then the data - see run()'s remarks on why.
+      animateRolledDice(previous, next, revealedDieIds);
       startTransition(() => setGame({ ...next, currentStep: previous.currentStep, currentStepId: previous.currentStepId }));
-      // Deferred a frame - see run()'s identical remarks on why.
-      requestAnimationFrame(() => animateRolledDice(previous, next, revealedDieIds));
       setSelectedId(null);
       setLaneBreakdown(null);
       setRerollPicked([]);

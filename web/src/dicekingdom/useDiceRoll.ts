@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { CubeSpin, TumbleTrack } from "./DieCube";
+import type { CubeSpin, HeldFace, TumbleTrack } from "./DieCube";
 
 // The roll: real CSS keyframe tumbles, not transitions between computed
 // poses. Motion refresh (2026-09-16), ported from design_handoff_dice_
@@ -42,7 +42,14 @@ export interface RollTarget {
    *  regardless of which face is landed on; see dieFaces.ts's remarks on
    *  why rotation no longer needs to target a specific face at all. */
   faceIndex: number;
+  /** What the die showed before this roll - kept on screen until the
+   *  tumble is well under way (see DieCube's HeldFace). */
+  held?: HeldFace;
 }
+
+// How far into the tumble the landed face appears: late enough that the
+// die is visibly in the air, early enough to read while it settles.
+const REVEAL_FRACTION = 0.3;
 
 export function useDiceRoll() {
   const [spins, setSpins] = useState<Record<string, CubeSpin>>({});
@@ -86,6 +93,8 @@ export function useDiceRoll() {
         // again before its previous tumble finished - ANIMATIONS.md §3's
         // own retriggering note.
         generation: generationRef.current,
+        held: target.held,
+        revealAtMs: (reduced ? 0 : i * STAGGER_MS) + duration * REVEAL_FRACTION,
       };
     });
 

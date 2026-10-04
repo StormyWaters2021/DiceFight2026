@@ -766,7 +766,12 @@ export function DiceKingdomPage() {
         was.energySymbolId !== die.energySymbolId || was.energyAmount !== die.energyAmount;
       if (!explicit.has(die.id) && !changedFace) continue;
       const { index } = facesFor(die, cardsById);
-      (explicit.has(die.id) ? rolledTargets : spunTargets).push({ dieId: die.id, faceIndex: index });
+      // What the die showed before the roll stays up until it's in the air.
+      const held = {
+        face: facesFor(was, cardsById).faces[0],
+        energy: was.energySymbolId && was.energyAmount > 0 ? { type: was.energySymbolId, amount: was.energyAmount } : undefined,
+      };
+      (explicit.has(die.id) ? rolledTargets : spunTargets).push({ dieId: die.id, faceIndex: index, held });
     }
     launchRoll(rolledTargets);
     spinDie(spunTargets);
@@ -794,8 +799,12 @@ export function DiceKingdomPage() {
       // the next frame, after the data commit has already had a frame
       // to settle. Confirmed with a rAF frame-timing probe across
       // several runs, not just by eye.
+      // Tumble first, data second (2026-10-03): the rAF'd animation used
+      // to start a frame after the data commit, so a reroll briefly
+      // showed its landed face before spinning - see the mobile page's
+      // run() for the full remarks.
+      if (previous) animateRolledDice(previous, next, rolledDieIds);
       startTransition(() => setGame(next));
-      if (previous) requestAnimationFrame(() => animateRolledDice(previous, next, rolledDieIds));
       clearSelection();
       setOpenCardId(null); // e.g. a completed Purchase - see openCardId's own remarks
       if (next.currentStepId !== "roll-and-reroll") setRerolledIds([]);

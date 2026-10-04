@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { EnergyBadge } from "./icons";
 import { FACE_TRANSFORMS, type CubeFace } from "./dieFaces";
 
@@ -59,8 +59,16 @@ const REDUCED_TUMBLE_KEYFRAME = "dkTumbleReduced";
 // monotonically increasing real number, never the same value twice).
 const SPIN_EASE = "cubic-bezier(.32,1.42,.46,1)";
 
+// What the die showed before a roll (2026-10-03, direct feedback: a
+// reroll "will briefly show the face it will land on before doing the
+// roll animation"). The cube used to switch to the landed face the moment
+// its tumble was scheduled, so it sat flat on the new face through its
+// stagger delay and the first frames of the toss. `held` keeps the old
+// face (and energy pips) up until `revealAtMs`, partway into the motion.
+export type HeldFace = { face: CubeFace; energy?: { type: string; amount: number } };
+
 export type CubeSpin =
-  | { kind: "tumble"; track: TumbleTrack; durationMs: number; delayMs: number; reduced?: boolean; generation: number }
+  | { kind: "tumble"; track: TumbleTrack; durationMs: number; delayMs: number; reduced?: boolean; generation: number; held?: HeldFace; revealAtMs?: number }
   | { kind: "flip"; toDeg: number; durationMs: number };
 
 export function DieCube(props: {
@@ -82,7 +90,22 @@ export function DieCube(props: {
    *  the (rotating, face-specific) cube model - see the file header. */
   energyCorner?: { type: string; amount: number };
 }) {
-  const { faces, index, size, mine, spin } = props;
+  const { index, size, mine, spin } = props;
+
+  // Show the held (pre-roll) face until this tumble's reveal point. Keyed
+  // by generation, so the very first render of a new tumble already holds
+  // - no frame of the landed face slips through before an effect runs.
+  const [revealedGen, setRevealedGen] = useState<number | null>(null);
+  const tumble = spin?.kind === "tumble" ? spin : undefined;
+  const holding = !!tumble?.held && revealedGen !== tumble.generation;
+  useEffect(() => {
+    if (!tumble?.held) return;
+    const generation = tumble.generation;
+    const t = setTimeout(() => setRevealedGen(generation), tumble.revealAtMs ?? 0);
+    return () => clearTimeout(t);
+  }, [tumble?.generation]); // eslint-disable-line react-hooks/exhaustive-deps
+  const faces = holding ? [tumble!.held!.face, ...props.faces.slice(1)] : props.faces;
+  const energyCorner = holding ? tumble!.held!.energy : props.energyCorner;
   const half = size / 2;
   const hue = mine ? 62 : 250;
 
@@ -204,10 +227,10 @@ export function DieCube(props: {
           );
         })}
       </span>
-      {props.energyCorner && (
+      {energyCorner && (
         <span className="pip-stack on-die">
-          {Array.from({ length: Math.max(1, props.energyCorner.amount) }, (_, i) => (
-            <EnergyBadge key={i} type={props.energyCorner!.type} size={Math.round(size * 0.34)} />
+          {Array.from({ length: Math.max(1, energyCorner.amount) }, (_, i) => (
+            <EnergyBadge key={i} type={energyCorner.type} size={Math.round(size * 0.34)} />
           ))}
         </span>
       )}
