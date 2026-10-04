@@ -21,6 +21,7 @@ using DiceFight.V2.Model.Effects;
 //   SIM_WOLF_PUMP=N  with SIM_POWERS=on: Wolf's pump is +N ATK instead
 //   SIM_WOLF_MAIN_ONLY=on  ...and only usable in Main, before attacking
 //   SIM_OWL_LEVELS=N  with SIM_POWERS=on: Owl's spin moves N levels
+//   SIM_POWERS=only  the WITH-powers pass alone
 //   SIM_POWERS=on    also run a pass WITH Champion passives (default:
 //                    powers-off only - every passive's Amount zeroed and
 //                    Foresight removed)
@@ -34,6 +35,10 @@ using DiceFight.V2.Model.Effects;
 //   SIM_BULWARK_DEF=N  what-if: the Tardigrade's Bulwark face (L3, no
 //                    energy - 1/3 live) gets N DEF instead
 //                    (e.g. DK-ACT-03 = Resurrection) - a what-if switch
+//   SIM_TARDIGRADE=spec  what-if: rebuild every Tardigrade die from six
+//                    comma-separated faces, each `energy[:level/atk/def]`
+//                    where energy is 2, 1, 0 or W (one Wild). Today's die:
+//                    2:1/0/1,2:1/0/1,1:2/1/1,1:2/1/1,0:3/1/3,W
 //
 // Known limitation: two walled-off boards can stall (blocked damage
 // clears every Clean Up); games that hit MaxTurns are decided on a life
@@ -51,12 +56,13 @@ for (var i = 0; i < championIds.Length; i++)
     for (var j = i + 1; j < championIds.Length; j++)
         matchups.Add((championIds[i], championIds[j]));
 
-if (Environment.GetEnvironmentVariable("SIM_POWERS") == "on")
+if (Environment.GetEnvironmentVariable("SIM_POWERS") is "on" or "only")
 {
     Console.WriteLine("############ WITH champion powers ############");
     RunAllMatchups(championPowersEnabled: true);
     Console.WriteLine();
 }
+if (Environment.GetEnvironmentVariable("SIM_POWERS") == "only") return;
 Console.WriteLine("############ WITHOUT champion powers (Amounts zeroed, Foresight removed) ############");
 RunAllMatchups(championPowersEnabled: false);
 
@@ -122,6 +128,8 @@ static (string WinnerChampionIdOrSentinel, int Turns) PlayOneGame(
         config = config with { Champions = config.Champions.Select(c => c.Id == "Wolf" ? c with { PowerBeforeBlocksOnly = true } : c).ToList() };
     if (int.TryParse(Environment.GetEnvironmentVariable("SIM_BULWARK_DEF"), out var bulwarkDef))
         config = WithBulwarkDefense(config, bulwarkDef);
+    if (Environment.GetEnvironmentVariable("SIM_TARDIGRADE") is { Length: > 0 } tardigradeSpec)
+        config = WithTardigradeFaces(config, tardigradeSpec);
     var state = GameSetup.NewGame(config, Catalog.Cards, BuildPlayer("p1", championOne), BuildPlayer("p2", championTwo));
     var driver = new BotDriver(state, rng);
     Priority.Sync(state);
@@ -226,6 +234,36 @@ static GameConfig WithBulwarkDefense(GameConfig config, int defense) =>
                     Faces = entry.Die.Faces.Select(f => f.Character is { Level: 3 } ch && f.SymbolCount == 0
                         ? f with { Character = ch with { Defense = defense } }
                         : f).ToList(),
+                },
+            }).ToList(),
+        }).ToList(),
+    };
+
+// SIM_TARDIGRADE - see the header. The energy type is the die's own
+// (TardigradeClaw -> Claw).
+static GameConfig WithTardigradeFaces(GameConfig config, string spec) =>
+    config with
+    {
+        Champions = config.Champions.Select(c => c with
+        {
+            TardigradePool = c.TardigradePool.Select(entry => entry with
+            {
+                Die = entry.Die with
+                {
+                    Faces = spec.Split(',').Select(f =>
+                    {
+                        var parts = f.Trim().Split(':');
+                        var type = entry.Die.Id["Tardigrade".Length..];
+                        List<SymbolAmount> energy = parts[0] switch
+                        {
+                            "W" => [new SymbolAmount("Wild", 1)],
+                            "0" => [],
+                            var k => [new SymbolAmount(type, int.Parse(k))],
+                        };
+                        if (parts.Length == 1) return new Face(energy, Kind: FaceKind.EnergyFace);
+                        var st = parts[1].Split('/').Select(int.Parse).ToArray();
+                        return new Face(energy, new CharacterFaceData(st[0], FieldingCost: 0, Attack: st[1], Defense: st[2]), Kind: FaceKind.CharacterFace);
+                    }).ToList(),
                 },
             }).ToList(),
         }).ToList(),

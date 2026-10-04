@@ -4189,3 +4189,30 @@ been fit to the race bot, where every pump was free face damage. **Owl
 (~60%) is now the outlier**; its spin is used ~11 times a game under this
 bot, the next thing to look at. Turn-cap games are up to ~15%, since
 boards that keep blockers stall more.
+
+## 2026-10-04 - Tardigrade face layouts (simulator only, die unchanged)
+
+User ask: try a 1/2 Bulwark, and fewer faces you can field - Dice Masters'
+sidekick had 1 fieldable face in 6, ours has 5 ("might have been too much").
+New simulator knob `SIM_TARDIGRADE` rebuilds the die from a face spec
+(`energy[:level/atk/def]`). Champion powers on, expected-threat bot,
+600 games per matchup (shortlist from a 200-game pass of 10 layouts):
+
+| Layout | Wolf | Arm | Owl | Eagle | Spread | Turn cap | Turns | Tardigrades fielded/g |
+|---|---|---|---|---|---|---|---|---|
+| Today: 0/1 ×2 (2E), 1/1 ×2 (1E), Bulwark 1/3, Wild | 47 | 47 | 57 | 47 | 9.9 | 17% | 29.0 | 8.5 |
+| Bulwark 1/2 | 48 | 48 | 55 | 48 | 7.3 | 18% | 29.2 | 8.4 |
+| Only Bulwark 1/2 + Wild (L2 1/1) have stats | 50 | 46 | 53 | 48 | 6.9 | 14% | 27.6 | 7.3 |
+| Only Bulwark 1/2 has stats | 54 | 49 | 49 | 47 | 6.6 | 13% | 26.7 | 6.3 |
+| Only Bulwark 1/3 has stats | 53 | 53 | 48 | 45 | 8.6 | 12% | 26.8 | 6.5 |
+
+200-game-only: 2-energy faces losing stats (Bulwark 1/3) gave 47/49/57/44,
+14% cap - about today's. Dropping the 1-energy faces' stats or putting stats
+on every face (incl. Wild) broke Owl's spin (it needs a level 2 face and a
+pure energy face) - those runs errored and were discarded.
+
+Reading: fewer fieldable faces mostly takes Owl down (its spin has fewer
+Tardigrade bodies to work on) and cuts stalls; every 1/2-Bulwark layout
+lands at a ~7 point spread. The 200-game pass had "Bulwark only, 1/2" at
+3.9 - that was noise. Choice between the last three rows is a feel call
+(the Wild-with-stats row keeps a field-or-spend decision on the Wild).
