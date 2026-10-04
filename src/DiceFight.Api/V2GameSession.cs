@@ -13,6 +13,17 @@ public sealed class V2GameSession
     public required GameState State { get; init; }
     public required IReadOnlyList<Seat> Seats { get; init; }
 
+    // Every roll, draw and random pick in this game comes from one seeded
+    // generator (2026-10-04, game recording) - so the same actions on the
+    // same seed rebuild the same game (Recording/GameReplayer.cs).
+    public required int Seed { get; init; }
+    public Random Rng => _rng ??= new Random(Seed);
+    private Random? _rng;
+
+    // The game as played so far, when recording is on (Recording/GameRecorder.cs).
+    public Recording.GameRecord? Record { get; set; }
+    public string? RecordedActivePlayerId { get; set; }
+
     private int _version;
     public int Version => Volatile.Read(ref _version);
     public void MarkChanged() => Interlocked.Increment(ref _version);

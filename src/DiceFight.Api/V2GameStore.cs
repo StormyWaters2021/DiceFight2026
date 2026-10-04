@@ -7,13 +7,19 @@ namespace DiceFight.Api;
 // (not a shared generic store) per the mellow-sparking-comet plan's own
 // reasoning: "keeps v1 untouched" matters more here than avoiding a
 // little duplication. In-memory only, same caveat as GameStore.
-public sealed class V2GameStore
+//
+// `recorder` (2026-10-04): when game recording is configured, every game
+// started here gets a GameRecord (Recording/GameRecorder.cs).
+public sealed class V2GameStore(Recording.GameRecorder? recorder = null)
 {
     private readonly ConcurrentDictionary<string, V2GameSession> _games = new();
 
-    public V2GameSession Create(GameState state)
+    public Recording.GameRecorder? Recorder => recorder;
+
+    // `id`/`seed` are given only when replaying a recorded game.
+    public V2GameSession Create(GameState state, string? id = null, int? seed = null)
     {
-        var id = Guid.NewGuid().ToString("N")[..8];
+        id ??= Guid.NewGuid().ToString("N")[..8];
         var session = new V2GameSession
         {
             Id = id,
@@ -23,8 +29,10 @@ public sealed class V2GameStore
                 new Seat(state.PlayerOne.Id, GameSession.NewToken()),
                 new Seat(state.PlayerTwo.Id, GameSession.NewToken()),
             ],
+            Seed = seed ?? Random.Shared.Next(),
         };
         _games[id] = session;
+        recorder?.Start(session);
         return session;
     }
 
@@ -62,8 +70,9 @@ public sealed class V2GameStore
     {
         if (!_lobbies.TryRemove(lobby.Id, out _))
             throw new InvalidOperationException("That game has already started.");
-        var session = new V2GameSession { Id = lobby.Id, State = state, Seats = lobby.Seats };
+        var session = new V2GameSession { Id = lobby.Id, State = state, Seats = lobby.Seats, Seed = Random.Shared.Next() };
         _games[lobby.Id] = session;
+        recorder?.Start(session);
         return session;
     }
 }

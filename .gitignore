@@ -3,3 +3,6 @@ obj/
 *.user
 .vs/
 __pycache__/
+
+# Local Dice Kingdom game records (src/DiceFight.Api/Recording)
+game-records/

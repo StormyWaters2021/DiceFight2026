@@ -4318,3 +4318,12 @@ discount (600 games/matchup):
 Most even spread so far. Matchups: Arm-Wolf 58/42, Arm-Owl 48/52, Arm-Eagle
 58/42, Wolf-Owl 48/52, Wolf-Eagle 54/46, Owl-Eagle 41/59. Next: real human
 games.
+
+## 2026-10-04 - Game recording (for tuning on human play)
+
+User call: record human games, cheaply, to tune teams and teach the bot;
+Cloud Storage chosen (one JSON file per game). Built and tested locally,
+waiting on the one-time Cloud Console setup - see v3/GAME_RECORDS.md.
+Every game now draws all its randomness from one seeded generator, so a
+recorded game replays exactly; tools/GameRecords replays records and
+compares every human move with the bot's choice in the same spot.

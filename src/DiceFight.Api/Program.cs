@@ -18,7 +18,13 @@ builder.Services.AddControllers().AddJsonOptions(options =>
     options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
 });
 builder.Services.AddSingleton<GameStore>();
-builder.Services.AddSingleton<V2GameStore>();
+
+// Game recording (2026-10-04) - on when "GameRecords" names a bucket or a
+// local folder (Recording/GameRecordSinks.cs); V2GameStore runs without it.
+// Read when the app starts, not here, so test/host overrides apply.
+builder.Services.AddSingleton(sp => DiceFight.Api.Recording.GameRecorderSetup.FromConfig(sp));
+builder.Services.AddHostedService(sp => sp.GetRequiredService<DiceFight.Api.Recording.GameRecorderSetup>());
+builder.Services.AddSingleton(sp => new V2GameStore(sp.GetRequiredService<DiceFight.Api.Recording.GameRecorderSetup>().Recorder));
 
 // No-ops (logs a warning, doesn't start a gateway connection) unless
 // DiscordBot:Token is configured - see DiscordBotService's own remarks.
@@ -97,3 +103,6 @@ app.MapControllers();
 app.MapFallbackToFile("index.html");
 
 app.Run();
+
+// For the in-process HTTP tests (WebApplicationFactory<Program>).
+public partial class Program;

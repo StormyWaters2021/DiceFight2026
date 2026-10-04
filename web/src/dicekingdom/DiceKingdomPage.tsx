@@ -726,7 +726,7 @@ export function DiceKingdomPage() {
     // auto-passing its Attack window here would take away its best play,
     // pumping an attacker nobody blocked.
     if (vsComputer && owner === game.playerTwo.id) return;
-    const client = apiAs(gameId, owner);
+    const client = apiAs(gameId, owner, true); // automatic moves - marked as such in the game record
     if (game.currentStepId === "assign-blockers" && assignBlockersAttackerCount === 0) {
       runQuiet(() => client.declareBlockers(gameId, []));
     } else if (

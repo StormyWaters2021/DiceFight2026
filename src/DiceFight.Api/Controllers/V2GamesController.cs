@@ -2,7 +2,9 @@ using DiceFight.V2;
 using DiceFight.V2.Bot;
 using DiceFight.V2.Data;
 using DiceFight.V2.Model;
+using DiceFight.Api.Recording;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Filters;
 
 namespace DiceFight.Api.Controllers;
 
@@ -20,8 +22,12 @@ namespace DiceFight.Api.Controllers;
 // mechanisms, so there is nothing for them to drive yet.
 [ApiController]
 [Route("api/v2/games")]
-public sealed class V2GamesController(V2GameStore store) : ControllerBase
+public sealed class V2GamesController(V2GameStore store) : ControllerBase, IActionFilter
 {
+    // The game's own seeded generator (V2GameSession.Rng) - set by
+    // RequireSeat, which every action calls first.
+    private Random Rng => _session?.Rng ?? throw new InvalidOperationException("No game session.");
+
     [HttpPost]
     public ActionResult<V2CreatedGameDto> Create([FromBody] CreateV2GameRequest request)
     {
@@ -140,7 +146,7 @@ public sealed class V2GamesController(V2GameStore store) : ControllerBase
     {
         var state = RequireTurn(gameId, V2Actor.Active);
         var queue = new AbilityQueue();
-        TurnEngine.ClearAndDraw(state, queue, new Random());
+        TurnEngine.ClearAndDraw(state, queue, Rng);
         Drain(state, queue);
         return Ok(Result(gameId, state));
     }
@@ -150,7 +156,7 @@ public sealed class V2GamesController(V2GameStore store) : ControllerBase
     {
         var state = RequireTurn(gameId, V2Actor.Active);
         var queue = new AbilityQueue();
-        TurnEngine.Roll(state, queue, new DiceFight.V2.RandomDiceRoller(new Random()));
+        TurnEngine.Roll(state, queue, new DiceFight.V2.RandomDiceRoller(Rng));
         Drain(state, queue);
         return Ok(Result(gameId, state));
     }
@@ -160,7 +166,7 @@ public sealed class V2GamesController(V2GameStore store) : ControllerBase
     {
         var state = RequireTurn(gameId, V2Actor.Active);
         var queue = new AbilityQueue();
-        TurnEngine.RerollOwn(state, queue, new DiceFight.V2.RandomDiceRoller(new Random()), request.DieIds);
+        TurnEngine.RerollOwn(state, queue, new DiceFight.V2.RandomDiceRoller(Rng), request.DieIds);
         Drain(state, queue);
         return Ok(Result(gameId, state));
     }
@@ -282,7 +288,7 @@ public sealed class V2GamesController(V2GameStore store) : ControllerBase
         var state = RequireTurn(gameId, V2Actor.Active);
         Priority.RequireHolder(state, state.ActivePlayerId);
         var queue = new AbilityQueue();
-        TurnEngine.UseForesight(state, queue, new DiceFight.V2.RandomDiceRoller(new Random()), state.ActivePlayerId, request.DieId);
+        TurnEngine.UseForesight(state, queue, new DiceFight.V2.RandomDiceRoller(Rng), state.ActivePlayerId, request.DieId);
         Drain(state, queue);
         return Ok(Result(gameId, state));
     }
@@ -369,6 +375,47 @@ public sealed class V2GamesController(V2GameStore store) : ControllerBase
         return assignment;
     }
 
+    // --- Game recording (Recording/GameRecorder.cs, 2026-10-04). ASP.NET
+    // calls these around every action of a controller that implements
+    // IActionFilter. Every game-changing POST is recorded - rejected ones
+    // too, with their error - and a GET for the computer's move marks that
+    // seat as the bot. (Tests that call action methods directly skip this.)
+
+    private string? _recordAction;
+    private object? _recordRequest;
+    private string? _recordStep;
+
+    [NonAction]
+    public void OnActionExecuting(ActionExecutingContext context)
+    {
+        if (store.Recorder is null || !context.ActionArguments.TryGetValue("gameId", out var id) || id is not string gameId) return;
+        var action = (context.ActionDescriptor as Microsoft.AspNetCore.Mvc.Controllers.ControllerActionDescriptor)?.ActionName;
+        if (action is null or nameof(Join) or nameof(Lobby)) return;
+        if (!HttpMethods.IsPost(Request.Method) && action != nameof(BotDecision)) return;
+        _recordAction = action;
+        _recordRequest = context.ActionArguments.Values.FirstOrDefault(v => v is not string);
+        _recordStep = store.HasGame(gameId) ? store.GetSession(gameId).State.CurrentStepId : null;
+    }
+
+    [NonAction]
+    public void OnActionExecuted(ActionExecutedContext context)
+    {
+        if (_recordAction is null || _recordStep is null || store.Recorder is not { } recorder) return;
+        var gameId = (string)context.RouteData.Values["gameId"]!;
+        var session = _session ?? store.GetSession(gameId);
+        var playerId = _seatPlayerId ?? session.PlayerIdFor(Request.Headers[SeatTokenHeader].ToString());
+        if (playerId is null) return; // no valid seat - nothing happened
+        if (_recordAction == nameof(BotDecision))
+        {
+            GameRecorder.MarkBot(session, playerId);
+            return;
+        }
+        // A seat or turn refusal changed nothing and says nothing about play.
+        if (context.Exception is SeatRequiredException or NotYourTurnException) return;
+        recorder.Record(session, playerId, _recordAction, _recordRequest, _recordStep, context.Exception?.Message,
+            auto: Request.Headers["X-Auto-Move"] == "1");
+    }
+
     private enum V2Actor { Active, Inactive }
 
     private const string SeatTokenHeader = "X-Seat-Token";
@@ -424,8 +471,8 @@ public sealed class V2GamesController(V2GameStore store) : ControllerBase
     // remarks) whenever a PendingChoice interrupts it mid-drain.
     private void Drain(GameState state, AbilityQueue queue)
     {
-        var roller = new DiceFight.V2.RandomDiceRoller(new Random());
-        EffectInterpreter.DrainQueue(state, queue, roller, new Random());
+        var roller = new DiceFight.V2.RandomDiceRoller(Rng);
+        EffectInterpreter.DrainQueue(state, queue, roller, Rng);
         if (_session is not null) _session.PendingQueue = state.PendingChoice is not null ? queue : null;
     }
 }

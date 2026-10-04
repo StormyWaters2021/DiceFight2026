@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    A dev-tool console app, not part of the shipped game: reads recorded
+    Dice Kingdom games (src/DiceFight.Api/Recording - a local folder, or
+    files copied down from the Cloud Storage bucket), checks each one
+    replays exactly, and compares every move to what the bot would have
+    done in the same spot. Run from this folder:
+      dotnet run -c Release (then the folder or .json files, and
+      optionally the disagreements flag - see Program.cs)
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\..\src\DiceFight.Api\DiceFight.Api.csproj" />
+  </ItemGroup>
+
+</Project>
