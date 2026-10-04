@@ -26,7 +26,16 @@ public sealed class V2GameSession
 
     private int _version;
     public int Version => Volatile.Read(ref _version);
-    public void MarkChanged() => Interlocked.Increment(ref _version);
+    public void MarkChanged()
+    {
+        Interlocked.Increment(ref _version);
+        LastMoveUtc = DateTime.UtcNow;
+    }
+
+    // When a move last changed this game (creation counts) - what
+    // V2GameStore.ForgetIdle goes by. Polling doesn't count: an open tab
+    // polls forever.
+    public DateTime LastMoveUtc { get; private set; } = DateTime.UtcNow;
 
     // Held here, not on GameState (v2 has no such field - deliberately,
     // per its own EffectInterpreter remarks: "no rule has ever been

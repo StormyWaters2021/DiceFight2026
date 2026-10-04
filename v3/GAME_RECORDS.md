@@ -103,6 +103,25 @@ A replay can drift if the engine's rules changed after the game was played.
 The checksums catch that, and the reader reports the first move where it
 happened.
 
+## Abandoned games
+
+A game someone walks away from keeps its file, with `result.gameOver` false
+(the reader shows it as "unfinished"). Leave these out of win rates, or
+count them separately; every move in them is still a real decision.
+
+Live games are dropped from server memory once idle (`V2GameStore.ForgetIdle`,
+checked every 30 minutes; config section `GameExpiry`):
+
+| What | Dropped after |
+|---|---|
+| Unfinished game, no move made | 24 hours (`UnfinishedHours`) |
+| Finished game | 2 hours (`FinishedHours`) |
+| Invite link never joined | 24 hours (`LobbyHours`) |
+
+An unfinished game's record is saved once more as it's dropped, which also
+keeps the moves of the turn it was abandoned in. Someone opening a dropped
+game within a week is told it has expired.
+
 ## Known limits
 
 - **Games still live only in server memory while being played.** A

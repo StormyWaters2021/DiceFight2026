@@ -39,7 +39,44 @@ public sealed class V2GameStore(Recording.GameRecorder? recorder = null)
     public V2GameSession GetSession(string gameId) =>
         _games.TryGetValue(gameId, out var session)
             ? session
-            : throw new KeyNotFoundException($"No V2 game with id '{gameId}'.");
+            : _forgotten.ContainsKey(gameId)
+                ? throw new KeyNotFoundException("This game has expired - nobody moved for a long while. Start a new one from the menu.")
+                : throw new KeyNotFoundException($"No V2 game with id '{gameId}'.");
+
+    // --- Forgetting idle games (2026-10-04). Games and open invites only
+    // live in memory, so ones nobody will come back to are dropped by
+    // GameSweeper: an unfinished game with no move for a day, a finished
+    // one a couple of hours after it ended (time to look at the final
+    // board), an invite never joined after a day. An unfinished game's
+    // record is saved one last time first, which also keeps the moves of
+    // the turn it was abandoned in. Forgotten ids are remembered for a
+    // week so a late visitor hears "expired", not "no such game".
+
+    private readonly ConcurrentDictionary<string, DateTime> _forgotten = new();
+
+    public int ForgetIdle(DateTime nowUtc, GameExpiryOptions expiry)
+    {
+        var forgotten = 0;
+        foreach (var (id, session) in _games)
+        {
+            var finished = session.State.IsGameOver;
+            var idle = nowUtc - session.LastMoveUtc;
+            if (idle < TimeSpan.FromHours(finished ? expiry.FinishedHours : expiry.UnfinishedHours)) continue;
+            if (!finished) recorder?.Save(session);
+            if (_games.TryRemove(id, out _)) { _forgotten[id] = nowUtc; forgotten++; }
+        }
+        foreach (var (id, lobby) in _lobbies)
+            if (nowUtc - lobby.CreatedUtc >= TimeSpan.FromHours(expiry.LobbyHours) && _lobbies.TryRemove(id, out _))
+            {
+                _forgotten[id] = nowUtc;
+                forgotten++;
+            }
+        foreach (var (id, at) in _forgotten)
+            if (nowUtc - at > TimeSpan.FromDays(7)) _forgotten.TryRemove(id, out _);
+        return forgotten;
+    }
+
+    public int GameCount => _games.Count;
 
     // --- Open games (2026-09-30): the host picks only their own Champion
     // and gets an invite link straight away; the game itself is built when
@@ -80,6 +117,34 @@ public sealed class V2GameStore(Recording.GameRecorder? recorder = null)
 public sealed class V2Lobby
 {
     public required string Id { get; init; }
+    public DateTime CreatedUtc { get; } = DateTime.UtcNow;
     public required string HostChampionId { get; init; }
     public required IReadOnlyList<Seat> Seats { get; init; }
+}
+
+// Config section "GameExpiry" - how long idle games stay in memory.
+public sealed class GameExpiryOptions
+{
+    public double UnfinishedHours { get; set; } = 24;
+    public double FinishedHours { get; set; } = 2;
+    public double LobbyHours { get; set; } = 24;
+}
+
+// Runs V2GameStore.ForgetIdle every half hour.
+public sealed class GameSweeper(V2GameStore store, Microsoft.Extensions.Options.IOptions<GameExpiryOptions> expiry, ILogger<GameSweeper> logger)
+    : Microsoft.Extensions.Hosting.BackgroundService
+{
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(30));
+        try
+        {
+            while (await timer.WaitForNextTickAsync(stoppingToken))
+            {
+                var forgotten = store.ForgetIdle(DateTime.UtcNow, expiry.Value);
+                if (forgotten > 0) logger.LogInformation("Forgot {Count} idle games/invites; {Live} games still in memory.", forgotten, store.GameCount);
+            }
+        }
+        catch (OperationCanceledException) { }
+    }
 }

@@ -26,6 +26,10 @@ builder.Services.AddSingleton(sp => DiceFight.Api.Recording.GameRecorderSetup.Fr
 builder.Services.AddHostedService(sp => sp.GetRequiredService<DiceFight.Api.Recording.GameRecorderSetup>());
 builder.Services.AddSingleton(sp => new V2GameStore(sp.GetRequiredService<DiceFight.Api.Recording.GameRecorderSetup>().Recorder));
 
+// Idle games are dropped from memory (V2GameStore.ForgetIdle).
+builder.Services.Configure<GameExpiryOptions>(builder.Configuration.GetSection("GameExpiry"));
+builder.Services.AddHostedService<GameSweeper>();
+
 // No-ops (logs a warning, doesn't start a gateway connection) unless
 // DiscordBot:Token is configured - see DiscordBotService's own remarks.
 // The Discord gateway connection this opens is long-lived, so whatever
