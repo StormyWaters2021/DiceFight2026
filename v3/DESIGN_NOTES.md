@@ -4094,3 +4094,34 @@ blocked and the active player "couldn't act" (`activeCouldAct`). It
 didn't know about Champion powers, so Wolf's best play - pumping an
 unblocked attacker - got skipped on the web. Fixed, and verified that the
 window now waits with the button showing.
+
+### Where Wolf's wins come from; shield vs Overcrush (2026-10-04)
+
+User questions:
+- Does Wolf win through the "2+ attackers in a lane get Overcrush" rule,
+  or by going wide for chip damage?
+- Does Armadillo's shield correctly stop Overcrush (it should: Overcrush
+  only carries through once every blocker is gone)?
+
+The simulator now breaks combat damage down from the match log (300
+games per matchup, current powers):
+
+| | Unblocked / game | Overcrush carry / game | Lanes with 2+ attackers / game |
+|---|---|---|---|
+| Wolf | 17.5 | 0.04 | 0.06 |
+| Armadillo | 7.5 | 1.5 | 1.6 |
+| Owl | 14.1 | 1.1 | 0.8 |
+| Eagle | 16.7 | 0.3 | 0.3 |
+
+**Wolf doesn't use the lane rule at all.** It's chip damage: 1.8
+attackers per attack, almost all unblocked. Its pump lands on an
+unblocked attacker 4.6 times a game (0.1 on a blocked one), about 4.6
+face damage, roughly a quarter of its total. The defending bot doesn't
+account for a pump arriving after it declines to block. Armadillo is the
+one that stacks lanes.
+
+**The shield does stop Overcrush**, both kinds (keyword and 2+
+attackers): a shielded blocker takes no combat damage and stays in the
+lane, so carry-through never triggers. Pinned by two tests in
+`ChampionPowersTests` - the unshielded case deals the expected 4, the
+shielded one 0.

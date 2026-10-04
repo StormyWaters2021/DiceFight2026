@@ -162,6 +162,7 @@ static (string WinnerChampionIdOrSentinel, int Turns) PlayOneGame(
         Stats.Record(state, owner, decision, lifeBefore);
     }
 
+    Stats.CombatBreakdown(state);
     if (dump) DumpLog(state, championOne, championTwo);
 
     var p1Dead = state.PlayerOne.Life <= 0;
@@ -283,6 +284,9 @@ static class Stats
     static readonly Dictionary<(string Champ, string Src), int> DamageDealt = [];
     static readonly Dictionary<(string Champ, string What), int> Uses = [];
     static readonly Dictionary<string, int> Games = [], Wins = [], Rerolls = [];
+    // What combat damage is made of (2026-10-04, user question: does Wolf win
+    // through the 2+ attackers = Overcrush lane rule, or just chip damage?).
+    static readonly Dictionary<(string Champ, string What), int> Combat = [];
     static int _seatOneWins, _decided, _capHits, _deckOutDeaths;
 
     static string C(string pid) => _champ[pid == "p1" ? 0 : 1];
@@ -291,7 +295,7 @@ static class Stats
     public static void Reset()
     {
         Buys.Clear(); Fields.Clear(); GamesFielded.Clear(); WinsWhenFielded.Clear(); DamageDealt.Clear();
-        Uses.Clear(); Games.Clear(); Wins.Clear(); Rerolls.Clear(); NamedCards.Clear(); CapWins.Clear();
+        Uses.Clear(); Combat.Clear(); Games.Clear(); Wins.Clear(); Rerolls.Clear(); NamedCards.Clear(); CapWins.Clear();
         _seatOneWins = _decided = _capHits = _deckOutDeaths = 0;
     }
 
@@ -303,8 +307,35 @@ static class Stats
     public static void Named(GameState s, string pid, string dieId) =>
         Inc(NamedCards, (C(pid), s.CardCatalog[s.Dice.First(d => d.Id == dieId).CardId!].Name));
 
+    // Unblocked hits and Overcrush carry-through, read off the match log
+    // (each line is logged by the attacking player).
+    public static void CombatBreakdown(GameState s)
+    {
+        foreach (var e in s.Log)
+        {
+            if (e.PlayerId is not { } pid) continue;
+            var hit = System.Text.RegularExpressions.Regex.Match(e.Text, @" hits .* directly for (\d+)\.$");
+            if (hit.Success) Inc(Combat, (C(pid), "unblocked hits"), int.Parse(hit.Groups[1].Value));
+            var over = System.Text.RegularExpressions.Regex.Match(e.Text, @"^Overcrush: (\d+) excess");
+            if (over.Success) Inc(Combat, (C(pid), "Overcrush carry-through"), int.Parse(over.Groups[1].Value));
+        }
+    }
+
     public static void Record(GameState s, string pid, BotDecision d, (int P1, int P2) lifeBefore)
     {
+        if (d.Kind == BotActionKind.DeclareAttackers && d.AttackerLanes.Count > 0)
+        {
+            Inc(Combat, (C(pid), "#attack declarations"));
+            Inc(Combat, (C(pid), "#attackers"), d.AttackerLanes.Count);
+            Inc(Combat, (C(pid), "#lanes with 2+ attackers (auto-Overcrush)"), d.AttackerLanes.GroupBy(kv => kv.Value).Count(g => g.Count() >= 2));
+        }
+        if (d.Kind == BotActionKind.UseChampionPower && ChampionPowers.Of(s, pid)?.PassiveKind == ChampionPassiveKind.PumpOneAttack)
+        {
+            var blocks = s.DeclaredBlocks;
+            var mine = s.DiceIn(pid, Zone.AttackZone).ToList();
+            var blockedLanes = mine.Where(a => blocks?.BlockersOf(a.Id).Count > 0).Select(a => a.Lane).ToHashSet();
+            Inc(Combat, (C(pid), mine.Any(a => !blockedLanes.Contains(a.Lane)) ? "#pump on an unblocked attacker" : "#pump on a blocked attacker"));
+        }
         string Name(string? dieId) => s.Dice.First(x => x.Id == dieId) is { CardId: { } c } ? s.CardCatalog[c].Name : "Tardigrade";
         switch (d.Kind)
         {
@@ -376,6 +407,13 @@ static class Stats
             if (named.Count > 0)
                 Console.WriteLine($"  lockout named ({(double)named.Sum(k => k.Value) / games:F2}/game): " +
                     string.Join(", ", named.Take(6).Select(k => $"{k.Key.Card} {k.Value}")));
+            var decl = Math.Max(1, Combat.GetValueOrDefault((champ, "#attack declarations")));
+            Console.WriteLine($"  combat: unblocked {(double)Combat.GetValueOrDefault((champ, "unblocked hits")) / games:F2}/game, Overcrush carry-through {(double)Combat.GetValueOrDefault((champ, "Overcrush carry-through")) / games:F2}/game; " +
+                $"{(double)Combat.GetValueOrDefault((champ, "#attack declarations")) / games:F1} attacks/game, {(double)Combat.GetValueOrDefault((champ, "#attackers")) / decl:F1} attackers each, " +
+                $"lanes with 2+ attackers {(double)Combat.GetValueOrDefault((champ, "#lanes with 2+ attackers (auto-Overcrush)")) / games:F2}/game" +
+                (Combat.ContainsKey((champ, "#pump on an unblocked attacker")) || Combat.ContainsKey((champ, "#pump on a blocked attacker"))
+                    ? $"; pumps: {(double)Combat.GetValueOrDefault((champ, "#pump on an unblocked attacker")) / games:F2} unblocked, {(double)Combat.GetValueOrDefault((champ, "#pump on a blocked attacker")) / games:F2} blocked /game"
+                    : ""));
             foreach (var kv in Uses.Where(k => k.Key.Champ == champ).OrderByDescending(k => k.Value))
                 Console.WriteLine($"  {kv.Key.What}: {(double)kv.Value / games:F2}/game");
             Console.WriteLine($"  {"card",-18}{"buys/g",8}{"fields/g",10}{"%games fielded",16}{"win% when fielded",20}");

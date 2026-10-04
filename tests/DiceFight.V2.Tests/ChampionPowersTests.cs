@@ -178,4 +178,62 @@ public class ChampionPowersTests
         Assert.True(decision.Free);
         Assert.Equal(phoenix.Id, decision.DieId);
     }
+
+    // User question (2026-10-04): Overcrush only carries through once EVERY
+    // blocker in the lane is gone, so a shielded blocker - which takes no
+    // combat damage and stays - must stop it. Both kinds of Overcrush.
+    [Fact]
+    public void A_Shielded_Blocker_Stops_Keyword_Overcrush()
+    {
+        var state = NewGame("Wolf", "Armadillo");
+        var queue = new AbilityQueue();
+        var bear = AddDie(state, DiceKingdomConfig.GrizzlyBear.Id, "p1", Zone.FieldZone, level: 3); // Overcrush, 6 ATK
+        var crab = AddDie(state, DiceKingdomConfig.HermitCrab.Id, "p2", Zone.FieldZone); // 2 DEF
+        Fight(state, queue, bear, crab);
+        Priority.Pass(state, queue, "p1");
+        ChampionPowers.Use(state, queue, "p2");
+        Drain(state, queue);
+        Priority.AfterGlobal(state, "p2");
+        var life = state.PlayerTwo.Life;
+
+        Priority.Pass(state, queue, "p1"); // combat damage
+        Drain(state, queue);
+
+        Assert.Equal(Zone.FieldZone, crab.Zone); // shielded: still there...
+        Assert.Equal(life, state.PlayerTwo.Life); // ...so no Overcrush carry-through (6 - 2 = 4 without the shield)
+    }
+
+    [Fact]
+    public void A_Shielded_Blocker_Stops_A_Two_Attacker_Lanes_Overcrush_But_An_Unshielded_One_Does_Not()
+    {
+        foreach (var shield in new[] { true, false })
+        {
+            var state = NewGame("Wolf", "Armadillo");
+            var queue = new AbilityQueue();
+            var a1 = AddDie(state, DiceKingdomConfig.Hippopotamus.Id, "p1", Zone.FieldZone, level: 1, tag: "a"); // 3 ATK
+            var a2 = AddDie(state, DiceKingdomConfig.Hippopotamus.Id, "p1", Zone.FieldZone, level: 1, tag: "b"); // 3 ATK
+            var crab = AddDie(state, DiceKingdomConfig.HermitCrab.Id, "p2", Zone.FieldZone); // 2 DEF
+            state.MoveToStep(StepIds.SelectAttackers);
+            CombatEngine.DeclareAttackers(state, queue, new Dictionary<string, int> { [a1.Id] = 0, [a2.Id] = 0 }); // one lane: auto-Overcrush
+            var assignment = new CombatAssignment();
+            assignment.AssignBlocker(a1.Id, crab.Id);
+            CombatEngine.DeclareBlockers(state, queue, assignment, [crab.Id]);
+            Drain(state, queue);
+            Priority.Sync(state);
+            Priority.Pass(state, queue, "p1");
+            if (shield)
+            {
+                ChampionPowers.Use(state, queue, "p2");
+                Drain(state, queue);
+                Priority.AfterGlobal(state, "p2");
+                Priority.Pass(state, queue, "p1");
+            }
+            else Priority.Pass(state, queue, "p2");
+            Drain(state, queue);
+
+            // 6 lane ATK into 2 DEF: 4 carries through only when the blocker is gone.
+            Assert.Equal(shield ? 20 : 16, state.PlayerTwo.Life);
+            Assert.Equal(shield ? Zone.FieldZone : Zone.PrepArea, crab.Zone);
+        }
+    }
 }
