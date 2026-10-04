@@ -4223,3 +4223,22 @@ Tardigrade bodies to work on) and cuts stalls; every 1/2-Bulwark layout
 lands at a ~7 point spread. The 200-game pass had "Bulwark only, 1/2" at
 3.9 - that was noise. Choice between the last three rows is a feel call
 (the Wild-with-stats row keeps a field-or-spend decision on the Wild).
+
+**Follow-up: two Wilds.** User layout - Bulwark 1/2, two Wilds (L2 1/1),
+two single, one double (`2,1,1,0:3/1/2,W:2/1/1,W:2/1/1`). 600 games/matchup:
+
+| Layout | Wolf | Arm | Owl | Eagle | Spread | Turn cap |
+|---|---|---|---|---|---|---|
+| User's two-Wild layout (6 pips/die) | 60 | 28 | 57 | 53 | 32.0 | 24% |
+| ...second Wild without stats | 61 | 29 | 58 | 49 | 32.4 | 22% |
+| ...two doubles + one single instead (7 pips/die, as today) | 49 | 46 | 58 | 45 | 13.0 | 18% |
+| Two-Wild layout, every seat on the Default persona | 67 | 13 | 58 | 62 | 53.7 | 18% |
+| Bulwark + Wild layout, Default persona (control) | 62 | 23 | 53 | 60 | 39.3 | 9% |
+
+Armadillo's collapse is the pip count, not the Wilds or the extra body:
+the layout has 6 energy per die against today's 7, and Armadillo - a ramp
+team whose bot races to Rhinoceros (BotPersona.Armadillo) - is the team
+most starved by it. Even with 7 pips back, two Wilds with stats keep Owl
+high (more bodies to spin) and stall more than the one-Wild layout.
+Armadillo is weak under the Default persona in every layout, so its
+numbers lean on the Rhinoceros rush.
