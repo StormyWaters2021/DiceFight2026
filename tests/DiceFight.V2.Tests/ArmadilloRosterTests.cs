@@ -44,8 +44,8 @@ public class ArmadilloRosterTests
     public void Main_End_Sweeps_Stats_Only_Faces_But_Keeps_Any_Face_With_Energy()
     {
         var state = NewGame();
-        var hybrid = Place(state, "p1", d => d.CardId is null, Zone.ReservePool, 0);  // Tardigrade L1: 0/1 + 2 Shell
-        var bulwark = Place(state, "p1", d => d.CardId is null, Zone.ReservePool, 4); // Tardigrade Bulwark: 1/3, no energy
+        var hybrid = Place(state, "p1", d => d.CardId is null, Zone.ReservePool, 3);  // Tardigrade L2: 1/1 + a Wild
+        var bulwark = Place(state, "p1", d => d.CardId is null, Zone.ReservePool, 4); // Tardigrade Bulwark: 1/2, no energy
         var crab = Place(state, "p1", d => d.CardId == DiceKingdomConfig.HermitCrab.Id, Zone.ReservePool, 0); // stats only
 
         TurnEngine.EnterAttackStep(state, new AbilityQueue());

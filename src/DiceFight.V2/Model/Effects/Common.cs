@@ -46,6 +46,11 @@ public enum StatKind
     FieldingCost,
     Counter,
     SymbolCount,
+    // How many of its die's levels sit below / above the one it shows
+    // (2026-10-04): "can this die spin down / up at all". Dice no longer
+    // all run 1-3 - a Tardigrade's levels are 2 and 3.
+    LevelsBelow,
+    LevelsAbove,
 }
 
 // ONE threshold (V2_VOCABULARY_HISTORY.md Part 1 - "ONE threshold" is a closed-

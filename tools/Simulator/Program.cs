@@ -33,12 +33,12 @@ using DiceFight.V2.Model.Effects;
 //                    its Champion's (BotPersona.ForChampion)
 //   SIM_NO_GLOBALS=id,id  strip the Global abilities off these card ids
 //   SIM_BULWARK_DEF=N  what-if: the Tardigrade's Bulwark face (L3, no
-//                    energy - 1/3 live) gets N DEF instead
+//                    energy - 1/2 live) gets N DEF instead
 //                    (e.g. DK-ACT-03 = Resurrection) - a what-if switch
 //   SIM_TARDIGRADE=spec  what-if: rebuild every Tardigrade die from six
 //                    comma-separated faces, each `energy[:level/atk/def]`
-//                    where energy is 2, 1, 0 or W (one Wild). Today's die:
-//                    2:1/0/1,2:1/0/1,1:2/1/1,1:2/1/1,0:3/1/3,W
+//                    where energy is 2, 1, 0 or W (one Wild). Today's die
+//                    (2026-10-04): 2,2,1,W:2/1/1,0:3/1/2,W:2/1/1
 //
 // Known limitation: two walled-off boards can stall (blocked damage
 // clears every Clean Up); games that hit MaxTurns are decided on a life

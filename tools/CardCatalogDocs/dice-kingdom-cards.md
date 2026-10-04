@@ -10,10 +10,10 @@ _Power: Once per your turn: one of your creatures gets +3 ATK this turn_
 
 | Face | Count |
 |---|:-:|
-| L1: 0&#9889; / 0A / 1D + 2 Claw | 2 |
-| L2: 0&#9889; / 1A / 1D + 1 Claw | 2 |
-| L3: 0&#9889; / 1A / 3D | 1 |
-| 1 Wild | 1 |
+| 2 Claw | 2 |
+| 1 Claw | 1 |
+| L2: 0&#9889; / 1A / 1D + 1 Wild | 2 |
+| L3: 0&#9889; / 1A / 2D | 1 |
 
 ### Characters
 
@@ -36,10 +36,10 @@ _Power: Once per turn, after blocks: prevent all combat damage to one of your cr
 
 | Face | Count |
 |---|:-:|
-| L1: 0&#9889; / 0A / 1D + 2 Shell | 2 |
-| L2: 0&#9889; / 1A / 1D + 1 Shell | 2 |
-| L3: 0&#9889; / 1A / 3D | 1 |
-| 1 Wild | 1 |
+| 2 Shell | 2 |
+| 1 Shell | 1 |
+| L2: 0&#9889; / 1A / 1D + 1 Wild | 2 |
+| L3: 0&#9889; / 1A / 2D | 1 |
 
 ### Characters
 
@@ -62,10 +62,10 @@ _Power: Once per your turn: field one creature without paying its fielding cost_
 
 | Face | Count |
 |---|:-:|
-| L1: 0&#9889; / 0A / 1D + 2 Wing | 2 |
-| L2: 0&#9889; / 1A / 1D + 1 Wing | 2 |
-| L3: 0&#9889; / 1A / 3D | 1 |
-| 1 Wild | 1 |
+| 2 Wing | 2 |
+| 1 Wing | 1 |
+| L2: 0&#9889; / 1A / 1D + 1 Wild | 2 |
+| L3: 0&#9889; / 1A / 2D | 1 |
 
 ### Characters
 
@@ -88,10 +88,10 @@ _Power: Once per your turn: spin one creature a level - yours up, theirs down_
 
 | Face | Count |
 |---|:-:|
-| L1: 0&#9889; / 0A / 1D + 2 Eye | 2 |
-| L2: 0&#9889; / 1A / 1D + 1 Eye | 2 |
-| L3: 0&#9889; / 1A / 3D | 1 |
-| 1 Wild | 1 |
+| 2 Eye | 2 |
+| 1 Eye | 1 |
+| L2: 0&#9889; / 1A / 1D + 1 Wild | 2 |
+| L3: 0&#9889; / 1A / 2D | 1 |
 
 ### Characters
 

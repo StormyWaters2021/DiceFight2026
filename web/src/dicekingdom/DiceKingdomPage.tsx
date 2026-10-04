@@ -58,16 +58,14 @@ const ROLLED_ZONES = new Set(["ReservePool", "PrepArea", "FieldZone", "AttackZon
 // on when they left play (see groupDice's own comment).
 const ICON_ONLY_ZONES = new Set(["UsedPile", "OutOfPlay"]);
 
-// v3's locked Tardigrade spec (v3/DESIGN_NOTES.md), for DieTile's own
-// info popover - a Tardigrade has no CardDef/`levels` of its own to
-// read this from the way a Character does. Matches TardigradeDie in
-// DiceKingdomConfig.cs's three stat levels (each printed on 2 of its
-// 6 faces, except L3/"Bulwark" on just 1 - the 6th face, Surge, is pure
-// energy and called out in its own sentence instead of a 4th row here).
-const TARDIGRADE_SPEC: CharacterFace[] = [
-  { fieldingCost: 0, attack: 0, defense: 1 },
-  { fieldingCost: 0, attack: 1, defense: 1 },
-  { fieldingCost: 0, attack: 1, defense: 3 },
+// The Tardigrade's creature levels (v3/DESIGN_NOTES.md, 2026-10-04), for
+// DieTile's info popover - a Tardigrade has no CardDef/`levels` of its own
+// to read this from the way a Character does. Mirrors TardigradeDie in
+// DiceKingdomConfig.cs: L2 1/1 on two faces (each also a Wild), L3
+// "Bulwark" 1/2 on one; the three energy faces get their own sentence.
+const TARDIGRADE_SPEC: (CharacterFace & { level: number })[] = [
+  { level: 2, fieldingCost: 0, attack: 1, defense: 1 },
+  { level: 3, fieldingCost: 0, attack: 1, defense: 2 },
 ];
 
 // What the rail's "Now" header says for each step - ported from
@@ -426,9 +424,9 @@ function DieTile({
           {/* What's going on with this die, and why (status cues). */}
           <CueRows rows={cueRows} />
           <div className="card-popover-levels">
-            {(card ? card.levels : TARDIGRADE_SPEC).map((level, i) => (
-              <div className={`card-popover-level-row${die.level === i + 1 ? " current" : ""}`} key={i}>
-                <span className="lvl-label">L{i + 1}</span>
+            {(card ? card.levels.map((l, i) => ({ ...l, level: i + 1 })) : TARDIGRADE_SPEC).map((level, i) => (
+              <div className={`card-popover-level-row${die.level === level.level ? " current" : ""}`} key={i}>
+                <span className="lvl-label">L{level.level}</span>
                 <span className="lvl-stats">
                   {level.attack}A / {level.defense}D
                 </span>
@@ -448,7 +446,7 @@ function DieTile({
             </>
           ) : (
             <p className="card-popover-text">
-              Two L1, two L2, one L3 (&ldquo;Bulwark&rdquo;), one Surge face - a fixed spec every Tardigrade shares.
+              Two L2 faces that are also a Wild (field it or spend it), one L3 (&ldquo;Bulwark&rdquo;), and three energy faces: 2, 2 and 1.
             </p>
           )}
         </div>

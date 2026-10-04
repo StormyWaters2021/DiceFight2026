@@ -4242,3 +4242,19 @@ most starved by it. Even with 7 pips back, two Wilds with stats keep Owl
 high (more bodies to spin) and stall more than the one-Wild layout.
 Armadillo is weak under the Default persona in every layout, so its
 numbers lean on the Rhinoceros rush.
+
+**Adopted (user call): 2 double, 1 single, two Wild + L2 1/1, Bulwark L3 1/2.**
+"That gives you a 1/6 chance of a crappy roll, everything else should be
+useful." Still 7 energy per die; 3 faces in 6 can be fielded (was 5).
+Tardigrade levels now run 2-3 only, which broke the old "every die has
+levels 1-3" assumption in two places: Mutation's Global offered an L2
+Tardigrade to spin down, and the bot's Owl spin aimed at dice that
+couldn't move. Both now use new StatKinds LevelsBelow / LevelsAbove ("is
+there a level on this die to spin to"). Side effects: a Tardigrade is
+never a level 1 creature now (Cuttlefish's spin-to-energy can't hit one;
+Basilisk already excluded them).
+
+Live result (600 games/matchup, powers on): Wolf 48, Armadillo 43, Owl 57,
+Eagle 50 - spread 13.4, turn cap 19%. Armadillo vs Owl is 20/80, the worst
+single matchup; the other five are within 43-59. Armadillo next: a cheap
+ramp Character or a ramp Global (user, same day).

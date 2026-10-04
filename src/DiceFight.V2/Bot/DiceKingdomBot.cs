@@ -110,7 +110,7 @@ public static class DiceKingdomBot
                 picks.Add(die.Id);
         }
 
-        // Fish for a Wild (the Tardigrade Surge face, 1 in 6) when a card
+        // Fish for a Wild (two Tardigrade faces in 6) when a card
         // worth buying needs an energy type nothing in the pool can pay -
         // but only with Tardigrades showing a single pip, so the gamble
         // can't cost more than one energy.
@@ -189,7 +189,7 @@ public static class DiceKingdomBot
 
         // Real Characters first: an unfielded one goes to the Used Pile at
         // the end of Main (TurnEngine.EnterAttackStep), and a Tardigrade's
-        // zero-energy Bulwark face (1/3) likewise has nothing else to give.
+        // zero-energy Bulwark face (1/2) likewise has nothing else to give.
         // Deck-out burn (TurnEngine.ClearAndDraw): each die short of a full
         // draw costs 1 life per turn, paid back as 1 generic energy. A
         // real player takes that burn on purpose when there's life to
@@ -842,9 +842,9 @@ public static class DiceKingdomBot
     private static DieInstance? SpinTarget(GameState state, string botId)
     {
         var inPlay = state.Dice.Where(d => d.Zone is Zone.FieldZone or Zone.AttackZone && state.GetCurrentFace(d)?.Character is not null).ToList();
-        return inPlay.Where(d => d.ControllerId != botId && state.GetCurrentFace(d)!.Character!.Level >= 2)
+        return inPlay.Where(d => d.ControllerId != botId && QueryEngine.LevelsAround(state, d, above: false) > 0)
                 .OrderByDescending(d => DieValue(state, d)).FirstOrDefault()
-            ?? inPlay.Where(d => d.ControllerId == botId && state.GetCurrentFace(d)!.Character!.Level < 3)
+            ?? inPlay.Where(d => d.ControllerId == botId && QueryEngine.LevelsAround(state, d, above: true) > 0)
                 .OrderByDescending(d => DieValue(state, d)).FirstOrDefault();
     }
 

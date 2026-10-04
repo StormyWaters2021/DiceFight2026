@@ -18,22 +18,23 @@ namespace DiceFight.V2.Data;
 public static class DiceKingdomConfig
 {
     // --- Tardigrade dice (the free-to-field basic creature; one per
-    // energy type, matching v3/DESIGN_NOTES.md's locked spec exactly:
-    // two L1, two L2, one Bulwark, one Surge). ---
-
-    // Surge dropped to 1 Wild (was 2) - direct feedback (2026-09-05):
-    // "it feels a little too easy to spend energy... let's change the
-    // Surge die to just be one wild and see how that feels," a
-    // deliberate playtesting experiment before touching monochromatic
-    // teams, not a rules-accuracy fix like the other Tardigrade faces.
+    // energy type). ---
+    //
+    // Layout (2026-10-04, user call after a simulator sweep - v3/
+    // DESIGN_NOTES.md "Tardigrade face layouts"): Dice Masters' sidekick
+    // could be fielded on 1 face in 6, ours on 5, which "might have been
+    // too much". Now: three pure energy faces (2, 2, 1), two Wild faces
+    // that are also a level 2 1/1 - field it or spend the Wild - and the
+    // level 3 Bulwark at 1/2 (was 1/3), no energy. Same 7 energy per die
+    // as before. Faces 4 and 5 keep their old roles (Bulwark, Wild).
     private static DieDefinition TardigradeDie(string energyType) => new($"Tardigrade{energyType}",
     [
-        new Face([new SymbolAmount(energyType, 2)], new CharacterFaceData(1, FieldingCost: 0, Attack: 0, Defense: 1), Kind: FaceKind.CharacterFace),
-        new Face([new SymbolAmount(energyType, 2)], new CharacterFaceData(1, FieldingCost: 0, Attack: 0, Defense: 1), Kind: FaceKind.CharacterFace),
-        new Face([new SymbolAmount(energyType, 1)], new CharacterFaceData(2, FieldingCost: 0, Attack: 1, Defense: 1), Kind: FaceKind.CharacterFace),
-        new Face([new SymbolAmount(energyType, 1)], new CharacterFaceData(2, FieldingCost: 0, Attack: 1, Defense: 1), Kind: FaceKind.CharacterFace),
-        new Face([], new CharacterFaceData(3, FieldingCost: 0, Attack: 1, Defense: 3), Kind: FaceKind.CharacterFace), // Bulwark
-        new Face([new SymbolAmount("Wild", 1)], Kind: FaceKind.EnergyFace), // Surge - no character face at all
+        new Face([new SymbolAmount(energyType, 2)], Kind: FaceKind.EnergyFace),
+        new Face([new SymbolAmount(energyType, 2)], Kind: FaceKind.EnergyFace),
+        new Face([new SymbolAmount(energyType, 1)], Kind: FaceKind.EnergyFace),
+        new Face([new SymbolAmount("Wild", 1)], new CharacterFaceData(2, FieldingCost: 0, Attack: 1, Defense: 1), Kind: FaceKind.CharacterFace),
+        new Face([], new CharacterFaceData(3, FieldingCost: 0, Attack: 1, Defense: 2), Kind: FaceKind.CharacterFace), // Bulwark
+        new Face([new SymbolAmount("Wild", 1)], new CharacterFaceData(2, FieldingCost: 0, Attack: 1, Defense: 1), Kind: FaceKind.CharacterFace),
     ]);
 
     // --- Characters: a small, simple-ability pool, reskinned from
@@ -860,14 +861,14 @@ public static class DiceKingdomConfig
             ])),
             // Each pick says which it is (2026-09-27: "it wasn't clear which
             // die I was supposed to be selecting when"), and only offers
-            // dice that can actually move that way - every Dice Kingdom
-            // die has exactly 3 levels.
+            // dice that can actually move that way (a level below / above
+            // on that die - a Tardigrade only has levels 2 and 3).
             new TriggeredAbility(TriggerKind.Global, new Sequence([
                 new Spin(new TargetFilter(Kind: TargetKind.CharacterDie, Ownership: TargetOwnership.Own,
-                    Stat: new StatThreshold(StatKind.Level, Min: 2),
+                    Stat: new StatThreshold(StatKind.LevelsBelow, Min: 1),
                     Prompt: "first, choose one of YOUR creatures to spin DOWN a level."), LevelDelta: -1),
                 new Spin(new TargetFilter(Kind: TargetKind.CharacterDie,
-                    Stat: new StatThreshold(StatKind.Level, Max: 2),
+                    Stat: new StatThreshold(StatKind.LevelsAbove, Min: 1),
                     Prompt: "now choose a creature to spin UP a level."), LevelDelta: 1),
             ]), EnergyCost: new EnergyCost(1, "Eye")),
         ],
@@ -917,7 +918,7 @@ public static class DiceKingdomConfig
     // has exactly one spare left unassigned (Orca, Monarch Butterfly,
     // Anglerfish - still in Catalog, just not on any team yet; a Shell's
     // own 8 cards all get placed with none spare). Bonus: this gives the
-    // Tardigrade Surge face's Wild pip (previously only useful for a
+    // Tardigrade's Wild faces (previously only useful for a
     // same-type purchase) a real reason to matter - it's now the one
     // guaranteed way to pay for an off-type splash card.
     public static readonly IReadOnlyDictionary<string, IReadOnlyList<string>> CharactersByChampion = new Dictionary<string, IReadOnlyList<string>>

@@ -207,9 +207,9 @@ public class DiceKingdomNewCharactersTests
         var state = NewGame();
         var queue = new AbilityQueue();
 
-        var energyDie = TardigradeEnergy(state, "p1", "Claw", 1)[0]; // L1 face, 2 Claw
+        var energyDie = TardigradeEnergy(state, "p1", "Claw", 1)[0]; // 2 Claw
         var die = state.Dice.Single(d => d.Id == energyDie);
-        Assert.Equal(0, die.CurrentFaceIndex); // L1, the first of the two double-energy faces
+        Assert.Equal(0, die.CurrentFaceIndex); // the first of the two double-energy faces
 
         var stoat = ReadyCharacter(state, DiceKingdomConfig.Stoat.Id, "p1", level: 2); // fielding cost 1 at level 2 (0/1/2 per level)
         TurnEngine.Field(state, queue, stoat.Id, [energyDie]);
@@ -217,10 +217,9 @@ public class DiceKingdomNewCharactersTests
 
         Assert.Equal(Zone.FieldZone, stoat.Zone);
         Assert.Equal(Zone.ReservePool, die.Zone); // NOT spent - spun down and kept
-        Assert.Equal(2, die.CurrentFaceIndex); // one of the two L2 (single-energy) faces
+        Assert.Equal(2, die.CurrentFaceIndex); // the single-energy face
         var spunFace = state.GetCurrentFace(die)!;
         Assert.Equal(1, spunFace.Symbols.Single(s => s.SymbolId == "Claw").Count);
-        Assert.Equal(2, spunFace.Character!.Level); // L2 - a real, still-fieldable creature face too
     }
 
     // --- Finisher cards (2026-09-28, user request) - each one proves the

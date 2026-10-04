@@ -78,8 +78,8 @@ public class DiceKingdomBotTests
         var state = NewGame("Wolf", "Armadillo");
         var mine = state.Dice.First(d => d.OwnerId == "p1" && d.CardId is null);
         var theirs = state.Dice.Where(d => d.OwnerId == "p2" && d.CardId is null).Take(2).ToList();
-        foreach (var d in theirs.Append(mine)) { d.Zone = Zone.FieldZone; d.CurrentFaceIndex = 2; } // 1/1
-        theirs[1].CurrentFaceIndex = 4; // Bulwark 1/3 - the more valuable one
+        foreach (var d in theirs.Append(mine)) { d.Zone = Zone.FieldZone; d.CurrentFaceIndex = 3; } // 1/1
+        theirs[1].CurrentFaceIndex = 4; // Bulwark 1/2 - the more valuable one
         string[]? answer = null;
         state.PendingChoice = new PendingChoice
         {
@@ -127,7 +127,7 @@ public class DiceKingdomBotTests
         var die = new DieInstance
         {
             Id = "p1-swinger", PoolDieId = "TardigradeShell", OwnerId = "p1", ControllerId = "p1",
-            Zone = Zone.FieldZone, CurrentFaceIndex = 2, // L2: 1/1
+            Zone = Zone.FieldZone, CurrentFaceIndex = 3, // L2: 1/1
         };
         state.Dice.Add(die);
         return (state, die);

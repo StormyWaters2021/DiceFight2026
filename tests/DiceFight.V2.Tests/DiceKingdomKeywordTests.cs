@@ -52,7 +52,7 @@ public class DiceKingdomKeywordTests
             var die = new DieInstance
             {
                 Id = $"{controllerId}-energy-{i}", PoolDieId = $"Tardigrade{energyType}", OwnerId = controllerId,
-                ControllerId = controllerId, Zone = Zone.ReservePool, CurrentFaceIndex = 0, // L1: 2 energy
+                ControllerId = controllerId, Zone = Zone.ReservePool, CurrentFaceIndex = 0, // 2 energy
             };
             state.Dice.Add(die);
             ids.Add(die.Id);
@@ -656,7 +656,7 @@ public class DiceKingdomKeywordTests
         var dragons = Enumerable.Range(0, komodos)
             .Select(i => AddDie(state, DiceKingdomConfig.KomodoDragon.Id, "p1", Zone.FieldZone, tag: $"k{i}")).ToList();
         var energy = Energy(state, "p1", "Claw", 2).Select(id => state.Dice.First(d => d.Id == id)).ToArray();
-        energy[1].CurrentFaceIndex = 2; // a 1-pip (L2) Tardigrade face
+        energy[1].CurrentFaceIndex = 2; // a 1-pip Tardigrade face
         AddDie(state, DiceKingdomConfig.HoneyBadger.Id, "p2", Zone.FieldZone); // 1 DEF - dies
         AddDie(state, DiceKingdomConfig.Hippopotamus.Id, "p2", Zone.FieldZone); // 5 DEF - survives
         state.MoveToStep(StepIds.SelectAttackers);

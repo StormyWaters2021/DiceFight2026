@@ -93,14 +93,14 @@ public class DiceKingdomConfigTests
         Assert.Single(state.DiceIn("p1", Zone.OutOfPlay));
         Assert.Equal(4, state.DiceIn("p1", Zone.Bag).Count());
 
-        // --- Roll: every drawn die lands on the L1 face (index 0, 2 Claw energy) ---
+        // --- Roll: every drawn die lands on its first face (index 0, 2 Claw energy) ---
         TurnEngine.Roll(state, queue, new ScriptedRoller(0, 0, 0));
         TurnEngine.FinishRoll(state, queue);
         var reserve = state.DiceIn("p1", Zone.ReservePool).ToList();
         Assert.Equal(3, reserve.Count);
         Assert.All(reserve, d => Assert.Equal(2, state.GetCurrentFace(d)!.Symbols.Single().Count));
 
-        // --- Purchase Honey Badger (cost 2 Claw) using one L1 die's 2 energy ---
+        // --- Purchase Honey Badger (cost 2 Claw) using one die's 2 energy ---
         var honeyBadgerId = DiceKingdomConfig.HoneyBadger.Id;
         var unpurchased = state.Dice.First(d => d.CardId == honeyBadgerId && d.Zone == Zone.Unpurchased);
         var spendDie = reserve[0];
@@ -108,13 +108,16 @@ public class DiceKingdomConfigTests
         Assert.Equal(Zone.UsedPile, unpurchased.Zone);
         Assert.Equal(Zone.OutOfPlay, spendDie.Zone);
 
-        // --- Field a free Tardigrade (fielding cost 0, no energy needed) ---
+        // --- Field a free Tardigrade (fielding cost 0, no energy needed) -
+        // turned to a creature face first: a Tardigrade's double-energy
+        // faces carry no creature (2026-10-04) ---
         var toField = reserve[1];
+        toField.CurrentFaceIndex = 3; // L2 1/1 + a Wild
         TurnEngine.Field(state, queue, toField.Id, []);
         Assert.Equal(Zone.FieldZone, toField.Zone);
 
-        // --- No always-on passive any more: the Tardigrade is its printed 0 ATK ---
-        Assert.Equal(0, QueryEngine.GetAttack(state, toField));
+        // --- No always-on passive any more: the Tardigrade is its printed 1 ATK ---
+        Assert.Equal(1, QueryEngine.GetAttack(state, toField));
 
         // --- Attack step: it attacks unblocked, and Wolf's once-per-turn
         // power (+3 ATK to one of your creatures) goes on it in the action
@@ -126,11 +129,11 @@ public class DiceKingdomConfigTests
         Assert.True(ChampionPowers.CanUse(state, "p1"));
         ChampionPowers.Use(state, queue, "p1");
         EffectInterpreter.DrainQueue(state, queue, new ScriptedRoller(0), new Random(1));
-        Assert.Equal(3, QueryEngine.GetAttack(state, toField));
+        Assert.Equal(4, QueryEngine.GetAttack(state, toField));
         Assert.False(ChampionPowers.CanUse(state, "p1")); // once per turn
         CombatEngine.AssignCombatDamage(state, queue, assignment, new Dictionary<string, IReadOnlyDictionary<string, int>>());
 
-        Assert.Equal(17, playerTwo.Life); // 20 - 3 (the pumped attack)
+        Assert.Equal(16, playerTwo.Life); // 20 - 4 (the pumped attack)
         // Rule 2.7.4.3.1 - an unblocked attacker leaves the Attack Zone
         // for Out of Play immediately (CombatEngine.cs's own citation),
         // not back to the Field Zone - that return path is only for a

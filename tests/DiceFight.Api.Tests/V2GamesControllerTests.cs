@@ -69,7 +69,7 @@ public class V2GamesControllerTests
         var rolledDice = afterRoll.Dice.Where(d => d.ControllerId == "teamA" && d.Zone == "ReservePool").ToList();
         Assert.Equal(3, rolledDice.Count);
         // Every rolled face is either a character face (both stats known)
-        // or the pure-energy Surge face (neither) - never a half-known mix.
+        // or a pure-energy face (neither) - never a half-known mix.
         Assert.All(rolledDice, d => Assert.True(
             (d.EffectiveAttack is not null && d.EffectiveDefense is not null) ||
             (d.EffectiveAttack is null && d.EffectiveDefense is null)));
@@ -126,7 +126,7 @@ public class V2GamesControllerTests
         {
             var die = state.Dice.First(d => d.ControllerId == player && d.CardId is null && d.Zone != DiceFight.V2.Model.Zone.FieldZone);
             die.Zone = DiceFight.V2.Model.Zone.FieldZone;
-            die.CurrentFaceIndex = 0;
+            die.CurrentFaceIndex = 3;
             Assert.NotNull(state.GetCurrentFace(die)?.Character);
             return die;
         }

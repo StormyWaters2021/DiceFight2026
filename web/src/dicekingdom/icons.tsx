@@ -79,7 +79,7 @@ export function EyeIcon(props: IconProps) {
   );
 }
 
-// Surge (the Tardigrade die's sixth face) provides Wild energy - any of
+// A Tardigrade's two Wild faces provide Wild energy - any of
 // the four types. No printed animal for "any", so this is a plain glyph
 // rather than a fifth creature, same role as v1's WILD_ENERGY_ICON "?".
 export function WildIcon(props: IconProps) {

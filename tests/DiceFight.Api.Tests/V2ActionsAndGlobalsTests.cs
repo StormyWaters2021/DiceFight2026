@@ -44,7 +44,7 @@ public class V2ActionsAndGlobalsTests
     {
         var (_, session, teamA, _) = StartInMain();
         var state = session.State;
-        Tardigrade(state, "teamA", Zone.FieldZone, 2); // a creature for Mutation's Global to spin
+        Tardigrade(state, "teamA", Zone.FieldZone, 3); // a creature for Mutation's Global to spin
 
         Assert.False(V2SeatedController.Dto(teamA.Get(session.Id)).PassGivesPriority); // Owl has no energy
 
@@ -80,7 +80,7 @@ public class V2ActionsAndGlobalsTests
     {
         var (_, session, teamA, teamB) = StartInMain();
         var state = session.State;
-        var body = Tardigrade(state, "teamA", Zone.FieldZone, 2); // 1/1
+        var body = Tardigrade(state, "teamA", Zone.FieldZone, 3); // 1/1
         var claw = Tardigrade(state, "teamA", Zone.ReservePool, 0); // 2 Claw
         var angerIssues = DiceKingdomConfig.AngerIssues;
         var globalIndex = angerIssues.Abilities.ToList().FindIndex(a => a.Trigger == TriggerKind.Global);
@@ -107,8 +107,8 @@ public class V2ActionsAndGlobalsTests
     {
         var (_, session, teamA, teamB) = StartInMain();
         var state = session.State;
-        var attacker = Tardigrade(state, "teamA", Zone.FieldZone, 2);
-        Tardigrade(state, "teamB", Zone.FieldZone, 2); // a creature for Mutation's spins
+        var attacker = Tardigrade(state, "teamA", Zone.FieldZone, 3);
+        Tardigrade(state, "teamB", Zone.FieldZone, 3); // a creature for Mutation's spins
         var eye1 = Tardigrade(state, "teamB", Zone.ReservePool, 0); // 2 Eye, left over from their turn
         var eye2 = Tardigrade(state, "teamB", Zone.ReservePool, 0); // 2 more
         var mutation = DiceKingdomConfig.Mutation;
@@ -166,9 +166,9 @@ public class V2ActionsAndGlobalsTests
     {
         var (_, session, teamA, teamB) = StartInMain();
         var state = session.State;
-        Tardigrade(state, "teamB", Zone.FieldZone, 2);
-        Tardigrade(state, "teamA", Zone.FieldZone, 2);
-        var wild = Tardigrade(state, "teamB", Zone.ReservePool, 5); // Surge: 1 Wild, their only energy
+        Tardigrade(state, "teamB", Zone.FieldZone, 3);
+        Tardigrade(state, "teamA", Zone.FieldZone, 3);
+        var wild = Tardigrade(state, "teamB", Zone.ReservePool, 5); // 1 Wild, their only energy
         var mutation = DiceKingdomConfig.Mutation;
         var globalIndex = mutation.Abilities.ToList().FindIndex(a => a.Trigger == TriggerKind.Global);
 
@@ -197,7 +197,7 @@ public class V2ActionsAndGlobalsTests
     {
         var (_, session, teamA, _) = StartInMain();
         var state = session.State;
-        var body = Tardigrade(state, "teamA", Zone.FieldZone, 2); // L2: 1A
+        var body = Tardigrade(state, "teamA", Zone.FieldZone, 3); // L2: 1A
         var action = state.Dice.First(d => d.OwnerId == "teamA" && d.CardId == DiceKingdomConfig.AngerIssues.Id);
         action.Zone = Zone.ReservePool;
         action.CurrentFaceIndex = 3; // an energy face
@@ -289,8 +289,8 @@ public class V2ActionsAndGlobalsTests
     {
         var (session, owl, wolf) = StartInMainAs("GreatHornedOwl", "Wolf");
         var state = session.State;
-        var mine = Tardigrade(state, "teamA", Zone.FieldZone, 0); // L1
-        var theirs = Tardigrade(state, "teamB", Zone.FieldZone, 2); // L2
+        var mine = Tardigrade(state, "teamA", Zone.FieldZone, 3); // L2
+        var theirs = Tardigrade(state, "teamB", Zone.FieldZone, 4); // L3 Bulwark
         Assert.True(V2SeatedController.Dto(owl.Get(session.Id)).PlayerOne.ChampionPowerUsable);
         Assert.False(V2SeatedController.Dto(owl.Get(session.Id)).PlayerTwo.ChampionPowerUsable); // not Wolf's turn
 
@@ -299,8 +299,8 @@ public class V2ActionsAndGlobalsTests
         Assert.Contains("Great Horned Owl", dto.PendingChoice!.Description);
         dto = V2SeatedController.Dto(owl.ResolvePendingChoice(session.Id, new V2ResolvePendingChoiceRequest([theirs.Id])));
 
-        Assert.Equal(1, state.GetCurrentFace(theirs)!.Character!.Level); // theirs spins down
-        Assert.Equal(1, state.GetCurrentFace(mine)!.Character!.Level);
+        Assert.Equal(2, state.GetCurrentFace(theirs)!.Character!.Level); // theirs spins down
+        Assert.Equal(2, state.GetCurrentFace(mine)!.Character!.Level);
         Assert.Equal("Great Horned Owl", dto.Dice.Single(d => d.Id == theirs.Id).LastSpin!.Source);
         Assert.False(dto.PlayerOne.ChampionPowerUsable); // once per turn
         Assert.Throws<InvalidOperationException>(() => owl.ChampionPower(session.Id));
@@ -326,15 +326,17 @@ public class V2ActionsAndGlobalsTests
 
     // Playtest report (2026-09-27): 2A + 1A attacking in one lane, blocked
     // by a 3D Tardigrade; the preview said KO, but it stayed on the field.
+    // (Bulwark is 1/2 since 2026-10-04 - +1D keeps the report's numbers.)
     [Fact]
     public void Two_Attackers_Pooling_3_Damage_KO_A_3_Defense_Blocker_Into_Prep()
     {
         var (session, a, b) = StartInMainAs("Wolf", "GreatHornedOwl");
         var state = session.State;
-        var twoA = Tardigrade(state, "teamA", Zone.FieldZone, 2); // L2 1/1, +1A below = 2A
+        var twoA = Tardigrade(state, "teamA", Zone.FieldZone, 3); // L2 1/1, +1A below = 2A
         twoA.AppliedModifiers.Add(new AppliedModifier(1, 0, 0, "test", Duration.EndOfTurn));
-        var oneA = Tardigrade(state, "teamA", Zone.FieldZone, 2); // L2 1/1 = 1A
-        var wall = Tardigrade(state, "teamB", Zone.FieldZone, 4); // Bulwark 1/3
+        var oneA = Tardigrade(state, "teamA", Zone.FieldZone, 3); // L2 1/1 = 1A
+        var wall = Tardigrade(state, "teamB", Zone.FieldZone, 4); // Bulwark 1/2, +1D below = 3D
+        wall.AppliedModifiers.Add(new AppliedModifier(0, 1, 0, "test", Duration.EndOfTurn));
 
         a.EnterAttackStep(session.Id);
         a.DeclareAttackers(session.Id, new V2DeclareAttackersRequest([new V2AttackerDeclaration(twoA.Id, 0), new V2AttackerDeclaration(oneA.Id, 0)]));
@@ -356,8 +358,8 @@ public class V2ActionsAndGlobalsTests
         // is still in the catalog - put it back in this game directly (a
         // Global is card-scoped, so the card being in the game is enough).
         state.PlayerTwo.TeamCardIds.Add(DiceKingdomConfig.Distraction.Id);
-        var attacker1 = Tardigrade(state, "teamA", Zone.FieldZone, 2);
-        var attacker2 = Tardigrade(state, "teamA", Zone.FieldZone, 0);
+        var attacker1 = Tardigrade(state, "teamA", Zone.FieldZone, 3);
+        var attacker2 = Tardigrade(state, "teamA", Zone.FieldZone, 5);
         var wall = Tardigrade(state, "teamB", Zone.FieldZone, 4);
         var shell = Tardigrade(state, "teamB", Zone.ReservePool, 0); // 2 Shell, left over from their turn
         var index = DiceKingdomConfig.Distraction.Abilities.ToList().FindIndex(x => x.Trigger == TriggerKind.Global);
@@ -386,9 +388,10 @@ public class V2ActionsAndGlobalsTests
     {
         var (session, a, _) = StartInMainAs("GreatHornedOwl", "Wolf");
         var state = session.State;
-        var low = Tardigrade(state, "teamA", Zone.FieldZone, 0);  // level 1 - can't go down
-        var mid1 = Tardigrade(state, "teamA", Zone.FieldZone, 2); // level 2
-        var mid2 = Tardigrade(state, "teamA", Zone.FieldZone, 3); // level 2
+        // A Tardigrade's levels run 2-3 (2026-10-04).
+        var low = Tardigrade(state, "teamA", Zone.FieldZone, 3);  // level 2 - its lowest, can't go down
+        var mid1 = Tardigrade(state, "teamA", Zone.FieldZone, 4); // level 3
+        var mid2 = Tardigrade(state, "teamA", Zone.FieldZone, 4); // level 3
         var top = Tardigrade(state, "teamB", Zone.FieldZone, 4);  // level 3 - can't go up
         var eye = Tardigrade(state, "teamA", Zone.ReservePool, 0);
         var index = DiceKingdomConfig.Mutation.Abilities.ToList().FindIndex(x => x.Trigger == TriggerKind.Global);
@@ -406,8 +409,8 @@ public class V2ActionsAndGlobalsTests
         Assert.DoesNotContain(top.Id, up.CandidateIds);
         a.ResolvePendingChoice(session.Id, new V2ResolvePendingChoiceRequest([low.Id]));
 
-        Assert.Equal(1, state.GetCurrentFace(mid1)!.Character!.Level);
-        Assert.Equal(2, state.GetCurrentFace(low)!.Character!.Level);
+        Assert.Equal(2, state.GetCurrentFace(mid1)!.Character!.Level);
+        Assert.Equal(3, state.GetCurrentFace(low)!.Character!.Level);
     }
 
     [Fact]

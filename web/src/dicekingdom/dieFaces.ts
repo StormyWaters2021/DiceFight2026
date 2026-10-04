@@ -12,9 +12,9 @@ import type { CardDef, Die } from "./types";
 //
 // MIRRORS src/DiceFight.V2/Data/DiceKingdomConfig.cs's TardigradeDie/
 // CharacterDie, which are the authority. A Tardigrade die's six faces are
-// a fixed, locked spec (v3/DESIGN_NOTES.md): two L1 (0A/1D), two L2
-// (1A/1D), one L3 "Bulwark" (1A/3D), one "Surge" (a pure Wild-energy
-// face, no character stats at all). A Character die (2026-09-07, later-
+// a fixed spec (v3/DESIGN_NOTES.md, 2026-10-04): three energy faces
+// (2, 2, 1 of its type), two L2 1A/1D faces that also carry a Wild, and
+// one L3 "Bulwark" (1A/2D, no energy). A Character die (2026-09-07, later-
 // Dice-Masters layout, was "three levels each printed twice, no energy
 // at all"): three stat faces, one per level (no doubling), plus three
 // energy faces of the card's own type - two double, one single.
@@ -71,17 +71,23 @@ const FACE_COUNT = 6;
 // v3's locked Tardigrade spec, straight from TardigradeDie in
 // DiceKingdomConfig.cs - not derived from a CardDef, since a Tardigrade
 // die has no cardId at all (isTardigrade instead).
-const TARDIGRADE_FACES: CubeFace[] = [
-  { kind: "character", level: 1, fieldingCost: 0, attack: 0, defense: 1, avatar: TardigradeIcon },
-  { kind: "character", level: 1, fieldingCost: 0, attack: 0, defense: 1, avatar: TardigradeIcon },
-  { kind: "character", level: 2, fieldingCost: 0, attack: 1, defense: 1, avatar: TardigradeIcon },
-  { kind: "character", level: 2, fieldingCost: 0, attack: 1, defense: 1, avatar: TardigradeIcon },
-  { kind: "character", level: 3, fieldingCost: 0, attack: 1, defense: 3, avatar: TardigradeIcon }, // Bulwark
-  { kind: "energy", icon: "Wild", amount: 1, avatar: TardigradeIcon }, // Surge - dropped from 2 (2026-09-05 playtest experiment)
-];
+// Slot 0 is a level-2 face so a fresh die's front shows one (facesFor
+// overwrites it with the live face anyway). The energy type is the die's
+// own, read off its id ("p1-TardigradeClaw-3").
+function tardigradeFaces(die: Die): CubeFace[] {
+  const type = /Tardigrade([A-Za-z]+)/.exec(die.id)?.[1] ?? "Wild";
+  return [
+    { kind: "character", level: 2, fieldingCost: 0, attack: 1, defense: 1, avatar: TardigradeIcon }, // + a Wild
+    { kind: "energy", icon: type, amount: 2, avatar: TardigradeIcon },
+    { kind: "energy", icon: type, amount: 2, avatar: TardigradeIcon },
+    { kind: "energy", icon: type, amount: 1, avatar: TardigradeIcon },
+    { kind: "character", level: 3, fieldingCost: 0, attack: 1, defense: 2, avatar: TardigradeIcon }, // Bulwark
+    { kind: "character", level: 2, fieldingCost: 0, attack: 1, defense: 1, avatar: TardigradeIcon }, // + a Wild
+  ];
+}
 
 function defaultFaces(die: Die, card: CardDef | undefined): CubeFace[] {
-  if (die.isTardigrade || !die.cardId) return TARDIGRADE_FACES;
+  if (die.isTardigrade || !die.cardId) return tardigradeFaces(die);
   if (card?.isAction) {
     // Mirrors DiceKingdomConfig.ActionDie: 3 action faces, then 2/2/1 of
     // the Champion's energy.
@@ -97,7 +103,7 @@ function defaultFaces(die: Die, card: CardDef | undefined): CubeFace[] {
     ];
   }
   const levels = card?.levels ?? [];
-  if (levels.length === 0) return TARDIGRADE_FACES;
+  if (levels.length === 0) return tardigradeFaces(die);
   const energyType = card?.energyTypes[0] ?? "Wild";
   const avatar = CHARACTER_ICONS[die.cardId];
   const faces: CubeFace[] = levels.map((level, i) => ({

@@ -426,8 +426,18 @@ public static class QueryEngine
             ? state.Counters.GetValueOrDefault((die.ControllerId, counterCardId, name))
             : 0,
         StatKind.SymbolCount => state.GetCurrentFace(die)?.SymbolCount ?? 0,
+        StatKind.LevelsBelow or StatKind.LevelsAbove => LevelsAround(state, die, stat.Kind == StatKind.LevelsAbove),
         _ => 0,
     };
+
+    // Distinct creature levels on the die below (or above) the level it's
+    // showing; 0 off a creature face.
+    public static int LevelsAround(GameState state, DieInstance die, bool above)
+    {
+        if (state.GetCurrentFace(die)?.Character?.Level is not { } level) return 0;
+        var levels = state.GetDieDefinition(die).Faces.Where(f => f.Character is not null).Select(f => f.Character!.Level).Distinct();
+        return levels.Count(l => above ? l > level : l < level);
+    }
 
     // The Base-only counterpart (Phase 6) - same switch, but Attack/
     // Defense/FieldingCost/PurchaseCost read the continuous-EXCLUDING
@@ -446,6 +456,7 @@ public static class QueryEngine
         // A face's symbol count has no continuous-vs-base split - nothing
         // grants extra pips on a currently-showing face.
         StatKind.SymbolCount => state.GetCurrentFace(die)?.SymbolCount ?? 0,
+        StatKind.LevelsBelow or StatKind.LevelsAbove => LevelsAround(state, die, stat.Kind == StatKind.LevelsAbove),
         _ => 0,
     };
 }
