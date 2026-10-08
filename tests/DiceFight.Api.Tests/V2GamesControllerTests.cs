@@ -100,6 +100,7 @@ public class V2GamesControllerTests
         // even a 0-ATK Tardigrade lands damage.
         var pumped = V2SeatedController.Dto(teamA.ChampionPower(session.Id));
         Assert.Equal(printedAttack + 3, pumped.Dice.Single(d => d.Id == fielded.Id).EffectiveAttack);
+        Assert.Contains(pumped.Log, l => l.Text.EndsWith("Tardigrade gets +3 ATK this turn.")); // says which creature
         var afterDamage = V2SeatedController.Dto(teamA.AssignCombatDamage(session.Id, new V2AssignCombatDamageRequest([])));
         Assert.True(afterDamage.PlayerTwo.Life < 20); // unblocked attacker landed some damage
 

@@ -795,6 +795,13 @@ public static class EffectInterpreter
                 var atkDelta = n.SetAttack is { } setAtk ? ResolveAmount(ctx, setAtk) - QueryEngine.GetBaseAttack(ctx.State, die) : n.AtkDelta ?? 0;
                 var defDelta = n.SetDefense is { } setDef ? ResolveAmount(ctx, setDef) - QueryEngine.GetBaseDefense(ctx.State, die) : n.DefDelta ?? 0;
                 die.AppliedModifiers.Add(new AppliedModifier(atkDelta, defDelta, 0, source, n.Duration, grantedDuring));
+                // Said in the log (2026-10-08: a recorded game showed "Wolf
+                // uses their Champion power." and nothing about which
+                // creature got the +3).
+                var changes = new[] { (atkDelta, "ATK"), (defDelta, "DEF") }.Where(c => c.Item1 != 0)
+                    .Select(c => $"{(c.Item1 > 0 ? "+" : "")}{c.Item1} {c.Item2}").ToList();
+                if (changes.Count > 0)
+                    LogAbility(ctx, $"{SourceName(ctx)}: {TargetName(ctx.State, id)} gets {string.Join(" and ", changes)}{(n.Duration == Duration.EndOfTurn ? " this turn" : "")}.");
             }
             onComplete();
         });

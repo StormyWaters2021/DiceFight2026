@@ -2418,6 +2418,7 @@
 }
 .dk-mobile .dkm-invite {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   font-size: 11.5px;
@@ -3655,6 +3656,40 @@
 }
 .dicekingdom .dk-lobby-cancel {
   opacity: 0.75;
+}
+
+/* "Resume a game" on the start screen (lobby.tsx ResumeGames). */
+.dicekingdom .dk-resume {
+  margin-bottom: 14px;
+}
+.dicekingdom .dk-resume-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-top: 1px solid var(--border, #8883);
+}
+.dicekingdom .dk-resume-label {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.dicekingdom .dk-resume-label small {
+  opacity: 0.65;
+}
+.dicekingdom .dk-resume-forget {
+  background: none;
+  border: none;
+  color: inherit;
+  opacity: 0.55;
+  font-size: 15px;
+  padding: 6px 8px;
+  cursor: pointer;
+}
+.dicekingdom .dk-resume-note {
+  margin: 0 0 8px;
+  font-size: 13px;
+  opacity: 0.8;
 }
 
 /* The tile is the positioning context for its badges. */

@@ -4327,3 +4327,16 @@ waiting on the one-time Cloud Console setup - see v3/GAME_RECORDS.md.
 Every game now draws all its randomness from one seeded generator, so a
 recorded game replays exactly; tools/GameRecords replays records and
 compares every human move with the bot's choice in the same spot.
+
+## 2026-10-08 - Seats survive a closed tab; game links folded away
+
+User lost one side of a game: seat tokens lived only in the tab's
+sessionStorage, so closing the host's tab made that seat unplayable. Now
+every game's seats are also kept in localStorage (web seats.ts) and the
+start screen lists them under "Resume a game" (lobby.tsx ResumeGames) -
+games the server has since forgotten are dropped with a note. The tab's
+current game stays in sessionStorage, so a normal and a private window
+can still play the two sides. In-game, "Invite" and a new "Your seat"
+link (back into your own side) sit behind one small "Game links" toggle
+(user: rarely used, so it can take a click). Also: stat changes are now
+logged ("Wolf: Wolverine gets +3 ATK this turn.").

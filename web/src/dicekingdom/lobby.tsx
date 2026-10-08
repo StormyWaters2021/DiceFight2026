@@ -9,7 +9,7 @@
 import { useEffect, useState } from "react";
 import { api } from "./api";
 import { CHAMPION_ICONS } from "./icons";
-import { claimSeatFromUrl, nameClaimedSeat } from "./seats";
+import { claimSeatFromUrl, forgetSavedGame, nameClaimedSeat, resumeSeats, savedGames, type SavedGame } from "./seats";
 import type { GameState, LobbyStatus } from "./types";
 
 /** Setup-screen value for Player 2's column: the opponent picks their own. */
@@ -194,3 +194,73 @@ export function PickYourChampion({
     </div>
   );
 }
+
+/** Where resuming a saved game leads: back into play, or back to waiting for the opponent to pick. */
+export type Resumed =
+  | { kind: "game"; game: GameState; vsComputer: boolean }
+  | { kind: "waiting"; gameId: string; hostChampionId: string };
+
+function ago(ms: number): string {
+  const minutes = Math.round((Date.now() - ms) / 60000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.round(minutes / 60);
+  return hours < 24 ? `${hours} h ago` : `${Math.round(hours / 24)} d ago`;
+}
+
+/** The start screen's "Resume a game" list (2026-10-08): games this browser holds a seat in (seats.ts). */
+export function ResumeGames({ onResume }: { onResume: (r: Resumed) => void }) {
+  const [games, setGames] = useState<SavedGame[]>(() => savedGames());
+  const [note, setNote] = useState<string | null>(null);
+  if (games.length === 0 && !note) return null;
+
+  async function resume(g: SavedGame) {
+    setNote(null);
+    resumeSeats(g.gameId);
+    try {
+      const lobby = await api.getLobby(g.gameId);
+      if (!lobby.started) {
+        onResume({ kind: "waiting", gameId: g.gameId, hostChampionId: lobby.hostChampionId });
+        return;
+      }
+      onResume({ kind: "game", game: await api.getGame(g.gameId), vsComputer: g.vsComputer ?? false });
+    } catch (e) {
+      // Gone from the server (idle too long, or a redeploy) - drop it.
+      forgetSavedGame(g.gameId);
+      setGames(savedGames());
+      setNote(`${g.label ?? "That game"} can't be resumed: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+
+  return (
+    <div className="panel dk-resume">
+      <h3 style={{ margin: "0 0 6px" }}>Resume a game</h3>
+      {note && <p className="dk-resume-note">{note}</p>}
+      {games.map((g) => (
+        <div key={g.gameId} className="dk-resume-row">
+          <span className="dk-resume-label">
+            {g.label ?? `Game ${g.gameId}`}
+            {g.vsComputer ? " · vs computer" : g.seats.length > 1 ? " · both seats" : ""}
+            <small> · {ago(g.savedAt)}</small>
+          </span>
+          <button type="button" className="btn" onClick={() => resume(g)}>
+            Resume
+          </button>
+          <button
+            type="button"
+            className="dk-resume-forget"
+            aria-label="Forget this game"
+            title="Forget this game"
+            onClick={() => {
+              forgetSavedGame(g.gameId);
+              setGames(savedGames());
+            }}
+          >
+            ✕
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+

@@ -81,8 +81,9 @@ static bool Same(BotDecision bot, RecordedAction action)
         BotActionKind.UseChampionPower => "ChampionPower",
         _ => bot.Kind.ToString(),
     };
+    // Skipping the attack and passing into it both end Main; whether to
+    // swing shows up in DeclareAttackers, so they count as one choice here.
     if (Category(action.Action) != expected) return false;
-    if (bot.Kind == BotActionKind.Pass && bot.SkipAttack != (action.Action == "SkipAttackStep")) return false;
     if (action.Request is not { } body) return true;
 
     HashSet<string> Strings(string name) => body.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.Array

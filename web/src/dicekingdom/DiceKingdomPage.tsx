@@ -2,9 +2,9 @@ import { startTransition, useEffect, useRef, useState } from "react";
 import "./dicekingdom.css";
 import { api, apiAs } from "./api";
 import { CHAMPION_ICONS, CHARACTER_ICONS, EnergyBadge, HelpIcon, TardigradeIcon, TardigradePhotoIcon } from "./icons";
-import { forgetSeats, inviteLink, rememberSeats } from "./seats";
+import { describeSavedGame, forgetSeats, inviteLink, myLink, rememberSeats } from "./seats";
 import { GameOverOverlay } from "./GameOverOverlay";
-import { OPPONENT_PICKS, OpponentPicksOption, PickYourChampion, WaitingForOpponent, resolveInvite } from "./lobby";
+import { OPPONENT_PICKS, OpponentPicksOption, PickYourChampion, ResumeGames, WaitingForOpponent, resolveInvite } from "./lobby";
 import { CombatLane } from "./CombatLane";
 import { DieCube, type CubeSpin } from "./DieCube";
 import { facesFor } from "./dieFaces";
@@ -218,29 +218,37 @@ function Scoreboard({
   );
 }
 
-// Ported from ../TurnRail.tsx's InvitePanel - one compact row, not a
-// full panel, since this is a one-time convenience most of a game
-// doesn't need once the other seat has joined.
-function InviteRow({ link }: { link: string }) {
-  const [copied, setCopied] = useState(false);
+// The game's links, folded behind one small toggle (user, 2026-10-08:
+// "it's unlikely to be used very often, so it could require a click to get
+// to"). Invite = the other seat's link; Your seat = a link back into your
+// own side, to keep or to carry on from another device.
+function GameLinks({ invite, own }: { invite: string | null; own: string | null }) {
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState<"invite" | "own" | null>(null);
+  async function copy(url: string, which: "invite" | "own") {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(which);
+      window.setTimeout(() => setCopied(null), 2000);
+    } catch {
+      // Clipboard blocked - the link is still in the button's tooltip.
+    }
+  }
   return (
-    <div className="invite-row" title={link}>
-      <span className="invite-row-label">Invite</span>
-      <button
-        type="button"
-        className="invite-row-button"
-        onClick={async () => {
-          try {
-            await navigator.clipboard.writeText(link);
-            setCopied(true);
-            window.setTimeout(() => setCopied(false), 2000);
-          } catch {
-            // Clipboard blocked - the link is still in the title tooltip.
-          }
-        }}
-      >
-        {copied ? "Copied!" : "Copy link"}
+    <div className="invite-row">
+      <button type="button" className="invite-row-button" onClick={() => setOpen((v) => !v)}>
+        Game links {open ? "▾" : "▸"}
       </button>
+      {open && invite && (
+        <button type="button" className="invite-row-button" title={invite} onClick={() => copy(invite, "invite")}>
+          {copied === "invite" ? "Copied!" : "Copy invite"}
+        </button>
+      )}
+      {open && own && (
+        <button type="button" className="invite-row-button" title={own} onClick={() => copy(own, "own")}>
+          {copied === "own" ? "Copied!" : "Copy your seat's link"}
+        </button>
+      )}
     </div>
   );
 }
@@ -648,6 +656,12 @@ export function DiceKingdomPage() {
 
   // Poll for the other player's moves - same version-compare shape as v1.
   const gameId = game?.gameId ?? null;
+
+  // Label this game in the browser's saved list (seats.ts), for "Resume a game".
+  const savedLabel = game ? `${game.playerOne.champion?.name ?? game.playerOne.name} vs ${game.playerTwo.champion?.name ?? game.playerTwo.name}` : null;
+  useEffect(() => {
+    if (gameId && savedLabel) describeSavedGame(gameId, savedLabel, vsComputer);
+  }, [gameId, savedLabel, vsComputer]);
   const gameVersion = game?.version ?? 0;
   useEffect(() => {
     if (!gameId) return;
@@ -1062,6 +1076,15 @@ export function DiceKingdomPage() {
           engine - a small pool, simple abilities, mostly for reacting to how the system feels.
         </p>
         {error && <p className="error">{error}</p>}
+        <ResumeGames
+          onResume={(r) => {
+            setError(null);
+            if (r.kind === "game") {
+              setVsComputer(r.vsComputer);
+              setGame(r.game);
+            } else setWaiting({ gameId: r.gameId, hostChampionId: r.hostChampionId });
+          }}
+        />
         <div className="panel">
           {/* Side by side, not stacked - direct feedback (2026-09-09):
               "can we do the two column approach with the 'select
@@ -1674,6 +1697,7 @@ export function DiceKingdomPage() {
   }
 
   const link = inviteLink(game.gameId);
+  const own = myLink(game.gameId);
 
   // The contextual action available for whatever's currently selected -
   // computed once, the same way ../ActionTray.tsx builds its `actions`
@@ -1995,7 +2019,7 @@ export function DiceKingdomPage() {
               (2026-09-09 direct feedback - see that component's own
               remarks); Invite stays here - "Invite and Copy link can
               stay on the bottom for now." */}
-          {!vsComputer && link && <InviteRow link={link} />}
+          {!vsComputer && (link || own) && <GameLinks invite={link} own={own} />}
         </div>
 
         <div className="dk-rail-mid">

@@ -11,9 +11,9 @@ import {
   TardigradeIcon,
   type PhaseKey,
 } from "./icons";
-import { forgetSeats, inviteLink, rememberSeats } from "./seats";
+import { describeSavedGame, forgetSeats, inviteLink, myLink, rememberSeats } from "./seats";
 import { GameOverOverlay } from "./GameOverOverlay";
-import { OPPONENT_PICKS, OpponentPicksOption, PickYourChampion, WaitingForOpponent, resolveInvite } from "./lobby";
+import { OPPONENT_PICKS, OpponentPicksOption, PickYourChampion, ResumeGames, WaitingForOpponent, resolveInvite } from "./lobby";
 import { DieCube, type CubeSpin } from "./DieCube";
 import { facesFor } from "./dieFaces";
 import { explainRows, tileCues, whereText } from "./statusCues";
@@ -1829,7 +1829,14 @@ export function DiceKingdomMobilePage() {
   // callback, not just "we tried." Self-clears; the persistent Invite
   // row above the Log is still there afterward for a second copy.
   const [inviteCopiedBanner, setInviteCopiedBanner] = useState(false);
-  const [linkCopied, setLinkCopied] = useState<"copied" | "failed" | null>(null);
+  const [linksOpen, setLinksOpen] = useState(false);
+  const [linkCopied, setLinkCopied] = useState<"invite" | "own" | "failed-invite" | "failed-own" | null>(null);
+  function copyLink(url: string, which: "invite" | "own") {
+    navigator.clipboard?.writeText(url).then(
+      () => setLinkCopied(which),
+      () => setLinkCopied(which === "invite" ? "failed-invite" : "failed-own"),
+    );
+  }
   useEffect(() => {
     if (!linkCopied) return;
     const timer = window.setTimeout(() => setLinkCopied(null), 2000);
@@ -1862,6 +1869,12 @@ export function DiceKingdomMobilePage() {
 
   const gameId = game?.gameId ?? null;
   const gameVersion = game?.version ?? 0;
+
+  // Label this game in the browser's saved list (seats.ts), for "Resume a game".
+  const savedLabel = game ? `${game.playerOne.champion?.name ?? game.playerOne.name} vs ${game.playerTwo.champion?.name ?? game.playerTwo.name}` : null;
+  useEffect(() => {
+    if (gameId && savedLabel) describeSavedGame(gameId, savedLabel, vsComputer);
+  }, [gameId, savedLabel, vsComputer]);
   useEffect(() => {
     if (!gameId) return;
     let cancelled = false;
@@ -2294,6 +2307,15 @@ export function DiceKingdomMobilePage() {
           their own.
         </p>
         {error && <p className="dkm-error">{error}</p>}
+        <ResumeGames
+          onResume={(r) => {
+            setError(null);
+            if (r.kind === "game") {
+              setVsComputer(r.vsComputer);
+              setGame(r.game);
+            } else setWaiting({ gameId: r.gameId, hostChampionId: r.hostChampionId });
+          }}
+        />
         {/* Same two-column layout as ../DiceKingdomPage.tsx's own picker
             (direct feedback, 2026-09-14: "makes more sense to have them
             in two columns") - reuses that page's own .champ-pick-columns/
@@ -2885,6 +2907,7 @@ export function DiceKingdomMobilePage() {
   }
 
   const link = inviteLink(game.gameId, "/dice-kingdom/mobile");
+  const own = myLink(game.gameId, "/dice-kingdom/mobile");
   const logEntries = logOpen ? game.log : game.log.slice(-4);
   function rosterRowsFor(map: Map<string, Die[]>) {
     return [...map.entries()].map(([cardId, dice]) => ({
@@ -3048,28 +3071,29 @@ export function DiceKingdomMobilePage() {
           targeting={targeting}
         />
 
-        {/* Moved down from the top of the scroll region (direct feedback,
-            2026-09-17): "it takes up a lot of room up there for
-            something that will only be clicked once." Hidden entirely
-            in vs-computer mode - there's no second seat to invite, both
-            tokens already live in this one browser. */}
-        {!vsComputer && link && (
+        {/* Game links, folded away behind one small toggle (user,
+            2026-10-08: "it's unlikely to be used very often, so it could
+            require a click to get to"). Invite = the other seat's link;
+            Your seat = a link back into your own side, to keep or to
+            carry on from another device. Says so when a copy worked
+            (2026-09-27: it copied, but "felt like it did nothing"). Sits
+            above the Log, out of the way; hidden in vs-computer mode,
+            where there's no second player to send a link to. */}
+        {!vsComputer && (link || own) && (
           <div className="dkm-invite">
-            <span>Invite</span>
-            {/* Says so when it worked (direct feedback, 2026-09-27: it
-                copied, but "felt like it did nothing"). */}
-            <button
-              type="button"
-              className="dkm-text-btn"
-              onClick={() =>
-                navigator.clipboard?.writeText(link).then(
-                  () => setLinkCopied("copied"),
-                  () => setLinkCopied("failed"),
-                )
-              }
-            >
-              {linkCopied === "copied" ? "Copied ✓" : linkCopied === "failed" ? "Couldn't copy" : "Copy link"}
+            <button type="button" className="dkm-text-btn dkm-links-toggle" onClick={() => setLinksOpen((v) => !v)}>
+              Game links {linksOpen ? "▾" : "▸"}
             </button>
+            {linksOpen && link && (
+              <button type="button" className="dkm-text-btn" onClick={() => copyLink(link, "invite")}>
+                {linkCopied === "invite" ? "Invite copied ✓" : linkCopied === "failed-invite" ? "Couldn't copy" : "Copy invite"}
+              </button>
+            )}
+            {linksOpen && own && (
+              <button type="button" className="dkm-text-btn" onClick={() => copyLink(own, "own")}>
+                {linkCopied === "own" ? "Your link copied ✓" : linkCopied === "failed-own" ? "Couldn't copy" : "Copy your seat's link"}
+              </button>
+            )}
           </div>
         )}
 
