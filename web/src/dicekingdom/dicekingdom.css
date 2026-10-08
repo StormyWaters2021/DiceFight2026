@@ -4225,6 +4225,7 @@
 .dk-mobile .dkm-choice-header {
   touch-action: none;
   cursor: grab;
+  user-select: none; /* a mouse swipe would otherwise select its text */
 }
 .dk-mobile .dkm-choice-header:active { cursor: grabbing; }
 .dk-mobile .dkm-overlay-backdrop.dkm-choice-minimized {

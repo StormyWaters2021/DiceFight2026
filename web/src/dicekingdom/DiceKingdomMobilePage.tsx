@@ -2602,8 +2602,11 @@ export function DiceKingdomMobilePage() {
     ? game.dice.filter((d) => d.cardId === selectedPurchaseCard.id && d.ownerId === selectedDie.ownerId)
     : [];
   const purchaseUnowned = purchaseCopies.filter((d) => d.zone === "Unpurchased").length;
-  const purchaseOwned = purchaseCopies.length - purchaseUnowned;
-
+  // Bought by whom: a creature only by its owner, but a Basic Action by
+  // either player - count the copies the viewer controls.
+  const purchaseOwned = selectedPurchaseCard?.isAction
+    ? purchaseCopies.filter((d) => d.zone !== "Unpurchased" && d.controllerId === you).length
+    : purchaseCopies.length - purchaseUnowned;
 
   // Actions & Globals (see GlobalRail), gated by priority (Priority.cs,
   // Dice Masters rules 2.6.6 / 2.7.3.4): in Main and the attack window,
@@ -3219,7 +3222,9 @@ export function DiceKingdomMobilePage() {
                 {selectedPurchaseCard.rawText?.trim() || selectedPurchaseCard.actionText?.trim() || "No character ability."}
               </div>
             )}
-            {selectedDie.zone === "ReservePool" && inspectActions.some((action) => action.label === "Field this creature" || action.label === "Field free (Golden Eagle)") && selectedDie.cardId && (
+            {/* A creature card's die showing a body, ready to field (or not
+                yet affordable): what it does. */}
+            {selectedDie.zone === "ReservePool" && selectedDie.cardId && selectedDie.effectiveAttack !== null && (
               <div className="dkm-purchase-ability">
                 {cardsById.get(selectedDie.cardId)?.rawText?.trim() || cardsById.get(selectedDie.cardId)?.actionText?.trim() || "No character ability."}
               </div>

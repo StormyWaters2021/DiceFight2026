@@ -1,27 +1,66 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { api } from "./api";
 import { CHAMPION_ICONS } from "./icons";
-import { championLabel, OpponentPicksOption, OPPONENT_PICKS, type ChampionChoice } from "./lobby";
 
-// Keep the descriptions outside the page layouts. Power text follows
-// DiceKingdomConfig.Champions and ChampionDef in the server rules project.
-const CHAMPION_DETAILS: Record<string, { ability: string; playstyle: string }> = {
-  Wolf: {
-    ability: "Once per turn, give one of your creatures +3 attack for the turn.",
-    playstyle: "Aggressive: push damage by strengthening a key attacker.",
-  },
-  Armadillo: {
-    ability: "Once per turn, after blocks, prevent all combat damage to one of your creatures in combat this turn.",
-    playstyle: "Defensive: protect a valuable creature during combat.",
-  },
-  GoldenEagle: {
-    ability: "Once per turn, field one creature without paying its fielding cost.",
-    playstyle: "Efficient: deploy creatures while conserving energy for other actions.",
-  },
-  GreatHornedOwl: {
-    ability: "Once per turn, spin one of your creatures up one level or an opponent's creature down one level.",
-    playstyle: "Tactical: manipulate creature levels to create an advantage.",
-  },
+/** Setup-screen value for Player 2's column: the opponent picks their own. */
+export const OPPONENT_PICKS = "__opponent_picks__";
+
+export interface ChampionChoice {
+  id: string;
+  energy: string;
+}
+
+export function championLabel(id: string): string {
+  return id.replace(/([A-Z])/g, " $1").trim();
+}
+
+/** Player 2's "let them choose" option on the setup screen. */
+export function OpponentPicksOption({ selected, onPick }: { selected: boolean; onPick: () => void }) {
+  return (
+    <button
+      type="button"
+      className={`champ-opt dk-opponent-picks${selected ? " selected" : ""}`}
+      style={{ ["--sel" as string]: "var(--text-h)" }}
+      onClick={onPick}
+    >
+      <div className="cname" style={{ color: "var(--text-h)" }}>
+        Opponent picks
+      </div>
+      <small>Send an invite link</small>
+    </button>
+  );
+}
+
+// How each Champion tends to play. The power itself comes from the server
+// (Champion.passiveText - ChampionPowers.Describe, the same text the card
+// reference prints), so it can't drift from the rules when a power changes.
+const PLAYSTYLES: Record<string, string> = {
+  Wolf: "Aggressive: push damage by strengthening a key attacker.",
+  Armadillo: "Defensive: protect a valuable creature during combat.",
+  GoldenEagle: "Efficient: deploy creatures while conserving energy for other actions.",
+  GreatHornedOwl: "Tactical: manipulate creature levels to create an advantage.",
 };
+
+// One fetch of the Champions' power text, shared by every picker on the page.
+let powerText: Promise<Record<string, string>> | null = null;
+function usePowerText(): Record<string, string> {
+  const [text, setText] = useState<Record<string, string>>({});
+  useEffect(() => {
+    powerText ??= api
+      .getChampions()
+      .then((champions) => Object.fromEntries(champions.map((c) => [c.id, c.passiveText])))
+      .catch(() => {
+        powerText = null; // try again next time
+        return {};
+      });
+    let live = true;
+    powerText.then((t) => live && setText(t));
+    return () => {
+      live = false;
+    };
+  }, []);
+  return text;
+}
 
 export function ChampionPicker({ champions, value, onPick, allowOpponentPicks = false }: {
   champions: ChampionChoice[];
@@ -30,7 +69,10 @@ export function ChampionPicker({ champions, value, onPick, allowOpponentPicks = 
   allowOpponentPicks?: boolean;
 }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const detail = expandedId === value && value ? CHAMPION_DETAILS[value] : undefined;
+  const powers = usePowerText();
+  const detail = expandedId === value && value && value !== OPPONENT_PICKS
+    ? { ability: powers[value], playstyle: PLAYSTYLES[value] }
+    : undefined;
   return (
     <div className="champion-picker">
       <div className="champ-pick">
@@ -57,8 +99,8 @@ export function ChampionPicker({ champions, value, onPick, allowOpponentPicks = 
           {detail && (
             <div className="champ-info" role="region" aria-label={`${championLabel(value!)} information`}>
               <strong>{championLabel(value!)}</strong>
-              <div className="champ-info-section"><b>Champion ability</b><p>{detail.ability}</p></div>
-              <div className="champ-info-section"><b>Playstyle</b><p>{detail.playstyle}</p></div>
+              {detail.ability && <div className="champ-info-section"><b>Champion ability</b><p>{detail.ability}</p></div>}
+              {detail.playstyle && <div className="champ-info-section"><b>Playstyle</b><p>{detail.playstyle}</p></div>}
             </div>
           )}
         </div>
