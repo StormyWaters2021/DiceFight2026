@@ -61,7 +61,12 @@ public sealed record BotPersona(
     // one matching energy-face die (or Wild) stays unspent at the end of
     // Main whenever the opponent has an attacker with HoldAgainstAttack+ ATK.
     string? HoldForGlobalCardId = null,
-    int HoldAgainstAttack = 4)
+    int HoldAgainstAttack = 4,
+    // What one more die in the Bag costs a purchase plan (2026-10-08,
+    // user: "you don't want too many dice in your bag, or it will take
+    // forever to get around to the dice you just bought") - so one big
+    // buy can beat two small ones of more total cost.
+    double DilutionPerDie = 0)
 {
     public static readonly BotPersona Default = new();
 

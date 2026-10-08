@@ -24,6 +24,7 @@ using DiceFight.V2.Model.Effects;
 //   SIM_POWERS=only  the WITH-powers pass alone
 //   SIM_ONLY=A,B     only the A-vs-B matchup (Champion ids)
 //   SIM_MUSKOX_GLOBAL=on  Musk Ox gets Kree Captain's purchase-discount Global
+//   SIM_DILUTION=N   bot persona's DilutionPerDie (each purchased die costs N plan value)
 //   SIM_DUMP_ALL=1   print every game's match log
 //   SIM_POWERS=on    also run a pass WITH Champion passives (default:
 //                    powers-off only - every passive's Amount zeroed and
@@ -161,8 +162,11 @@ static (string WinnerChampionIdOrSentinel, int Turns) PlayOneGame(
         }
 
         var owner = driver.DecisionOwner();
-        var decision = DiceKingdomBot.Decide(state, owner, skip,
-                Environment.GetEnvironmentVariable("SIM_PERSONAS") == "off" ? BotPersona.Default : null)
+        var persona = Environment.GetEnvironmentVariable("SIM_PERSONAS") == "off" ? BotPersona.Default : BotPersona.ForChampion(state.GetPlayer(owner).ChampionId);
+        // SIM_DILUTION=N - what-if: each die a purchase adds to the Bag costs N plan value.
+        if (double.TryParse(Environment.GetEnvironmentVariable("SIM_DILUTION"), System.Globalization.CultureInfo.InvariantCulture, out var dilution))
+            persona = persona with { DilutionPerDie = dilution };
+        var decision = DiceKingdomBot.Decide(state, owner, skip, persona)
             ?? throw new InvalidOperationException($"Bot had no decision for {owner} at step {state.CurrentStepId}.");
         var lifeBefore = (state.PlayerOne.Life, state.PlayerTwo.Life);
         if (state.PendingChoice?.Intent == ChoiceIntent.NameCard && decision.DieIds.Count > 0)

@@ -4340,3 +4340,26 @@ can still play the two sides. In-game, "Invite" and a new "Your seat"
 link (back into your own side) sit behind one small "Game links" toggle
 (user: rarely used, so it can take a click). Also: stat changes are now
 logged ("Wolf: Wolverine gets +3 ATK this turn.").
+
+## 2026-10-08 - Bot bag dilution (knob only, default unchanged)
+
+User, on not buying Honey Badger early: "you don't want too many dice in
+your bag, or it will take forever to get around to the dice you just
+bought." The bot's purchase plan sums value across every die it can
+afford, so two cheap dice beat one big one. New BotPersona.DilutionPerDie
+charges each purchased die; default stays 0 until there's more human data
+(user: "wait for more than one partial game's worth of data").
+Simulator (SIM_DILUTION, 400 games/matchup):
+
+| Per-die cost | Wolf | Arm | Owl | Eagle | Spread | Turn cap | Turns | Buys/game |
+|---|---|---|---|---|---|---|---|---|
+| 0 (live) | 48 | 55 | 46 | 50 | 8.3 | 15% | 28.2 | 11.5 |
+| 1 | 45 | 52 | 51 | 50 | 6.6 | 12% | 26.3 | 10.6 |
+| 1.5 | 46 | 53 | 48 | 51 | 7.0 | 10% | 24.9 | 9.8 |
+| 2 | 46 | 52 | 48 | 53 | 6.3 | 11% | 24.7 | 9.5 |
+| 3 | 51 | 35 | 50 | 63 | 27.7 | 17% | 26.2 | 8.0 |
+
+1-2 gives shorter games and fewer stalls; 3 starves Armadillo's Rhinoceros
+plan. In the one human game recorded (5607496d), only ~4 matched the
+human's buys (Wolverine over Honey Badger + Mongoose, which tie at 2).
+tools/GameRecords --dilution N compares human buys against a given value.

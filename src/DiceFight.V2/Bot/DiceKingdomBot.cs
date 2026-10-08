@@ -413,7 +413,7 @@ public static class DiceKingdomBot
                 if (discounted) cost = Math.Max(1, cost - discountLeft);
                 if (BotEnergy.PickWithVirtual(state, pool, cost, card.EnergySymbolIds.FirstOrDefault(), virtualLeft) is not { } pay) continue;
                 var nextCopies = new Dictionary<string, int>(copies) { [card.Id] = copies.GetValueOrDefault(card.Id) + 1 };
-                Search(pool.Where(d => !pay.Dice.Contains(d.Id)).ToList(), virtualLeft - pay.VirtualUsed, nextCopies, value + gain, depth + 1,
+                Search(pool.Where(d => !pay.Dice.Contains(d.Id)).ToList(), virtualLeft - pay.VirtualUsed, nextCopies, value + gain - persona.DilutionPerDie, depth + 1,
                     first ?? (card, dice[bought], pay.Dice), discounted ? 0 : discountLeft);
             }
         }

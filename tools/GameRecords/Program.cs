@@ -11,10 +11,14 @@ using DiceFight.V2.Bot;
 // --disagreements lists every human move the bot would have made differently.
 
 var showDisagreements = args.Contains("--disagreements");
-var paths = args.Where(a => !a.StartsWith("--")).ToList();
+// --dilution N: compare against a bot whose purchases each cost N for the
+// die they add to the Bag (BotPersona.DilutionPerDie) - for tuning it.
+var dilutionAt = Array.IndexOf(args, "--dilution");
+double? dilution = dilutionAt >= 0 ? double.Parse(args[dilutionAt + 1], System.Globalization.CultureInfo.InvariantCulture) : null;
+var paths = args.Where((a, i) => !a.StartsWith("--") && !(dilutionAt >= 0 && i == dilutionAt + 1)).ToList();
 if (paths.Count == 0)
 {
-    Console.WriteLine("usage: dotnet run -c Release -- <folder or .json files> [--disagreements]");
+    Console.WriteLine("usage: dotnet run -c Release -- <folder or .json files> [--disagreements] [--dilution N]");
     return 1;
 }
 var files = paths.SelectMany(p => Directory.Exists(p) ? Directory.GetFiles(p, "*.json", SearchOption.AllDirectories) : [p]).Order().ToList();
@@ -34,7 +38,9 @@ foreach (var file in files)
     var outcome = GameReplayer.Replay(record, (state, action) =>
     {
         if (action.Error is not null || action.Auto) return; // an illegal try, or a move the client made for them, isn't a decision
-        var bot = DiceKingdomBot.Decide(state, action.PlayerId);
+        var persona = BotPersona.ForChampion(state.GetPlayer(action.PlayerId).ChampionId);
+        if (dilution is { } d) persona = persona with { DilutionPerDie = d };
+        var bot = DiceKingdomBot.Decide(state, action.PlayerId, persona: persona);
         if (bot is null) return;
         var decision = Category(action.Action);
         var agreed = Same(bot, action);
