@@ -13,7 +13,8 @@ import {
 } from "./icons";
 import { describeSavedGame, forgetSeats, inviteLink, myLink, rememberSeats } from "./seats";
 import { GameOverOverlay } from "./GameOverOverlay";
-import { OPPONENT_PICKS, OpponentPicksOption, PickYourChampion, ResumeGames, WaitingForOpponent, resolveInvite } from "./lobby";
+import { OPPONENT_PICKS, PickYourChampion, ResumeGames, WaitingForOpponent, resolveInvite } from "./lobby";
+import { ChampionPicker } from "./ChampionPicker";
 import { DieCube, type CubeSpin } from "./DieCube";
 import { facesFor } from "./dieFaces";
 import { explainRows, tileCues, whereText } from "./statusCues";
@@ -1629,6 +1630,31 @@ function ChoiceSheet({
   onConfirm: (ids: string[]) => void;
 }) {
   const [picked, setPicked] = useState<string[]>([]);
+  const [minimized, setMinimized] = useState(false);
+  const swipeStartY = useRef<number | null>(null);
+  const ignoreNextClick = useRef(false);
+  const startSheetSwipe = (event: React.PointerEvent<HTMLElement>) => {
+    if (event.button !== 0) return;
+    ignoreNextClick.current = false;
+    swipeStartY.current = event.clientY;
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+  const finishSheetSwipe = (event: React.PointerEvent<HTMLElement>) => {
+    if (swipeStartY.current === null) return;
+    const distance = event.clientY - swipeStartY.current;
+    swipeStartY.current = null;
+    if ((!minimized && distance > 35) || (minimized && distance < -35)) {
+      ignoreNextClick.current = true;
+      setMinimized(!minimized);
+    }
+  };
+  const handleHeaderClick = () => {
+    if (ignoreNextClick.current) {
+      ignoreNextClick.current = false;
+      return;
+    }
+    if (minimized) setMinimized(false);
+  };
   const max = Math.max(1, choice.maxCount);
   const toggle = (id: string) =>
     setPicked((prev) =>
@@ -1663,21 +1689,31 @@ function ChoiceSheet({
       </>
     );
   return (
-    <div className="dkm-overlay-backdrop">
-      <div className="dkm-sheet dkm-pay-sheet">
-        <div className="dkm-sheet-handle" />
-        <div className="dkm-popout-head">
-          <span className="dkm-popout-title">{paying ? "Pay energy" : "Choose a target"}</span>
+    <div className={`dkm-overlay-backdrop${minimized ? " dkm-choice-minimized" : ""}`}>
+      <div className="dkm-sheet dkm-pay-sheet dkm-choice-sheet">
+        <div
+          className="dkm-choice-header"
+          role="button"
+          tabIndex={0}
+          aria-expanded={!minimized}
+          aria-label={minimized ? "Expand pending choice" : "Swipe down to minimize pending choice"}
+          onClick={handleHeaderClick}
+          onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setMinimized(!minimized); } }}
+          onPointerDown={startSheetSwipe}
+          onPointerUp={finishSheetSwipe}
+          onPointerCancel={() => { swipeStartY.current = null; }}
+        >
+          <div className="dkm-choice-collapse"><span className="dkm-sheet-handle" /></div>
+          <div className="dkm-popout-head">
+            <span className="dkm-popout-title">{paying ? "Pay energy" : "Choose a target"}</span>
+          </div>
+          <p className="dkm-pay-status">
+            <b>{choice.description}</b>
+            {max > 1 && (
+              <span>{" "}· {picked.length} / {max}</span>
+            )}
+          </p>
         </div>
-        <p className="dkm-pay-status">
-          <b>{choice.description}</b>
-          {max > 1 && (
-            <span>
-              {" "}
-              · {picked.length} / {max}
-            </span>
-          )}
-        </p>
         {choice.intent === "NameCard" ? (
           // Naming a card, not a die (Pangolin's lockout): one option per
           // card, by name - every die of it is an equivalent answer, and 32
@@ -1697,7 +1733,24 @@ function ChoiceSheet({
                     className={`dkm-secondary-btn dkm-name-card${isPicked ? " picked" : ""}`}
                     onClick={() => setPicked(isPicked ? [] : [d.id])}
                   >
-                    <b>{card?.name ?? d.cardId}</b> <small>cost {card?.purchaseCost} · {copies.length - unbought} owned, {unbought} unbought</small>
+                    <span className="dkm-name-card-main">
+                      <span className="dkm-name-card-header">
+                        <b>{card?.name ?? d.cardId}</b>
+                        <small>cost {card?.purchaseCost} · {copies.length - unbought} owned, {unbought} unbought</small>
+                      </span>
+                      <span className="dkm-name-card-ability">
+                        {card?.rawText?.trim() || card?.actionText?.trim() || "No character ability."}
+                      </span>
+                    </span>
+                    <span className="dkm-name-card-faces" aria-label="Non-energy die faces">
+                      {facesFor(d, cardsById).faces
+                        .filter((face) => face.kind !== "energy")
+                        .map((face, index) => (
+                          <span key={index} title={face.kind === "character" ? `Level ${face.level}: field ${face.fieldingCost}, attack ${face.attack}, defense ${face.defense}` : "Action face"}>
+                            <DieCube faces={[face, face, face, face, face, face]} index={0} size={28} mine={d.controllerId === you} />
+                          </span>
+                        ))}
+                    </span>
                   </button>
                 );
               })}
@@ -2343,28 +2396,12 @@ export function DiceKingdomMobilePage() {
             ].map(({ label, value, setValue }) => (
               <div className="champ-pick-column" key={label}>
                 <h3 style={{ margin: "0 0 10px" }}>{label}</h3>
-                <div className="champ-pick">
-                  {setValue === setSetupB && !vsComputer && (
-                    <OpponentPicksOption selected={value === OPPONENT_PICKS} onPick={() => setValue(OPPONENT_PICKS)} />
-                  )}
-                  {CHAMPIONS.map((c) => {
-                    const Icon = CHAMPION_ICONS[c.id];
-                    return (
-                      <button
-                        key={c.id}
-                        type="button"
-                        className={`champ-opt${value === c.id ? " selected" : ""}`}
-                        style={{ ["--sel" as string]: `var(--${c.energy.toLowerCase()})`, color: `var(--${c.energy.toLowerCase()})` }}
-                        onClick={() => setValue(c.id)}
-                      >
-                        <Icon />
-                        <div className="cname" style={{ color: "var(--text-h)" }}>
-                          {c.id.replace(/([A-Z])/g, " $1").trim()}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
+                <ChampionPicker
+                  champions={CHAMPIONS}
+                  value={value}
+                  onPick={setValue}
+                  allowOpponentPicks={setValue === setSetupB && !vsComputer}
+                />
               </div>
             ))}
           </div>
@@ -2559,6 +2596,14 @@ export function DiceKingdomMobilePage() {
   }
 
   const selectedDie = selectedId ? game.dice.find((d) => d.id === selectedId) ?? null : null;
+  const selectedPurchaseCard = selectedDie?.zone === "Unpurchased" && selectedDie.cardId
+    ? cardsById.get(selectedDie.cardId) : undefined;
+  const purchaseCopies = selectedPurchaseCard && selectedDie
+    ? game.dice.filter((d) => d.cardId === selectedPurchaseCard.id && d.ownerId === selectedDie.ownerId)
+    : [];
+  const purchaseUnowned = purchaseCopies.filter((d) => d.zone === "Unpurchased").length;
+  const purchaseOwned = purchaseCopies.length - purchaseUnowned;
+
 
   // Actions & Globals (see GlobalRail), gated by priority (Priority.cs,
   // Dice Masters rules 2.6.6 / 2.7.3.4): in Main and the attack window,
@@ -3128,7 +3173,20 @@ export function DiceKingdomMobilePage() {
           <div className="dkm-inspect" style={{ ["--cc" as string]: typeColorOf(selectedDie, cardsById) }}>
             <AvatarGlyph die={selectedDie} size={42} color={typeColorOf(selectedDie, cardsById)} />
             <div className="dkm-inspect-mid">
-              <span className="dkm-inspect-name">{nameOf(selectedDie, cardsById)}</span>
+              <div className="dkm-inspect-title-row">
+                <span className="dkm-inspect-name">{nameOf(selectedDie, cardsById)}</span>
+                {selectedPurchaseCard && (
+                  <div className="dkm-purchase-character-faces" aria-label="Non-energy die faces">
+                    {facesFor(selectedDie, cardsById).faces
+                      .filter((face) => face.kind !== "energy")
+                      .map((face, index) => (
+                        <span key={index} title={face.kind === "character" ? `Level ${face.level}: field ${face.fieldingCost}, attack ${face.attack}, defense ${face.defense}` : "Action face"}>
+                          <DieCube faces={[face, face, face, face, face, face]} index={0} size={28} mine />
+                        </span>
+                      ))}
+                  </div>
+                )}
+              </div>
               <span className="dkm-inspect-sub">
                 {/* A face can carry BOTH a character body and an energy
                     symbol at once (v3/DESIGN_NOTES.md's hybrid-face
@@ -3156,7 +3214,35 @@ export function DiceKingdomMobilePage() {
             <button type="button" className="dkm-inspect-close" onClick={() => setSelectedId(null)}>
               ×
             </button>
-            {inspectActions.map((a) => (
+            {selectedPurchaseCard && (
+              <div className="dkm-purchase-ability">
+                {selectedPurchaseCard.rawText?.trim() || selectedPurchaseCard.actionText?.trim() || "No character ability."}
+              </div>
+            )}
+            {selectedDie.zone === "ReservePool" && inspectActions.some((action) => action.label === "Field this creature" || action.label === "Field free (Golden Eagle)") && selectedDie.cardId && (
+              <div className="dkm-purchase-ability">
+                {cardsById.get(selectedDie.cardId)?.rawText?.trim() || cardsById.get(selectedDie.cardId)?.actionText?.trim() || "No character ability."}
+              </div>
+            )}
+            {selectedPurchaseCard ? (
+              <div className="dkm-purchase-row">
+                <div className="dkm-purchase-count" aria-label={`${purchaseOwned} purchased`}>
+                  <b>{purchaseOwned}</b><small>Purchased</small>
+                </div>
+                <div className="dkm-purchase-actions">
+                  {inspectActions.map((a) => (
+                    <button key={a.label} type="button" className="dkm-inspect-action"
+                      disabled={a.label === "Can't afford"} onClick={a.run}>
+                      {a.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="dkm-purchase-count" aria-label={`${purchaseUnowned} unpurchased`}>
+                  <b>{purchaseUnowned}</b><small>Unpurchased</small>
+                </div>
+
+              </div>
+            ) : inspectActions.map((a) => (
               <button
                 key={a.label}
                 type="button"

@@ -8,7 +8,7 @@
 // waiting screen, and the invited player's Champion pick.
 import { useEffect, useState } from "react";
 import { api } from "./api";
-import { CHAMPION_ICONS } from "./icons";
+import { ChampionPicker } from "./ChampionPicker";
 import { claimSeatFromUrl, forgetSavedGame, nameClaimedSeat, resumeSeats, savedGames, type SavedGame } from "./seats";
 import type { GameState, LobbyStatus } from "./types";
 
@@ -38,36 +38,12 @@ export async function resolveInvite(): Promise<InviteResolution | null> {
   return { kind: "game", game: await api.getGame(claim.gameId) };
 }
 
-function ChampionGrid({
-  champions,
-  value,
-  onPick,
-}: {
+function ChampionGrid({ champions, value, onPick }: {
   champions: ChampionChoice[];
   value: string | null;
   onPick: (id: string) => void;
 }) {
-  return (
-    <div className="champ-pick">
-      {champions.map((c) => {
-        const Icon = CHAMPION_ICONS[c.id];
-        return (
-          <button
-            key={c.id}
-            type="button"
-            className={`champ-opt${value === c.id ? " selected" : ""}`}
-            style={{ ["--sel" as string]: `var(--${c.energy.toLowerCase()})`, color: `var(--${c.energy.toLowerCase()})` }}
-            onClick={() => onPick(c.id)}
-          >
-            <Icon />
-            <div className="cname" style={{ color: "var(--text-h)" }}>
-              {championLabel(c.id)}
-            </div>
-          </button>
-        );
-      })}
-    </div>
-  );
+  return <ChampionPicker champions={champions} value={value} onPick={onPick} />;
 }
 
 /** Player 2's "let them choose" option on the setup screen. */

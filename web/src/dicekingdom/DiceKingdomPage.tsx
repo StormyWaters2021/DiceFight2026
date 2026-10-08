@@ -4,7 +4,8 @@ import { api, apiAs } from "./api";
 import { CHAMPION_ICONS, CHARACTER_ICONS, EnergyBadge, HelpIcon, TardigradeIcon, TardigradePhotoIcon } from "./icons";
 import { describeSavedGame, forgetSeats, inviteLink, myLink, rememberSeats } from "./seats";
 import { GameOverOverlay } from "./GameOverOverlay";
-import { OPPONENT_PICKS, OpponentPicksOption, PickYourChampion, ResumeGames, WaitingForOpponent, resolveInvite } from "./lobby";
+import { OPPONENT_PICKS, PickYourChampion, ResumeGames, WaitingForOpponent, resolveInvite } from "./lobby";
+import { ChampionPicker } from "./ChampionPicker";
 import { CombatLane } from "./CombatLane";
 import { DieCube, type CubeSpin } from "./DieCube";
 import { facesFor } from "./dieFaces";
@@ -1111,28 +1112,12 @@ export function DiceKingdomPage() {
             ].map(({ label, value, setValue }) => (
               <div className="champ-pick-column" key={label}>
                 <h3 style={{ margin: "0 0 10px" }}>{label}</h3>
-                <div className="champ-pick">
-                  {setValue === setSetupB && !vsComputer && (
-                    <OpponentPicksOption selected={value === OPPONENT_PICKS} onPick={() => setValue(OPPONENT_PICKS)} />
-                  )}
-                  {CHAMPIONS.map((c) => {
-                    const Icon = CHAMPION_ICONS[c.id];
-                    return (
-                      <button
-                        key={c.id}
-                        type="button"
-                        className={`champ-opt${value === c.id ? " selected" : ""}`}
-                        style={{ ["--sel" as string]: `var(--${c.energy.toLowerCase()})`, color: `var(--${c.energy.toLowerCase()})` }}
-                        onClick={() => setValue(c.id)}
-                      >
-                        <Icon />
-                        <div className="cname" style={{ color: "var(--text-h)" }}>
-                          {c.id.replace(/([A-Z])/g, " $1").trim()}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
+                <ChampionPicker
+                  champions={CHAMPIONS}
+                  value={value}
+                  onPick={setValue}
+                  allowOpponentPicks={setValue === setSetupB && !vsComputer}
+                />
               </div>
             ))}
           </div>

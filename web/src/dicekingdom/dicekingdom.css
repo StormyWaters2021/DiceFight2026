@@ -3261,6 +3261,51 @@
   font-weight: 500;
   opacity: 0.75;
 }
+
+/* Expanded card details for Pangolin's NameCard target picker. */
+.dk-mobile .dkm-name-card-main {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.dk-mobile .dkm-name-card-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 3px 8px;
+}
+.dk-mobile .dkm-name-card-ability {
+  font-size: 11px;
+  line-height: 1.35;
+  font-weight: 400;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  opacity: 0.88;
+}
+.dk-mobile .dkm-name-card-faces {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 3px;
+  max-width: 98px;
+}
+.dk-mobile .dkm-name-card-faces > span {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+@media (max-width: 370px) {
+  .dk-mobile .dkm-name-card { padding-inline: 9px; gap: 6px; }
+  .dk-mobile .dkm-name-card-faces { max-width: 62px; }
+}
+
 .dk-mobile .dkm-name-card.picked {
   border-color: var(--claw);
   background: color-mix(in srgb, var(--claw) 18%, transparent);
@@ -4071,4 +4116,132 @@
   background: oklch(0.85 0.15 88);
   color: #14151c;
   border-color: oklch(0.7 0.13 88);
+}
+
+/* Champion selection details, shared across desktop, mobile and invite picker. */
+.dicekingdom .champ-info-outer {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 220ms ease, opacity 220ms ease;
+}
+.dicekingdom .champ-info-outer.is-open { grid-template-rows: 1fr; opacity: 1; }
+.dicekingdom .champ-info-inner { min-height: 0; overflow: hidden; }
+.dicekingdom .champ-info {
+  margin-top: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel-bg);
+  color: var(--text-h);
+  box-shadow: var(--shadow);
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.dicekingdom .champ-info > strong { display: block; margin-bottom: 10px; }
+.dicekingdom .champ-info-section + .champ-info-section { margin-top: 10px; }
+.dicekingdom .champ-info-section b { font-size: 12px; }
+.dicekingdom .champ-info-section p { margin: 3px 0 0; }
+@media (prefers-reduced-motion: reduce) {
+  .dicekingdom .champ-info-outer { transition: none; }
+}
+
+/* Compact purchase details in the mobile inspection panel. */
+.dk-mobile .dkm-purchase-ability {
+  grid-column: 1 / -1;
+  font: 400 11px/1.35 "Work Sans", var(--sans);
+  color: var(--dkm-ink);
+  max-height: 3em;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.dk-mobile .dkm-purchase-row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr);
+  gap: 6px;
+  align-items: center;
+  height: 38px;
+  min-width: 0;
+}
+.dk-mobile .dkm-purchase-count {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 38px;
+  padding: 0 2px;
+  border: 1px solid var(--dkm-line, #515b75);
+  border-radius: 8px;
+  min-width: 0;
+  white-space: nowrap;
+}
+.dk-mobile .dkm-purchase-count b { font-size: 13px; }
+.dk-mobile .dkm-purchase-count small { font-size: 9px; color: var(--dkm-ink-dim); }
+.dk-mobile .dkm-purchase-actions { display: flex; align-items: center; min-width: 0; height: 38px; }
+.dk-mobile .dkm-purchase-actions .dkm-inspect-action { width: 100%; height: 38px; min-height: 0; font-size: 11px; }
+
+
+/* Character faces beside the purchase inspection title, without increasing row height. */
+.dk-mobile .dkm-inspect-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.dk-mobile .dkm-inspect-title-row .dkm-inspect-name { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dk-mobile .dkm-purchase-character-faces {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex: 0 0 auto;
+  margin-left: auto;
+  justify-content: flex-end;
+}
+.dk-mobile .dkm-purchase-character-faces > span {
+  display: block;
+  width: 28px;
+  height: 28px;
+}
+
+/* Pending choices can be minimized for board inspection, never dismissed. */
+.dk-mobile .dkm-choice-collapse {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 22px;
+  padding: 0 0 9px;
+  margin: 0;
+  touch-action: none;
+  cursor: grab;
+}
+.dk-mobile .dkm-choice-collapse .dkm-sheet-handle {
+  display: block;
+  flex-shrink: 0;
+  margin: 0;
+}
+.dk-mobile .dkm-choice-header {
+  touch-action: none;
+  cursor: grab;
+}
+.dk-mobile .dkm-choice-header:active { cursor: grabbing; }
+.dk-mobile .dkm-overlay-backdrop.dkm-choice-minimized {
+  pointer-events: none;
+  background: transparent;
+}
+.dk-mobile .dkm-choice-minimized .dkm-choice-sheet {
+  pointer-events: auto;
+  height: auto;
+  max-height: none;
+  overflow: visible;
+  padding-bottom: max(14px, env(safe-area-inset-bottom));
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.35);
+}
+.dk-mobile .dkm-choice-minimized .dkm-choice-sheet > :not(.dkm-choice-header) {
+  display: none;
+}
+.dk-mobile .dkm-choice-minimized .dkm-choice-sheet .dkm-pay-status {
+  margin-bottom: 0;
 }
