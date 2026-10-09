@@ -191,3 +191,36 @@ export function facesFor(die: Die, cardsById: Map<string, CardDef>): DieFaces {
   };
   return { faces, index: 0 };
 }
+
+/** Put non-character faces first in reverse source order, followed by
+ * character faces in their original printed order. */
+function orderPrintedFaces(faces: CubeFace[]): CubeFace[] {
+  const characterFaces = faces.filter((face) => face.kind === "character");
+  const otherFaces = faces.filter((face) => face.kind !== "character");
+  return [...otherFaces.reverse(), ...characterFaces];
+}
+
+/** All six printed faces of a roster card, without substituting the face
+ * currently rolled on any physical die. */
+export function printedFacesForCard(card: CardDef): CubeFace[] {
+  const avatar = CHARACTER_ICONS[card.id];
+  if (card.isAction) {
+    const energyType = card.dieEnergyType ?? "Wild";
+    return orderPrintedFaces([
+      { kind: "action", avatar }, { kind: "action", avatar }, { kind: "action", avatar },
+      { kind: "energy", icon: energyType, amount: 2, avatar },
+      { kind: "energy", icon: energyType, amount: 2, avatar },
+      { kind: "energy", icon: energyType, amount: 1, avatar },
+    ]);
+  }
+  const energyType = card.energyTypes[0] ?? "Wild";
+  return orderPrintedFaces([
+    ...card.levels.map((level, i): CubeFace => ({
+      kind: "character", level: i + 1, fieldingCost: level.fieldingCost,
+      attack: level.attack, defense: level.defense, avatar,
+    })),
+    { kind: "energy", icon: energyType, amount: 2, avatar },
+    { kind: "energy", icon: energyType, amount: 2, avatar },
+    { kind: "energy", icon: energyType, amount: 1, avatar },
+  ]);
+}

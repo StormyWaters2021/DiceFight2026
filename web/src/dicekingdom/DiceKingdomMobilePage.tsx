@@ -23,8 +23,11 @@ import { DieFramesLegend, legendSeen } from "./DieFramesLegend";
 import { SpinFlash, useSpinFlash } from "./SpinFlash";
 import { useDieFlights, usePhaseHeight } from "./dieFlights";
 import { useDiceRoll, type RollTarget } from "./useDiceRoll";
-import { globalCardsInGame, activeCouldAct, botDecisionCall, decisionOwner, pickEnergy } from "./bot";
-import type { BotDecision, CardDef, Die, GameState, GlobalAbility, LobbyStatus, PendingChoice, PlayerState, StatModifier } from "./types";
+import { classifyDieMotion, remoteRolledIds } from "./dieMotion";
+import { activeCouldAct, botDecisionCall, decisionOwner, pickEnergy, rolled } from "./bot";
+import { getAbilityOptions, purchasableDiceFor, executeAbility, type AbilityCommand } from "./sharedAbilities";
+import { SharedAbilityPanel } from "./SharedAbilityPanel";
+import type { BotDecision, CardDef, Die, GameState, LobbyStatus, PendingChoice, PlayerState, StatModifier } from "./types";
 
 // Dice Kingdom - mobile refresh (2026-09). A GENUINELY SEPARATE front end
 // from ../DiceKingdomPage.tsx, not a responsive breakpoint of it - the
@@ -71,10 +74,6 @@ const LANE_COUNT = 4;
 // agnostic modules; only the stateful wiring below (whose turn it is,
 // the heartbeat timer, the identity patch) needed porting.
 const BOT_MOVE_DELAY_MS = 2000; // slow enough to follow the opponent's turn
-
-function rolled(d: Die): boolean {
-  return d.effectiveAttack !== null || d.energySymbolId !== null;
-}
 
 function nameOf(die: Die, cardsById: Map<string, CardDef>): string {
   if (!die.cardId) return "Tardigrade";
@@ -650,104 +649,6 @@ function StepPopout({
           Die frames: what the borders and tabs mean
         </button>
       </div>
-    </div>
-  );
-}
-
-// ---- Global ability rail (visual shell only - see file header) ----
-
-// Basic Actions + Globals (2026-09-26). Each Champion brings one shared
-// Basic Action whose Global either player can use. This rail is where
-// both live, always on screen between the two mats: every Global in the
-// game (with its cost and a Use button), plus any of your action dice
-// showing an action face, ready to use - so they're reachable in the
-// Attack Step's action window too, when the Buy card's Reserve isn't
-// showing.
-interface RailGlobal {
-  card: CardDef;
-  global: GlobalAbility;
-  /** Why it can't be used right now, or null if it can. */
-  blocked: string | null;
-}
-
-function GlobalRail({
-  globals,
-  readyActions,
-  actionsBlocked,
-  cardsById,
-  onUseGlobal,
-  onUseAction,
-}: {
-  globals: RailGlobal[];
-  readyActions: Die[];
-  actionsBlocked: string | null;
-  cardsById: Map<string, CardDef>;
-  onUseGlobal: (g: RailGlobal) => void;
-  onUseAction: (die: Die) => void;
-}) {
-  const [openText, setOpenText] = useState<string | null>(null);
-  return (
-    <div className="dkm-global-rail">
-      <div className="dkm-global-caption">
-        <span className="dkm-global-title">Global</span>
-        <span className="dkm-global-note">either player</span>
-      </div>
-      {globals.length === 0 && <div className="dkm-global-empty">No Global abilities available yet.</div>}
-      <div className="dkm-global-list">
-        {globals.map((g) => {
-          const Icon = CHARACTER_ICONS[g.card.id];
-          const open = openText === g.card.id;
-          return (
-            <div key={g.card.id} className="dkm-global-item">
-              <button type="button" className="dkm-global-name" onClick={() => setOpenText(open ? null : g.card.id)}>
-                <span className="dkm-global-icon">{Icon && <Icon size={18} />}</span>
-                <span>{g.card.name}</span>
-                <span className="dkm-global-cost">
-                  {Array.from({ length: Math.max(1, g.global.cost) }, (_, i) =>
-                    g.global.energyType ? <EnergyBadge key={i} type={g.global.energyType} size={12} /> : null,
-                  )}
-                </span>
-              </button>
-              <button
-                type="button"
-                className="dkm-chip-btn dkm-global-use"
-                disabled={g.blocked !== null}
-                title={g.blocked ?? undefined}
-                onClick={() => onUseGlobal(g)}
-              >
-                Use
-              </button>
-              {open && <p className="dkm-global-text">{g.global.text}</p>}
-            </div>
-          );
-        })}
-      </div>
-      {readyActions.length > 0 && (
-        <div className="dkm-ready-actions">
-          <span className="dkm-field-label">Your actions</span>
-          {readyActions.map((d) => {
-            const card = d.cardId ? cardsById.get(d.cardId) : undefined;
-            return (
-              <div key={d.id} className="dkm-ready-action">
-                <DTile die={d} cardsById={cardsById} size={34} mine flyId={false} />
-                <div className="dkm-ready-action-body">
-                  <b>{card?.name}</b>
-                  <span>{card?.actionText}</span>
-                </div>
-                <button
-                  type="button"
-                  className="dkm-chip-btn dkm-global-use"
-                  disabled={actionsBlocked !== null}
-                  title={actionsBlocked ?? undefined}
-                  onClick={() => onUseAction(d)}
-                >
-                  Use
-                </button>
-              </div>
-            );
-          })}
-        </div>
-      )}
     </div>
   );
 }
@@ -2059,18 +1960,6 @@ export function DiceKingdomMobilePage() {
   // arrived from elsewhere (a poll, or the computer's own move): newly
   // rolled into their Reserve Pool, or a face change there during Roll &
   // Reroll. Those tumble like your own; anything else just spins.
-  function remoteRolledIds(previous: GameState, next: GameState): string[] {
-    const before = new Map(previous.dice.map((d) => [d.id, d]));
-    const rolling = previous.currentStepId === "roll-and-reroll";
-    return next.dice
-      .filter((d) => {
-        const was = before.get(d.id);
-        if (!was || d.zone !== "ReservePool" || !rolled(d) || d.controllerId !== next.activePlayerId) return false;
-        if (!rolled(was)) return true;
-        return rolling && (was.level !== d.level || was.energySymbolId !== d.energySymbolId || was.energyAmount !== d.energyAmount);
-      })
-      .map((d) => d.id);
-  }
 
   // Adopts a state the OTHER player produced (user request, 2026-09-30:
   // "when watching your opponent roll and re-roll, it'd be nice to see the
@@ -2093,25 +1982,21 @@ export function DiceKingdomMobilePage() {
   }
 
   function animateRolledDice(previous: GameState, next: GameState, rolledDieIds?: string[]) {
+    const { tumbles, flips } = classifyDieMotion(previous, next, rolledDieIds);
+    const byId = new Map(next.dice.map((d) => [d.id, d]));
     const before = new Map(previous.dice.map((d) => [d.id, d]));
-    const explicit = new Set(rolledDieIds ?? []);
     const rolledTargets: RollTarget[] = [];
     const spunTargets: RollTarget[] = [];
-    for (const die of next.dice) {
-      const was = before.get(die.id);
-      if (!was) continue;
-      if (!rolled(die)) continue;
-      const changedFace =
-        was.level !== die.level || was.effectiveAttack !== die.effectiveAttack ||
-        was.energySymbolId !== die.energySymbolId || was.energyAmount !== die.energyAmount;
-      if (!explicit.has(die.id) && !changedFace) continue;
+    for (const id of [...tumbles, ...flips]) {
+      const die = byId.get(id)!;
+      const was = before.get(id)!;
       const { index } = facesFor(die, cardsById);
       // What the die showed before the roll stays up until it's in the air.
       const held = {
         face: facesFor(was, cardsById).faces[0],
         energy: was.energySymbolId && was.energyAmount > 0 ? { type: was.energySymbolId, amount: was.energyAmount } : undefined,
       };
-      (explicit.has(die.id) ? rolledTargets : spunTargets).push({ dieId: die.id, faceIndex: index, held });
+      (tumbles.includes(id) ? rolledTargets : spunTargets).push({ dieId: id, faceIndex: index, held });
     }
     launchRoll(rolledTargets);
     spinDie(spunTargets);
@@ -2291,7 +2176,7 @@ export function DiceKingdomMobilePage() {
     setBusy(true);
     busyRef.current = true;
     try {
-      const previous = game;
+      const previous = gameRef.current;
       const raw = await fn();
       const next = { ...raw, yourPlayerId: raw.playerOne.id };
       await adoptRemote(previous, next); // the computer's roll tumbles like a human opponent's
@@ -2562,10 +2447,7 @@ export function DiceKingdomMobilePage() {
   }
   // Basic Action dice are community property - the opponent's Champion's
   // action is yours to buy too.
-  const unpurchasedByCard = unpurchasedFor([
-    ...yourDice,
-    ...oppDice.filter((d) => d.cardId && cardsById.get(d.cardId)?.isAction),
-  ]);
+  const unpurchasedByCard = unpurchasedFor(purchasableDiceFor(game, cardsById, you));
   const oppUnpurchasedByCard = unpurchasedFor(oppDice);
 
   // Attackers grouped by lane for the real (post-declare) steps; during
@@ -2707,47 +2589,14 @@ export function DiceKingdomMobilePage() {
     ? purchaseCopies.filter((d) => d.zone !== "Unpurchased" && d.controllerId === you).length
     : purchaseCopies.length - purchaseUnowned;
 
-  // Actions & Globals (see GlobalRail), gated by priority (Priority.cs,
-  // Dice Masters rules 2.6.6 / 2.7.3.4): in Main and the attack window,
-  // whoever holds priority may act - the active player freely, the other
-  // player once (then it's back to the active player).
+  // Every ability's eligibility and payment comes from the same selector as desktop.
   const havePriority = game.priorityPlayerId === you;
-  // Deck-out generic energy - the server spends it before any die.
+  const abilities = getAbilityOptions(game, cardsById, you, busy);
+  const { foresightReady } = abilities;
   const yourVirtual = youPlayer.virtualEnergy ?? 0;
-  // Great Horned Owl's Foresight: your Main Step, with priority, once per turn.
-  const foresightReady =
-    !!youPlayer.foresightAvailable && isYourTurn && step === "main" && havePriority && !game.pendingChoice;
-  const actionsBlocked: string | null = game.pendingChoice
-    ? "Finish the current choice first"
-    : !isYourTurn
-      ? "Action dice are only used on your own turn"
-      : havePriority
-        ? null
-        : game.priorityPlayerId
-          ? "Your opponent has priority"
-          : "Main Step or the attack window only";
-  const globalsTiming: string | null = game.pendingChoice
-    ? "Finish the current choice first"
-    : havePriority
-      ? null
-      : game.priorityPlayerId
-        ? isYourTurn ? "Your opponent has priority" : "You'll get priority when they pass"
-        : "Main Step or the attack window only";
-  const railGlobals: RailGlobal[] = globalCardsInGame(game, cardsById).map((card) => {
-    const g = card.global!;
-    const affordable = pickEnergyForCost(yourReserve, g.cost, g.energyType, yourVirtual) !== null;
-    return {
-      card,
-      global: g,
-      blocked: busy ? "…" : globalsTiming ?? (affordable ? null : `Needs ${g.cost} ${g.energyType ?? "energy"} in your Reserve`),
-    };
-  });
-  const readyActions = yourReserve.filter((d) => d.isActionFace);
-  function useGlobal(rg: RailGlobal) {
-    const ids = pickEnergyForCost(yourReserve, rg.global.cost, rg.global.energyType, yourVirtual);
-    if (ids === null) return;
+  function doAbility(command: AbilityCommand) {
     setSelectedId(null);
-    run(() => api.useGlobal(game!.gameId, rg.card.id, rg.global.abilityIndex, ids));
+    run(() => executeAbility(game!.gameId, command));
   }
 
   // The inspect panel's action list - README's own table, mapped onto
@@ -2790,22 +2639,18 @@ export function DiceKingdomMobilePage() {
         },
       });
     }
-    if (selectedDie.zone === "ReservePool" && selectedDie.controllerId === you && foresightReady) {
+    const foresightCommand = abilities.foresightDice.find((a) => a.die.id === selectedDie.id)?.command;
+    if (foresightCommand) {
       inspectActions.push({
         label: "Foresight: reroll this die",
-        run: () => {
-          setSelectedId(null);
-          run(() => api.foresight(game.gameId, selectedDie.id));
-        },
+        run: () => doAbility(foresightCommand),
       });
     }
-    if (selectedDie.zone === "ReservePool" && selectedDie.controllerId === you && selectedDie.isActionFace && actionsBlocked === null) {
+    const actionCommand = abilities.actionDice.find((a) => a.die.id === selectedDie.id)?.command;
+    if (actionCommand) {
       inspectActions.push({
         label: `Use ${nameOf(selectedDie, cardsById)}`,
-        run: () => {
-          setSelectedId(null);
-          run(() => api.useAction(game.gameId, selectedDie.id));
-        },
+        run: () => doAbility(actionCommand),
       });
     }
     if (selectedDie.zone === "FieldZone" && selectedDie.controllerId === you && step === "select-attackers" && isYourTurn) {
@@ -3122,13 +2967,13 @@ export function DiceKingdomMobilePage() {
           targeting={targeting}
         />
 
-        <GlobalRail
-          globals={railGlobals}
-          readyActions={readyActions}
-          actionsBlocked={busy ? "…" : actionsBlocked}
-          cardsById={cardsById}
-          onUseGlobal={useGlobal}
-          onUseAction={(d) => run(() => api.useAction(game.gameId, d.id))}
+        <SharedAbilityPanel
+          variant="mobile"
+          abilities={abilities}
+          onExecute={doAbility}
+          nameOf={(d) => nameOf(d, cardsById)}
+          actionTextOf={(d) => d.cardId ? cardsById.get(d.cardId)?.actionText : null}
+          renderDie={(d) => <DTile die={d} cardsById={cardsById} size={34} mine flyId={false} />}
         />
 
         {/* Keyed by phase so React remounts this on every phase change,
