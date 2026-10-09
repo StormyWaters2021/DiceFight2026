@@ -4245,3 +4245,19 @@
 .dk-mobile .dkm-choice-minimized .dkm-choice-sheet .dkm-pay-status {
   margin-bottom: 0;
 }
+
+/* Pile dice remain visually compact; selection adds only an outline. */
+.dk-mobile .dkm-pile-strip .dkm-pile-inspect-tile {
+  appearance: none;
+  background: transparent;
+  color: inherit;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  padding: 2px;
+  margin: -3px;
+  cursor: pointer;
+}
+.dk-mobile .dkm-pile-strip .dkm-pile-inspect-tile.picked {
+  border-color: var(--dkm-ink, #b6c6df);
+  box-shadow: 0 0 0 1px currentColor;
+}

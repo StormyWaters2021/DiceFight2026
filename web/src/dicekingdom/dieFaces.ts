@@ -115,6 +115,14 @@ function defaultFaces(die: Die, card: CardDef | undefined): CubeFace[] {
   return faces.slice(0, FACE_COUNT);
 }
 
+/** The six printed faces in their card-defined order, without replacing the
+ * first face with the die's current rolled face. Use for static previews;
+ * facesFor() remains responsible for rendering the live die. */
+export function printedFacesFor(die: Die, cardsById: Map<string, CardDef>): CubeFace[] {
+  const card = die.cardId ? cardsById.get(die.cardId) : undefined;
+  return defaultFaces(die, card);
+}
+
 /** The card's printed ATK/DEF for the level this die is showing - what a
  *  stat-change chip compares against (status cues). Null off a creature face. */
 export function printedStats(die: Die, cardsById: Map<string, CardDef>): { attack: number; defense: number } | null {

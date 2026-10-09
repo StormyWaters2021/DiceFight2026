@@ -16,7 +16,7 @@ import { GameOverOverlay } from "./GameOverOverlay";
 import { OPPONENT_PICKS, PickYourChampion, ResumeGames, WaitingForOpponent, resolveInvite } from "./lobby";
 import { ChampionPicker } from "./ChampionPicker";
 import { DieCube, type CubeSpin } from "./DieCube";
-import { facesFor } from "./dieFaces";
+import { facesFor, printedFacesFor } from "./dieFaces";
 import { explainRows, tileCues, whereText } from "./statusCues";
 import { CueRows } from "./CueRows";
 import { DieFramesLegend, legendSeen } from "./DieFramesLegend";
@@ -419,12 +419,16 @@ function PileStrip({
   cardsById,
   mine,
   onClose,
+  selectedId,
+  onInspect,
 }: {
   title: string;
   dice: Die[];
   cardsById: Map<string, CardDef>;
   mine: boolean;
   onClose: () => void;
+  selectedId: string | null;
+  onInspect: (id: string) => void;
 }) {
   const nameOf = (d: Die) => (d.cardId ? (cardsById.get(d.cardId)?.name ?? d.cardId) : "Tardigrade");
   const sorted = [...dice].sort((a, b) => nameOf(a).localeCompare(nameOf(b)));
@@ -441,9 +445,17 @@ function PileStrip({
       {sorted.length === 0 && <span className="dkm-empty-hint">Nothing here.</span>}
       <div className="dkm-tile-row wrap">
         {sorted.map((d) => (
-          <div key={d.id} className="dkm-pile-sheet-item" title={nameOf(d)}>
+          <button
+            key={d.id}
+            type="button"
+            className={`dkm-pile-sheet-item dkm-pile-inspect-tile${selectedId === d.id ? " picked" : ""}`}
+            title={nameOf(d)}
+            aria-label={`Inspect ${nameOf(d)}`}
+            aria-pressed={selectedId === d.id}
+            onClick={() => onInspect(d.id)}
+          >
             {rolled(d) ? <DTile die={d} cardsById={cardsById} size={36} mine={mine} flyId={false} /> : <span className="dkm-nofly"><FacedownTile die={d} size={36} /></span>}
-          </div>
+          </button>
         ))}
       </div>
     </div>
@@ -761,6 +773,7 @@ function MatCard({
   selectedId,
   fieldClickable,
   onTapDie,
+  onInspectPileDie,
   targeting,
   onUsePower,
 }: {
@@ -780,6 +793,7 @@ function MatCard({
   selectedId: string | null;
   fieldClickable: (d: Die) => boolean;
   onTapDie: (id: string) => void;
+  onInspectPileDie: (id: string) => void;
   targeting?: Targeting | null;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -892,6 +906,8 @@ function MatCard({
           cardsById={cardsById}
           mine={mine}
           onClose={() => onOpenPile(openPile)}
+          selectedId={selectedId}
+          onInspect={onInspectPileDie}
         />
       )}
 
@@ -948,6 +964,78 @@ function MatCard({
   );
 }
 
+// A tap still toggles reroll selection. Holding a die opens its details instead.
+function RerollDieTile({ die, cardsById, picked, spin, turnOffset, onToggle, onInspect, interactive }: {
+  die: Die;
+  cardsById: Map<string, CardDef>;
+  picked: boolean;
+  spin?: CubeSpin;
+  turnOffset?: number;
+  onToggle: () => void;
+  onInspect: () => void;
+  interactive: boolean;
+}) {
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const start = useRef<{ x: number; y: number } | null>(null);
+  const longPressed = useRef(false);
+  const clearPress = () => {
+    if (timer.current !== null) clearTimeout(timer.current);
+    timer.current = null;
+    start.current = null;
+  };
+  useEffect(() => () => {
+    if (timer.current !== null) clearTimeout(timer.current);
+  }, []);
+  return (
+    <button
+      type="button"
+      data-fly-id={interactive ? `die:${die.id}` : undefined}
+      className={`dkm-tile${interactive ? " clickable" : ""}${picked ? " picked" : ""}`}
+      onPointerDown={(e) => {
+        if (!interactive || e.button !== 0) return;
+        clearPress();
+        longPressed.current = false;
+        start.current = { x: e.clientX, y: e.clientY };
+        timer.current = setTimeout(() => {
+          longPressed.current = true;
+          timer.current = null;
+          onInspect();
+        }, 500);
+      }}
+      onPointerMove={(e) => {
+        if (start.current && Math.hypot(e.clientX - start.current.x, e.clientY - start.current.y) > 12) clearPress();
+      }}
+      onPointerUp={clearPress}
+      onPointerCancel={clearPress}
+      onPointerLeave={clearPress}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        if (!interactive) return;
+        clearPress();
+        longPressed.current = true;
+        onInspect();
+      }}
+      onClick={() => {
+        if (longPressed.current) {
+          longPressed.current = false;
+          return;
+        }
+        if (interactive) onToggle();
+      }}
+      disabled={!interactive}
+    >
+      <DieCube
+        {...facesFor(die, cardsById)}
+        size={58}
+        mine={interactive}
+        spin={spin}
+        turnOffset={turnOffset}
+        energyCorner={die.energySymbolId && die.energyAmount > 0 ? { type: die.energySymbolId, amount: die.energyAmount } : undefined}
+      />
+    </button>
+  );
+}
+
 // ---- Phase stages ----
 
 function TrayCard({
@@ -958,6 +1046,7 @@ function TrayCard({
   rolledYet,
   rerollPicked,
   onToggleReroll,
+  onInspectDie,
   spins,
   turnOffsets,
   interactive = true,
@@ -969,6 +1058,7 @@ function TrayCard({
   rolledYet: boolean;
   rerollPicked: string[];
   onToggleReroll: (id: string) => void;
+  onInspectDie: (id: string) => void;
   spins: Record<string, CubeSpin>;
   turnOffsets: Record<string, number>;
   /** False when this is the OPPONENT's tray: shown face-up once rolled, but not tappable for reroll. */
@@ -984,23 +1074,17 @@ function TrayCard({
         {dice.length === 0 && <span className="dkm-empty-hint">Tray is empty — draw to fill it.</span>}
         {dice.map((d) =>
           rolledYet ? (
-            <button
+            <RerollDieTile
               key={d.id}
-              type="button"
-              data-fly-id={interactive ? `die:${d.id}` : undefined}
-              className={`dkm-tile${interactive ? " clickable" : ""}${rerollPicked.includes(d.id) ? " picked" : ""}`}
-              onClick={interactive ? () => onToggleReroll(d.id) : undefined}
-              disabled={!interactive}
-            >
-              <DieCube
-                {...facesFor(d, cardsById)}
-                size={58}
-                mine={interactive}
-                spin={spins[d.id]}
-                turnOffset={turnOffsets[d.id]}
-                energyCorner={d.energySymbolId && d.energyAmount > 0 ? { type: d.energySymbolId, amount: d.energyAmount } : undefined}
-              />
-            </button>
+              die={d}
+              cardsById={cardsById}
+              picked={rerollPicked.includes(d.id)}
+              spin={spins[d.id]}
+              turnOffset={turnOffsets[d.id]}
+              interactive={interactive}
+              onToggle={() => onToggleReroll(d.id)}
+              onInspect={() => onInspectDie(d.id)}
+            />
           ) : (
             <FacedownTile key={d.id} die={d} size={58} />
           ),
@@ -1743,7 +1827,7 @@ function ChoiceSheet({
                       </span>
                     </span>
                     <span className="dkm-name-card-faces" aria-label="Non-energy die faces">
-                      {facesFor(d, cardsById).faces
+                      {printedFacesFor(d, cardsById)
                         .filter((face) => face.kind !== "energy")
                         .map((face, index) => (
                           <span key={index} title={face.kind === "character" ? `Level ${face.level}: field ${face.fieldingCost}, attack ${face.attack}, defense ${face.defense}` : "Action face"}>
@@ -1876,6 +1960,20 @@ export function DiceKingdomMobilePage() {
   // asks which energy dice pay for it).
   const [payingFieldId, setPayingFieldId] = useState<string | null>(null);
   const [pileView, setPileView] = useState<{ mine: boolean; zone: PileZone } | null>(null);
+  const [pileInspectId, setPileInspectId] = useState<string | null>(null);
+  function onInspectPileDie(id: string) {
+    setLaneBreakdown(null);
+    setPileInspectId((previous) => {
+      const next = previous === id ? null : id;
+      setSelectedId(next);
+      return next;
+    });
+  }
+  function togglePileView(mine: boolean, zone: PileZone) {
+    setPileView((previous) => previous?.mine === mine && previous.zone === zone ? null : { mine, zone });
+    setSelectedId(null);
+    setPileInspectId(null);
+  }
   // A brief confirmation that startMatch's auto-copy (below) actually
   // landed - clipboard writes can silently fail (permissions, an
   // unsupported browser), so this only shows on the real success
@@ -2596,6 +2694,7 @@ export function DiceKingdomMobilePage() {
   }
 
   const selectedDie = selectedId ? game.dice.find((d) => d.id === selectedId) ?? null : null;
+  const inspectingPileDie = selectedDie !== null && pileInspectId === selectedDie.id && pileView !== null;
   const selectedPurchaseCard = selectedDie?.zone === "Unpurchased" && selectedDie.cardId
     ? cardsById.get(selectedDie.cardId) : undefined;
   const purchaseCopies = selectedPurchaseCard && selectedDie
@@ -2966,7 +3065,23 @@ export function DiceKingdomMobilePage() {
   const oppRosterCards = rosterRowsFor(oppUnpurchasedByCard);
 
   return (
-    <div ref={rootRef} className={`dicekingdom dk-mobile dkm-root${targeting ? " dkm-targeting" : ""}`}>
+    <div
+      ref={rootRef}
+      className={`dicekingdom dk-mobile dkm-root${targeting ? " dkm-targeting" : ""}`}
+      onClickCapture={(event) => {
+        if (!selectedId) return;
+        const target = event.target;
+        if (!(target instanceof Element)) return;
+        // Keep the panel open for interactions inside it. Die clicks use their
+        // own selection handlers, including tap-again-to-deselect.
+        if (target.closest(
+          ".dkm-inspect, .dkm-tile.clickable, .dkm-buy-tile, " +
+          ".dkm-pile-inspect-tile, .dkm-lane-die-wrap"
+        )) return;
+        setSelectedId(null);
+        setPileInspectId(null);
+      }}
+    >
       <EnergyBadgeOutlineDefs />
       <GameOverOverlay
         game={game}
@@ -2992,7 +3107,7 @@ export function DiceKingdomMobilePage() {
           cardsById={cardsById}
           isActivePlayer={opponentId === game.activePlayerId}
           onOpenRoster={() => setRosterViewFor(opponentId)}
-          onOpenPile={(zone) => setPileView((c) => (c?.mine === false && c.zone === zone ? null : { mine: false, zone }))}
+          onOpenPile={(zone) => togglePileView(false, zone)}
           openPile={pileView?.mine === false ? pileView.zone : null}
           expandable
           spins={spins}
@@ -3000,6 +3115,7 @@ export function DiceKingdomMobilePage() {
           selectedId={selectedId}
           fieldClickable={() => false}
           onTapDie={onTapAttacker}
+          onInspectPileDie={onInspectPileDie}
           targeting={targeting}
         />
 
@@ -3030,6 +3146,7 @@ export function DiceKingdomMobilePage() {
               rolledYet={false}
               rerollPicked={[]}
               onToggleReroll={() => {}}
+              onInspectDie={() => {}}
               spins={spins}
               turnOffsets={offsets}
             />
@@ -3037,7 +3154,7 @@ export function DiceKingdomMobilePage() {
           {phase === "roll" && (
             <TrayCard
               title={
-                !isYourTurn ? `${oppPlayer.name}'s tray` : hasRolledThisStep ? "Tray · tap to select for reroll" : "Tray"
+                !isYourTurn ? `${oppPlayer.name}'s tray` : hasRolledThisStep ? "Tray · tap to select for reroll · long press to view die info" : "Tray"
               }
               hint={`${trayDrawn.length || trayReserve.length} dice`}
               dice={trayRolled ? trayReserve : trayDrawn}
@@ -3045,6 +3162,7 @@ export function DiceKingdomMobilePage() {
               rolledYet={trayRolled}
               rerollPicked={isYourTurn ? rerollPicked : []}
               onToggleReroll={toggleReroll}
+              onInspectDie={(id) => { setLaneBreakdown(null); setSelectedId(id); }}
               spins={spins}
               turnOffsets={offsets}
               interactive={isYourTurn}
@@ -3101,7 +3219,7 @@ export function DiceKingdomMobilePage() {
           dice={yourFieldVisibleDice}
           cardsById={cardsById}
           isActivePlayer={you === game.activePlayerId}
-          onOpenPile={(zone) => setPileView((c) => (c?.mine === true && c.zone === zone ? null : { mine: true, zone }))}
+          onOpenPile={(zone) => togglePileView(true, zone)}
           openPile={pileView?.mine === true ? pileView.zone : null}
           onOpenRoster={() => setRosterViewFor(you)}
           expandable={false}
@@ -3109,10 +3227,12 @@ export function DiceKingdomMobilePage() {
           turnOffsets={offsets}
           selectedId={selectedId}
           fieldClickable={(d) =>
+            (isYourTurn && phase === "main" && d.controllerId === you) ||
             (isYourTurn && step === "select-attackers" && d.controllerId === you) ||
             (!isYourTurn && step === "assign-blockers" && d.controllerId === you)
           }
           onTapDie={onTapMatDie}
+          onInspectPileDie={onInspectPileDie}
           targeting={targeting}
         />
 
@@ -3175,9 +3295,9 @@ export function DiceKingdomMobilePage() {
             <div className="dkm-inspect-mid">
               <div className="dkm-inspect-title-row">
                 <span className="dkm-inspect-name">{nameOf(selectedDie, cardsById)}</span>
-                {selectedPurchaseCard && (
+                {(inspectingPileDie || selectedPurchaseCard || selectedDie.zone === "FieldZone" || (phase === "roll" && selectedDie.zone === "ReservePool")) && (
                   <div className="dkm-purchase-character-faces" aria-label="Non-energy die faces">
-                    {facesFor(selectedDie, cardsById).faces
+                    {printedFacesFor(selectedDie, cardsById)
                       .filter((face) => face.kind !== "energy")
                       .map((face, index) => (
                         <span key={index} title={face.kind === "character" ? `Level ${face.level}: field ${face.fieldingCost}, attack ${face.attack}, defense ${face.defense}` : "Action face"}>
@@ -3211,12 +3331,27 @@ export function DiceKingdomMobilePage() {
                   where it came from, and how long it lasts. */}
               <CueRows rows={explainRows(selectedDie, selectedDie.controllerId === you)} />
             </div>
-            <button type="button" className="dkm-inspect-close" onClick={() => setSelectedId(null)}>
+            <button type="button" className="dkm-inspect-close" onClick={() => { setSelectedId(null); setPileInspectId(null); }}>
               ×
             </button>
+            {inspectingPileDie && selectedDie.cardId && (
+              <div className="dkm-purchase-ability">
+                {cardsById.get(selectedDie.cardId)?.rawText?.trim() || cardsById.get(selectedDie.cardId)?.actionText?.trim() || "No character ability."}
+              </div>
+            )}
             {selectedPurchaseCard && (
               <div className="dkm-purchase-ability">
                 {selectedPurchaseCard.rawText?.trim() || selectedPurchaseCard.actionText?.trim() || "No character ability."}
+              </div>
+            )}
+            {phase === "roll" && selectedDie.zone === "ReservePool" && selectedDie.cardId && (
+              <div className="dkm-purchase-ability">
+                {cardsById.get(selectedDie.cardId)?.rawText?.trim() || cardsById.get(selectedDie.cardId)?.actionText?.trim() || "No character ability."}
+              </div>
+            )}
+            {selectedDie.zone === "FieldZone" && selectedDie.cardId && (
+              <div className="dkm-purchase-ability">
+                {cardsById.get(selectedDie.cardId)?.rawText?.trim() || cardsById.get(selectedDie.cardId)?.actionText?.trim() || "No character ability."}
               </div>
             )}
             {selectedDie.zone === "ReservePool" && inspectActions.some((action) => action.label === "Field this creature" || action.label === "Field free (Golden Eagle)") && selectedDie.cardId && (
