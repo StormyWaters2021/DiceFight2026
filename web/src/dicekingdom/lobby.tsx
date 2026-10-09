@@ -8,21 +8,11 @@
 // waiting screen, and the invited player's Champion pick.
 import { useEffect, useState } from "react";
 import { api } from "./api";
-import { ChampionPicker } from "./ChampionPicker";
+import { ChampionPicker, championLabel, type ChampionChoice } from "./ChampionPicker";
+// Shared with the pages' setup screens; they live with the picker.
+export { OPPONENT_PICKS, OpponentPicksOption, championLabel, type ChampionChoice } from "./ChampionPicker";
 import { claimSeatFromUrl, forgetSavedGame, nameClaimedSeat, resumeSeats, savedGames, type SavedGame } from "./seats";
 import type { GameState, LobbyStatus } from "./types";
-
-/** Setup-screen value for Player 2's column: the opponent picks their own. */
-export const OPPONENT_PICKS = "__opponent_picks__";
-
-export interface ChampionChoice {
-  id: string;
-  energy: string;
-}
-
-export function championLabel(id: string): string {
-  return id.replace(/([A-Z])/g, " $1").trim();
-}
 
 /** What an invite link in the URL leads to: a game to play, or a pick to make first. */
 export type InviteResolution = { kind: "game"; game: GameState } | { kind: "pick"; lobby: LobbyStatus };
@@ -44,23 +34,6 @@ function ChampionGrid({ champions, value, onPick }: {
   onPick: (id: string) => void;
 }) {
   return <ChampionPicker champions={champions} value={value} onPick={onPick} />;
-}
-
-/** Player 2's "let them choose" option on the setup screen. */
-export function OpponentPicksOption({ selected, onPick }: { selected: boolean; onPick: () => void }) {
-  return (
-    <button
-      type="button"
-      className={`champ-opt dk-opponent-picks${selected ? " selected" : ""}`}
-      style={{ ["--sel" as string]: "var(--text-h)" }}
-      onClick={onPick}
-    >
-      <div className="cname" style={{ color: "var(--text-h)" }}>
-        Opponent picks
-      </div>
-      <small>Send an invite link</small>
-    </button>
-  );
 }
 
 /** The host, after opening: the invite link, and a wait for the other player to pick. */
